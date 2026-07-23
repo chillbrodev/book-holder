@@ -15,19 +15,18 @@ left for a rushed final pass.
 and imported — 1 play, 24 characters, 2610 lines, 193 stage directions, verified in the cluster. Root
 npm-workspaces scaffolding and `infra/cockroachdb` are in place and committed.
 
-**Not started, and out of the original order**: AWS Budget alert (see call-out below — this was supposed to
-be day-1-before-anything-spends and still hasn't happened), Amplify/App Runner deploy, `apps/web`/`apps/api`/
-`packages/shared-types` scaffolding, the FE picker itself.
+AWS Budget alert is now also done — `book-holder-monthly`, $25/month, email alerts at 80% and 100% actual
+spend to jholtan08@gmail.com, scripted in `infra/aws/budget-alert.sh` (idempotent, re-runnable). Credentials
+came from `aws login` (short-lived, browser-based, root session) rather than a static IAM access key.
 
-**⚠️ Live gap, not just stale docs**: the AWS Budget alert was sequenced first in this plan specifically as a
-cost safety net before spend-generating work. No AWS/Bedrock/Polly/Transcribe work has happened yet, so
-nothing's been spent unsafely — but it should be set up before any of that starts, not deferred further.
+**Not started**: Amplify/App Runner deploy, `apps/web`/`apps/api`/`packages/shared-types` scaffolding, the FE
+picker itself.
 
 ## Week 1 — Foundation
 
 | Day | Track | Work | Status |
 |---|---|---|---|
-| 1 | Infra | AWS Budget alert first (cost safety net before any spend-generating work exists) | **Not done — do before any Bedrock/Polly/Transcribe work** |
+| 1 | Infra | AWS Budget alert first (cost safety net before any spend-generating work exists) | **Done** — `infra/aws/budget-alert.sh`, $25/month, alerts at 80%/100% actual spend |
 | 1 | Infra | CockroachDB `ccloud` CLI provisioning script | **Skipped, not planned** — the cluster (`the-book-holder`) already existed; connected to directly instead of provisioning from scratch. If a from-scratch script is ever needed later, it doesn't exist yet. |
 | 1 | Infra | Schema migrations | **Done** — `infra/cockroachdb/migrations/001_init_schema.sql`, applied via `npm run db:migrate`. Schema deviates from `PROJECT_PLAN.md` §5 (`line_speakers` many-to-many, `stage_directions` table) — see `BE_PLAN.md` §1a. |
 | 1 | Infra | npm-workspaces scaffolding | **Partially done** — root `package.json`, `infra/cockroachdb`, `packages/play-importer` exist. `apps/web`, `apps/api`, `packages/shared-types` do not exist yet. |
@@ -76,9 +75,10 @@ notes" MCP-backed view. Both are stretch per `PROJECT_PLAN.md` §7 — cutting t
 
 Pulled from `FE_PLAN.md` §5–6 and `BE_PLAN.md` §6–8 — check before starting a given week's work.
 
-- **Accounts/CLIs**: AWS CLI (not set up yet), CockroachDB cluster already provisioned and connected —
-  `ccloud` CLI itself not needed unless a from-scratch cluster is ever required. AWS Budget alert — **not
-  configured yet, still the top-priority gap.**
+- **Accounts/CLIs**: AWS CLI configured via `aws login` (short-lived credentials from the root console
+  session, not a static access key — see `infra/aws/README.md` for the tradeoff). CockroachDB cluster already
+  provisioned and connected — `ccloud` CLI itself not needed unless a from-scratch cluster is ever required.
+  AWS Budget alert — **done**, `infra/aws/budget-alert.sh`.
 - **Connected**: CockroachDB Cloud MCP server — authorized READ + WRITE, but used read-only in practice; the
   user requires confirmation before every write (`create_database`/`create_table`/`insert_rows`) regardless
   of granted scope. Schema/data changes go through `infra/cockroachdb/migrate.ts` and

@@ -70,8 +70,8 @@ Discovered from the real Merry Wives of Windsor XML during import, not hypotheti
   for the low-frequency session-summary/coaching-note call only.
 - **Cache Polly synthesis per line** — synthesize once per (line, voice), reuse on every replay. This is
   both a cost control and a latency win.
-- **AWS Budget alert set up on day one**, not as a week-3 afterthought — before any spend-generating call is
-  wired up.
+- **AWS Budget alert** — done, `infra/aws/budget-alert.sh` ($25/month, 80%/100% actual-spend email alerts),
+  set up before any Bedrock/Polly/Transcribe wiring, per the original intent here.
 - **Guard against runaway calls**: request timeouts on Bedrock/Polly/Transcribe calls, and don't let a
   client retry loop turn into repeated paid calls (e.g. debounce "play again" against the cache, not a
   fresh synthesis).
@@ -92,7 +92,8 @@ Discovered from the real Merry Wives of Windsor XML during import, not hypotheti
 
 ## 6. Tools
 
-- AWS CLI, configured against the hackathon AWS account. Not set up yet.
+- AWS CLI — configured via `aws login` (short-lived credentials from the root console session, not a static
+  access key). See `infra/aws/README.md`.
 - CockroachDB `ccloud` CLI — **not scripted into `infra/cockroachdb`**, and not planned to be: the cluster
   (`the-book-holder`, CockroachDB v26.2.1, AWS us-west-2) already existed and was connected to directly
   rather than provisioned by this repo. If a from-scratch provisioning script is ever needed, it isn't built.
