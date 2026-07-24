@@ -12,16 +12,11 @@ Focus play: *The Merry Wives of Windsor* (MIT Shakespeare source), built to expa
  
 ## 1. The story (lead with this in the pitch)
  
-An actress returning to her original career late in life, focused on Shakespeare. She needs a scene partner to
-rehearse lines, but her real-life partner isn't available on her schedule and isn't always in the mood to read
-Shakespeare on demand. The Book Holder is that partner: it voices every other character, listens to her lines,
-remembers what she's mastered and what she hasn't, and tells her what to work on next time.
+An actress returning to her original career late in life, focused on Shakespeare. She needs a scene partner to rehearse lines, but her real-life partner isn't available on her schedule and isn't always in the mood to read Shakespeare on demand. The Book Holder is that partner: it voices every other character, listens to her lines, remembers what she's mastered and what she hasn't, and tells her what to work on next time.
  
-The name is real theater history — the "book holder" was the person backstage in Shakespeare's own company who
-held the script and fed actors their forgotten lines. This app does the same job with an AI that has a memory.
+The name is real theater history — the "book holder" was the person backstage in Shakespeare's own company who held the script and fed actors their forgotten lines. This app does the same job with an AI that has a memory.
  
-This generalizes beyond one household: community theater actors, drama students, ESL learners practicing dialogue,
-anyone who can't easily get a live rehearsal partner together on their schedule.
+This generalizes beyond one household: community theater actors, drama students, ESL learners practicing dialogue, anyone who can't easily get a live rehearsal partner together on their schedule.
  
 ---
  
