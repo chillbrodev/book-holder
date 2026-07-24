@@ -1,4 +1,4 @@
-# Backend Plan — `apps/api`
+# Backend Plan — `api`
 
 Companion to `PROJECT_PLAN.md`. This doc covers the Node/Express rehearsal agent in enough detail to build
 against: the endpoint/flow breakdown, the read-decide-act-write loop made concrete, cost controls, and
@@ -13,14 +13,14 @@ Windsor imported and verified (1 play, 24 characters, 2610 lines, 193 stage dire
 built deviates structurally from `PROJECT_PLAN.md` §5 in two ways (plus one implementation-status note) —
 see §1a below.
 
-**Not started**: `apps/api` itself — no Express server, no endpoints, no Bedrock/Polly/Transcribe/S3
+**Not started**: `api` itself — no Express server, no endpoints, no Bedrock/Polly/Transcribe/S3
 integration yet. Everything in this doc past §1a is still a plan, not built.
 
 ## 1. Scope
 
 The rehearsal agent is the API layer implementing `PROJECT_PLAN.md` §2's loop: **read memory → decide → act
 → write memory**, on top of CockroachDB (memory), Bedrock (comparison + coaching), Polly (voices),
-Transcribe (listening), and S3 (recordings). No AWS credentials ever reach `apps/web` — every external call
+Transcribe (listening), and S3 (recordings). No AWS credentials ever reach `frontend` — every external call
 routes through this layer.
 
 ## 1a. Schema deviations from `PROJECT_PLAN.md` §5 (as actually built)
@@ -78,7 +78,7 @@ Discovered from the real Merry Wives of Windsor XML during import, not hypotheti
 
 ## 5. Production readiness
 
-- No AWS keys anywhere in `apps/web` — confirmed by code review before demo, not just by convention.
+- No AWS keys anywhere in `frontend` — confirmed by code review before demo, not just by convention.
 - Retry logic named explicitly for Cockroach transactions (§3 above), not assumed to "just work."
 - **Graceful degradation** if an external service is slow/down:
   - Bedrock comparison slow/down → fall back to a simpler exact/fuzzy text match so the session isn't

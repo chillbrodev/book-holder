@@ -1,4 +1,4 @@
-# Frontend Plan — `apps/web`
+# Frontend Plan — `frontend`
 
 Companion to `PROJECT_PLAN.md`. This doc covers the React + Vite + HeroUI frontend in enough detail to build
 against: screens, the older-user usability bar (treated as a requirement, not a week-3 polish pass), the

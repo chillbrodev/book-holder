@@ -19,7 +19,7 @@ AWS Budget alert is now also done — `book-holder-monthly`, $25/month, email al
 spend to jholtan08@gmail.com, scripted in `infra/aws/budget-alert.sh` (idempotent, re-runnable). Credentials
 came from `aws login` (short-lived, browser-based, root session) rather than a static IAM access key.
 
-**Not started**: Amplify/App Runner deploy, `apps/web`/`apps/api`/`packages/shared-types` scaffolding, the FE
+**Not started**: Amplify/App Runner deploy, `frontend`/`api`/`packages/shared-types` scaffolding, the FE
 picker itself.
 
 ## Week 1 — Foundation
@@ -29,11 +29,11 @@ picker itself.
 | 1 | Infra | AWS Budget alert first (cost safety net before any spend-generating work exists) | **Done** — `infra/aws/budget-alert.sh`, $25/month, alerts at 80%/100% actual spend |
 | 1 | Infra | CockroachDB `ccloud` CLI provisioning script | **Skipped, not planned** — the cluster (`the-book-holder`) already existed; connected to directly instead of provisioning from scratch. If a from-scratch script is ever needed later, it doesn't exist yet. |
 | 1 | Infra | Schema migrations | **Done** — `infra/cockroachdb/migrations/001_init_schema.sql`, applied via `npm run db:migrate`. Schema deviates from `PROJECT_PLAN.md` §5 (`line_speakers` many-to-many, `stage_directions` table) — see `BE_PLAN.md` §1a. |
-| 1 | Infra | npm-workspaces scaffolding | **Partially done** — root `package.json`, `infra/cockroachdb`, `packages/play-importer` exist. `apps/web`, `apps/api`, `packages/shared-types` do not exist yet. |
+| 1 | Infra | npm-workspaces scaffolding | **Partially done** — root `package.json`, `infra/cockroachdb`, `packages/play-importer` exist. `frontend`, `api`, `packages/shared-types` do not exist yet. |
 | 1 | Infra | Amplify + App Runner deployed end-to-end with placeholder content | **Not done** |
 | 2–3 | BE | Play-importer (`packages/play-importer`) against the Merry Wives XML — parsing rules from `PROJECT_PLAN.md` §6 | **Done** — built, tested (caught and fixed two real bugs against the actual source XML: a bad `.map()` call, and 44 silently-dropped mid-speech stage directions), reviewed locally before import, committed |
 | 2–3 | FE (parallel) | Picker skeleton (play → role → act/scene) built against mock data — doesn't need to wait on the importer | **Not started.** Real imported data already exists now, so this can likely skip the mock-data step entirely and build against the real API once §4–5 exists. |
-| 4–5 | BE → FE | Wire picker to real imported data once the importer is validated | **Not started** — no `apps/api` yet to wire through |
+| 4–5 | BE → FE | Wire picker to real imported data once the importer is validated | **Not started** — no `api` yet to wire through |
 
 **Hard dependency**: schema must exist before the importer runs; the importer must succeed before the
 picker can move off mock data. Everything else in week 1 is parallelizable.

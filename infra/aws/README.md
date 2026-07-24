@@ -31,5 +31,5 @@ git history for something that isn't actually a secret but also doesn't need to 
 
 ## Deploy config (App Runner + Amplify)
 
-Not built yet. Per `docs/ORCHESTRATION_PLAN.md` Week 1, this is still outstanding — no `apps/web`/`apps/api`
+Not built yet. Per `docs/ORCHESTRATION_PLAN.md` Week 1, this is still outstanding — no `frontend`/`api`
 exist yet for either service to deploy.

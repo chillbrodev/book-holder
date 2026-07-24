@@ -48,9 +48,8 @@ of protecting it.
 ## Repo structure (monorepo)
 
     book-holder/
-    ├── apps/
-    │   ├── web/                 # React + Vite frontend — picker, rehearsal UI, playback
-    │   └── api/                 # Node/Express backend — the rehearsal agent, deployed on AWS App Runner
+    │── frontend/                # React + Vite frontend — picker, rehearsal UI, playback
+    │── api/                     # Node/Express backend — the rehearsal agent, deployed on AWS App Runner
     ├── packages/
     │   ├── shared-types/        # TypeScript types shared between web and api
     │   └── play-importer/       # Parses Moby Shakespeare XML and loads it into CockroachDB
@@ -74,7 +73,7 @@ is a solo, out-of-pocket, time-boxed build and there's no benefit to learning ne
 |---|---|---|
 | Frontend | React + Vite, TypeScript | Fast local dev, simple deploys |
 | UI components | [HeroUI](https://heroui.com) (React Aria + Tailwind v4) | Accessible structural chrome (pickers, modals, buttons); the rehearsal surface itself is hand-built for the Shakespearean identity |
-| Frontend hosting | AWS Amplify Hosting | Connects to this repo, auto-builds `apps/web` on push |
+| Frontend hosting | AWS Amplify Hosting | Connects to this repo, auto-builds `frontend` on push |
 | Backend | Node/Express | The rehearsal agent's API layer |
 | Backend hosting | AWS App Runner | Autoscaling HTTPS, minimal new-service surface area to learn |
 | Database | CockroachDB Serverless | Memory layer: sessions, line mastery, mistake embeddings, all transactional |
@@ -95,7 +94,7 @@ is a solo, out-of-pocket, time-boxed build and there's no benefit to learning ne
     # fill in CockroachDB connection string, AWS credentials, Bedrock model IDs — see below
 
     npm run import:play -- --play "merry_wives_of_windsor"   # parses XML, seeds CockroachDB
-    npm run dev                                               # runs apps/web and apps/api together
+    npm run dev                                               # runs frontend and api together
 
 ### Environment variables (`.env`)
 
@@ -106,9 +105,9 @@ is a solo, out-of-pocket, time-boxed build and there's no benefit to learning ne
     BEDROCK_MODEL_ID_COMPARISON=  # cheap model, per-line comparison (e.g. Nova Micro/Lite)
     BEDROCK_MODEL_ID_SUMMARY=     # stronger model, infrequent session summaries
     S3_RECORDINGS_BUCKET=
-    POLLY_VOICE_MAP=              # character -> Polly voice ID mapping, see apps/api/config
+    POLLY_VOICE_MAP=              # character -> Polly voice ID mapping, see api/config
 
-No AWS keys are ever present in `apps/web` — all Bedrock/Polly/Transcribe/S3 calls route through `apps/api`.
+No AWS keys are ever present in `frontend` — all Bedrock/Polly/Transcribe/S3 calls route through `api`.
 
 ---
 
@@ -130,8 +129,8 @@ schema change. Full detail, including the play-XML parsing rules, is in `docs/PR
 
 - **Database:** CockroachDB Serverless cluster, provisioned via the ccloud CLI script in `infra/cockroachdb/`
   (scripted, not manual clicks — a judged production-readiness signal, not boilerplate).
-- **Backend:** `apps/api` deployed to AWS App Runner, repo-connected, autoscaling, HTTPS by default.
-- **Frontend:** `apps/web` deployed to AWS Amplify Hosting, auto-builds on push to `main`.
+- **Backend:** `api` deployed to AWS App Runner, repo-connected, autoscaling, HTTPS by default.
+- **Frontend:** `frontend` deployed to AWS Amplify Hosting, auto-builds on push to `main`.
 - **Cost control:** an AWS Budget alert configured at a small dollar threshold from day one — this is an
   out-of-pocket build.
 
@@ -141,7 +140,7 @@ schema change. Full detail, including the play-XML parsing rules, is in `docs/PR
 
 | Criterion | Where it shows up in this repo |
 |---|---|
-| Agentic Memory Design | `apps/api` — the read-decide-act-write loop around `line_mastery` and `session_history`; multi-table serializable transactions on every session write |
+| Agentic Memory Design | `api` — the read-decide-act-write loop around `line_mastery` and `session_history`; multi-table serializable transactions on every session write |
 | Technical Implementation | `packages/play-importer` (vector embeddings), `infra/cockroachdb` (ccloud CLI, MCP Server used read-only in dev) |
 | Real-World Impact | See "What this is" above — the story this project is built around |
 | Production Readiness | No client-side AWS keys, transaction retry logic, graceful degradation if Bedrock/Polly are slow, AWS Budget alert |
