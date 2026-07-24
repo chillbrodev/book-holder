@@ -1,0 +1,50 @@
+.shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 40px;
+  border-bottom: 1px solid var(--bh-border-hairline);
+}
+
+.wordmark {
+  font-family: var(--bh-font-display);
+  font-size: 26px;
+  font-weight: 600;
+  color: var(--bh-ink);
+  text-decoration: none;
+}
+
+.nav {
+  display: flex;
+  gap: 28px;
+}
+
+.navLink {
+  cursor: pointer;
+  font-family: var(--bh-font-sans);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--bh-ink);
+  text-decoration: none;
+  padding-bottom: 8px;
+  border-bottom: 2px solid transparent;
+}
+
+.navLinkActive {
+  border-bottom-color: var(--bh-gold-dark);
+}
+
+.main {
+  flex: 1;
+  padding: 40px;
+  max-width: 980px;
+  width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
+}

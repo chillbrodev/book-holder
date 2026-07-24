@@ -1,0 +1,10 @@
+.tag {
+  display: inline-block;
+  background: var(--bh-gold-light);
+  color: var(--bh-gold-dark);
+  font-family: var(--bh-font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px 14px;
+  border-radius: var(--bh-radius-pill);
+}

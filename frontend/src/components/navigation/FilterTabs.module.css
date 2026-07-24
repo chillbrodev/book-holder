@@ -1,0 +1,23 @@
+.tabs {
+  display: flex;
+  gap: 10px;
+}
+
+.tab {
+  padding: 9px 18px;
+  border-radius: var(--bh-radius-md);
+  font-family: var(--bh-font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: var(--bh-tap-target-min);
+  background: transparent;
+  border: 1px solid var(--bh-border-hairline);
+  color: var(--bh-ink);
+}
+
+.tab.active {
+  background: var(--bh-ink);
+  border-color: var(--bh-ink);
+  color: var(--bh-parchment);
+}

@@ -1,0 +1,36 @@
+.wrap {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.subhead {
+  font-family: var(--bh-font-sans);
+  font-size: 14px;
+  color: var(--bh-text-muted);
+  margin: 6px 0 22px;
+}
+
+.stats {
+  display: flex;
+  gap: 14px;
+}
+
+.sectionLabel {
+  margin: 26px 0 10px;
+}
+
+.flaggedList {
+  border: 1px solid var(--bh-border-hairline);
+  border-radius: var(--bh-radius-md);
+  overflow: hidden;
+}
+
+.actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 26px;
+}
+
+.actionButton {
+  flex: 1;
+}

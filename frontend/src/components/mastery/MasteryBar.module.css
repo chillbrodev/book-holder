@@ -1,0 +1,37 @@
+.wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.track {
+  flex: 1;
+  border-radius: var(--bh-radius-pill);
+  background: var(--bh-ash-light);
+  overflow: hidden;
+}
+
+.track.sm {
+  height: 5px;
+}
+
+.track.md {
+  height: 6px;
+}
+
+.track.lg {
+  height: 8px;
+}
+
+.fill {
+  height: 100%;
+  background: var(--bh-terracotta-mid);
+}
+
+.fraction {
+  font-family: var(--bh-font-sans);
+  font-size: 13px;
+  color: var(--bh-text-muted);
+  white-space: nowrap;
+}

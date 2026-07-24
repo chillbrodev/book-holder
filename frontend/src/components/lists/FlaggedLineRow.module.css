@@ -1,0 +1,67 @@
+.row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--bh-border-hairline);
+}
+
+.row.lastRow {
+  border-bottom: none;
+}
+
+.row.clickable {
+  cursor: pointer;
+}
+
+.content {
+  flex: 1;
+  min-width: 0;
+}
+
+.location {
+  font-family: var(--bh-font-sans);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--bh-text-faint);
+  text-transform: uppercase;
+}
+
+.text {
+  font-family: var(--bh-font-sans);
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.textWithLocation {
+  margin-top: 3px;
+}
+
+.lastPracticed {
+  font-family: var(--bh-font-sans);
+  font-size: 12px;
+  color: var(--bh-text-faint);
+  margin-top: 5px;
+}
+
+.replayButton {
+  flex-shrink: 0;
+  padding: 9px 14px;
+  border-radius: var(--bh-radius-sm);
+  border: 1px solid var(--bh-ash-mid);
+  background: transparent;
+  color: var(--bh-ash-dark);
+  font-family: var(--bh-font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 40px;
+}
+
+.trailingGroup {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}

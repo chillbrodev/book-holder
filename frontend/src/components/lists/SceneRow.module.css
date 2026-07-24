@@ -1,0 +1,30 @@
+.row {
+  padding: 15px 18px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--bh-border-hairline);
+}
+
+.row.last {
+  border-bottom: none;
+}
+
+.row.current {
+  background: var(--bh-gold-light);
+}
+
+.title {
+  font-family: var(--bh-font-sans);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.description {
+  font-family: var(--bh-font-sans);
+  font-size: 13px;
+  color: var(--bh-text-muted);
+  margin-top: 3px;
+}
+
+.masteryRow {
+  margin-top: 9px;
+}

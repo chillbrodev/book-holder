@@ -1,0 +1,33 @@
+.card {
+  flex: 1;
+  background: var(--bh-ash-light);
+  border-radius: var(--bh-radius-md);
+  padding: 16px;
+  text-align: center;
+}
+
+.card.terracotta {
+  background: var(--bh-terracotta-light);
+}
+
+.value {
+  font-family: var(--bh-font-sans);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--bh-ink);
+}
+
+.terracotta .value {
+  color: var(--bh-terracotta-dark);
+}
+
+.label {
+  font-family: var(--bh-font-sans);
+  font-size: 12px;
+  color: var(--bh-text-muted);
+  margin-top: 2px;
+}
+
+.terracotta .label {
+  color: var(--bh-terracotta-dark);
+}

@@ -1,0 +1,8 @@
+.direction {
+  text-align: center;
+  font-style: italic;
+  color: var(--bh-text-faint);
+  font-family: var(--bh-font-sans);
+  font-size: 14px;
+  margin: 16px 0;
+}

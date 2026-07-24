@@ -1,0 +1,38 @@
+.button {
+  font-family: var(--bh-font-sans);
+  font-size: 15px;
+  font-weight: 600;
+  padding: 13px 20px;
+  min-height: var(--bh-tap-target-min);
+  border-radius: var(--bh-radius-md);
+  cursor: pointer;
+}
+
+.button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.primary {
+  background: var(--bh-gold-mid);
+  color: var(--bh-on-primary);
+  border: none;
+}
+
+.secondary {
+  background: transparent;
+  color: var(--bh-ink);
+  border: 1px solid var(--bh-border-hairline);
+}
+
+.destructive {
+  background: var(--bh-terracotta-dark);
+  color: var(--bh-terracotta-light);
+  border: none;
+}
+
+.ghost {
+  background: transparent;
+  color: var(--bh-gold-dark);
+  border: 1px solid var(--bh-gold-mid);
+}

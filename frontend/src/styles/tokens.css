@@ -1,0 +1,43 @@
+:root {
+  /* Base */
+  --bh-ink: #2b1d14;
+  --bh-parchment: #f3e8d8;
+  --bh-surface: #fbf4e7;
+  --bh-on-primary: #fbf4e7;
+  --bh-border-hairline: #e4d9be;
+  --bh-text-muted: #5b5648;
+  --bh-text-faint: #8a8578;
+
+  /* Candlelight gold — favorite, featured/accent border, highlights */
+  --bh-gold-light: #faeeda;
+  --bh-gold-mid: #ef9f27;
+  --bh-gold-dark: #854f0b;
+
+  /* Terracotta — in-progress, active rehearsal, mastery */
+  --bh-terracotta-light: #faece7;
+  --bh-terracotta-mid: #c56a3c;
+  --bh-terracotta-dark: #993c1d;
+
+  /* Ash/taupe — neutral, not-started, locked */
+  --bh-ash-light: #f1efe8;
+  --bh-ash-mid: #8b6f5b;
+  --bh-ash-dark: #444441;
+
+  /* Radius */
+  --bh-radius-sm: 4px;
+  --bh-radius-md: 8px;
+  --bh-radius-lg: 16px;
+  --bh-radius-pill: 999px;
+
+  /* Spacing */
+  --bh-space-sm: 8px;
+  --bh-space-md: 16px;
+  --bh-space-lg: 32px;
+
+  /* Tap targets */
+  --bh-tap-target-min: 44px;
+
+  /* Type */
+  --bh-font-display: 'DM Serif Display', Georgia, serif;
+  --bh-font-sans: 'DM Sans', -apple-system, sans-serif;
+}

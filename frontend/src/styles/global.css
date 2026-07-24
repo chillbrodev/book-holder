@@ -1,0 +1,86 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bh-parchment);
+  color: var(--bh-ink);
+  font-family: var(--bh-font-sans);
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+a {
+  color: var(--bh-gold-dark);
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--bh-gold-mid);
+  outline-offset: 2px;
+}
+
+/* Display serif — wordmark, play titles, act/scene headers. Never below 18px, never body/UI. */
+.bh-display {
+  font-family: var(--bh-font-display);
+  font-weight: 600;
+  font-size: 38px;
+  line-height: 1.15;
+  margin: 0;
+}
+
+.bh-h1 {
+  font-family: var(--bh-font-display);
+  font-weight: 600;
+  font-size: 32px;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.bh-h2 {
+  font-family: var(--bh-font-display);
+  font-weight: 600;
+  font-size: 24px;
+  line-height: 1.25;
+  margin: 0;
+}
+
+.bh-label {
+  font-family: var(--bh-font-sans);
+  font-weight: 600;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.bh-meta {
+  font-family: var(--bh-font-sans);
+  font-weight: 500;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--bh-text-muted);
+}
+
+.bh-eyebrow {
+  font-family: var(--bh-font-sans);
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 1.3;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--bh-ash-dark);
+}

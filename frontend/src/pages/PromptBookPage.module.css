@@ -1,0 +1,27 @@
+.wrap {
+  max-width: 680px;
+  margin: 0 auto;
+}
+
+.subhead {
+  font-family: var(--bh-font-sans);
+  font-size: 14px;
+  color: var(--bh-text-muted);
+  margin: 4px 0 22px;
+}
+
+.masteryBlock {
+  background: var(--bh-ash-light);
+  border-radius: var(--bh-radius-md);
+  padding: 20px;
+}
+
+.sectionLabel {
+  margin: 28px 0 10px;
+}
+
+.list {
+  border: 1px solid var(--bh-border-hairline);
+  border-radius: var(--bh-radius-md);
+  overflow: hidden;
+}

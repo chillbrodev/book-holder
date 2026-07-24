@@ -1,0 +1,34 @@
+.wrap {
+  max-width: 520px;
+}
+
+.backLink {
+  font-family: var(--bh-font-sans);
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.title {
+  margin: 14px 0 4px;
+}
+
+.subhead {
+  font-family: var(--bh-font-sans);
+  font-size: 14px;
+  color: var(--bh-text-muted);
+  margin-bottom: 22px;
+}
+
+.list {
+  border: 1px solid var(--bh-border-hairline);
+  border-radius: var(--bh-radius-md);
+  overflow: hidden;
+}
+
+.confirmRow {
+  margin-top: 22px;
+}
+
+.confirmButton {
+  width: 100%;
+}

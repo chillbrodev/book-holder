@@ -1,0 +1,46 @@
+.speaker {
+  font-family: var(--bh-font-sans);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.coSpeakers {
+  font-family: var(--bh-font-sans);
+  font-size: 12px;
+  color: var(--bh-text-faint);
+  margin-top: 1px;
+}
+
+.passed {
+  margin: 14px 0;
+  opacity: 0.55;
+}
+
+.passedText {
+  font-family: var(--bh-font-sans);
+  font-size: 16px;
+  margin-top: 3px;
+  line-height: 1.5;
+}
+
+.active {
+  margin: 18px 0;
+  border-radius: var(--bh-radius-lg);
+  padding: 18px 20px;
+  border: 2px solid var(--bh-gold-mid);
+}
+
+.activeGold {
+  border-color: var(--bh-gold-mid);
+}
+
+.activeAsh {
+  border-color: var(--bh-ash-mid);
+}
+
+.activeText {
+  font-family: var(--bh-font-sans);
+  font-size: 18px;
+  margin-top: 8px;
+  line-height: 1.5;
+}

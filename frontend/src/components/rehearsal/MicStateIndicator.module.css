@@ -1,0 +1,75 @@
+.wrap {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.dial {
+  width: 52px;
+  height: 52px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: none;
+  padding: 0;
+}
+
+.dialGold {
+  background: var(--bh-gold-mid);
+}
+
+.dialAsh {
+  background: var(--bh-ash-mid);
+}
+
+.spinner {
+  animation: bh-spin 1s linear infinite;
+}
+
+.levelBars {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+  height: 20px;
+}
+
+.bar {
+  width: 4px;
+  background: var(--bh-gold-light);
+  border-radius: 2px;
+  animation: bh-bar 0.9s ease-in-out infinite;
+}
+
+.bar1 {
+  height: 14px;
+}
+
+.bar2 {
+  height: 20px;
+  animation-delay: 0.15s;
+}
+
+.bar3 {
+  height: 10px;
+  animation-delay: 0.3s;
+}
+
+.copy {
+  flex: 1;
+}
+
+.label {
+  font-family: var(--bh-font-sans);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.hint {
+  font-family: var(--bh-font-sans);
+  font-size: 12px;
+  color: var(--bh-text-faint);
+  margin-top: 2px;
+}

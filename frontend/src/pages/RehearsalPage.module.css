@@ -1,0 +1,63 @@
+.wrap {
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.backLink {
+  font-family: var(--bh-font-sans);
+  font-size: 14px;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.showTextToggle {
+  font-family: var(--bh-font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--bh-gold-dark);
+  cursor: pointer;
+}
+
+.eyebrow {
+  margin-top: 16px;
+}
+
+.lines {
+  margin-top: 16px;
+}
+
+.micRow {
+  margin-top: 16px;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.debugLink {
+  margin-left: auto;
+  padding: 10px 12px;
+  border: none;
+  background: transparent;
+  color: var(--bh-text-faint);
+  font-family: var(--bh-font-sans);
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.doneCopy {
+  font-family: var(--bh-font-sans);
+  color: var(--bh-text-muted);
+  margin: 12px 0 24px;
+}

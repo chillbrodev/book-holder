@@ -1,0 +1,23 @@
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px;
+  min-height: var(--bh-tap-target-min);
+  box-sizing: border-box;
+  border-bottom: 1px solid var(--bh-border-hairline);
+  cursor: pointer;
+}
+
+.row.last {
+  border-bottom: none;
+}
+
+.row.selected {
+  background: var(--bh-gold-light);
+}
+
+.name {
+  font-family: var(--bh-font-sans);
+  font-size: 16px;
+}
