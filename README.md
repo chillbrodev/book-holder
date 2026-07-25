@@ -49,13 +49,13 @@ of protecting it.
 
     book-holder/
     │── frontend/                # React + Vite frontend — picker, rehearsal UI, playback
-    │── api/                     # Node/Express backend — the rehearsal agent, deployed on AWS App Runner
+    │── api/                     # Deno + Hono backend — the rehearsal agent, deployed on AWS ECS (Fargate)
     ├── packages/
     │   ├── shared-types/        # TypeScript types shared between web and api
     │   └── play-importer/       # Parses Moby Shakespeare XML and loads it into CockroachDB
     ├── infra/
     │   ├── cockroachdb/         # Schema migrations, ccloud CLI provisioning script
-    │   └── aws/                 # App Runner + Amplify config, budget alert setup notes
+    │   └── aws/                 # ECS/Fargate + Amplify config, budget alert setup notes
     ├── docs/
     │   └── PROJECT_PLAN.md      # Full architecture, data model, judging-criteria mapping, timeline
     ├── .env.example
@@ -74,8 +74,8 @@ is a solo, out-of-pocket, time-boxed build and there's no benefit to learning ne
 | Frontend | React + Vite, TypeScript | Fast local dev, simple deploys |
 | UI components | [HeroUI](https://heroui.com) (React Aria + Tailwind v4) | Accessible structural chrome (pickers, modals, buttons); the rehearsal surface itself is hand-built for the Shakespearean identity |
 | Frontend hosting | AWS Amplify Hosting | Connects to this repo, auto-builds `frontend` on push |
-| Backend | Node/Express | The rehearsal agent's API layer |
-| Backend hosting | AWS App Runner | Autoscaling HTTPS, minimal new-service surface area to learn |
+| Backend | Deno + Hono | The rehearsal agent's API layer |
+| Backend hosting | AWS ECS Express Mode (Fargate-based, auto-provisioned ALB) | AWS's recommended App Runner replacement (App Runner is in maintenance mode as of 2026-04-30); HTTPS termination for mic capture's secure-context requirement — see `docs/PROJECT_PLAN.md` §9 for the real cost breakdown |
 | Database | CockroachDB Serverless | Memory layer: sessions, line mastery, mistake embeddings, all transactional |
 | LLM | Amazon Bedrock — Nova Micro/Lite (per-line comparison), a stronger model (session summaries) | Cost-scaled to call frequency |
 | Voice | Amazon Polly (neural voices, one per character, cached per line) | |
@@ -129,7 +129,8 @@ schema change. Full detail, including the play-XML parsing rules, is in `docs/PR
 
 - **Database:** CockroachDB Serverless cluster, provisioned via the ccloud CLI script in `infra/cockroachdb/`
   (scripted, not manual clicks — a judged production-readiness signal, not boilerplate).
-- **Backend:** `api` deployed to AWS App Runner, repo-connected, autoscaling, HTTPS by default.
+- **Backend:** `api` built as a Docker image (Deno + Hono) pushed to ECR, run via AWS ECS Express Mode
+  (Fargate-based, auto-provisions its own ALB with SSL termination).
 - **Frontend:** `frontend` deployed to AWS Amplify Hosting, auto-builds on push to `main`.
 - **Cost control:** an AWS Budget alert configured at a small dollar threshold from day one — this is an
   out-of-pocket build.
@@ -158,7 +159,7 @@ source file's own header). Sourced from rufuspollock-okfn/shakespeare-material o
 
 ## Status / roadmap
 
-- [ ] Week 1 — CockroachDB schema + ccloud provisioning, play importer, basic picker UI, Amplify + App Runner deployed end-to-end
+- [ ] Week 1 — CockroachDB schema + ccloud provisioning, play importer, basic picker UI, Amplify + ECS/Fargate deployed end-to-end
 - [ ] Week 2 — Polly voices, record-and-compare rehearsal flow, transactional session writes, first Bedrock coaching call, S3 recordings
 - [ ] Week 3 (buffer) — vector-search mistake-pattern coaching, retry/degradation paths, Shakespearean visual pass, demo video
 

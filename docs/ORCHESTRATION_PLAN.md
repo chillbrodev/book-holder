@@ -19,8 +19,12 @@ AWS Budget alert is now also done — `book-holder-monthly`, $25/month, email al
 spend to jholtan08@gmail.com, scripted in `infra/aws/budget-alert.sh` (idempotent, re-runnable). Credentials
 came from `aws login` (short-lived, browser-based, root session) rather than a static IAM access key.
 
-**Not started**: Amplify/App Runner deploy, `frontend`/`api`/`packages/shared-types` scaffolding, the FE
-picker itself.
+**Not started**: Amplify/ECS Express Mode deploy, the FE picker itself. `frontend` and `api` are now
+scaffolded (React+Vite; Deno + `deno.json` with a placeholder handler, not yet Hono — see `BE_PLAN.md` §1b
+for the Node→Deno/Hono switch), `packages/shared-types` still does not exist. Backend hosting target changed
+from App Runner to ECS Express Mode since this plan's original App Runner note — App Runner stopped
+accepting new customers 2026-04-30 and is now in maintenance mode; Express Mode is AWS's recommended
+replacement and uses the same underlying billed resources (Fargate + ALB), just with far less manual setup.
 
 ## Week 1 — Foundation
 
@@ -30,7 +34,7 @@ picker itself.
 | 1 | Infra | CockroachDB `ccloud` CLI provisioning script | **Skipped, not planned** — the cluster (`the-book-holder`) already existed; connected to directly instead of provisioning from scratch. If a from-scratch script is ever needed later, it doesn't exist yet. |
 | 1 | Infra | Schema migrations | **Done** — `infra/cockroachdb/migrations/001_init_schema.sql`, applied via `npm run db:migrate`. Schema deviates from `PROJECT_PLAN.md` §5 (`line_speakers` many-to-many, `stage_directions` table) — see `BE_PLAN.md` §1a. |
 | 1 | Infra | npm-workspaces scaffolding | **Partially done** — root `package.json`, `infra/cockroachdb`, `packages/play-importer` exist. `frontend`, `api`, `packages/shared-types` do not exist yet. |
-| 1 | Infra | Amplify + App Runner deployed end-to-end with placeholder content | **Not done** |
+| 1 | Infra | Amplify + ECS Express Mode deployed end-to-end with placeholder content | **Scripted, not run** — `api/Dockerfile` + `infra/aws/ecs-deploy.sh` ready; Amplify side and actually running the ECS script still outstanding |
 | 2–3 | BE | Play-importer (`packages/play-importer`) against the Merry Wives XML — parsing rules from `PROJECT_PLAN.md` §6 | **Done** — built, tested (caught and fixed two real bugs against the actual source XML: a bad `.map()` call, and 44 silently-dropped mid-speech stage directions), reviewed locally before import, committed |
 | 2–3 | FE (parallel) | Picker skeleton (play → role → act/scene) built against mock data — doesn't need to wait on the importer | **Not started.** Real imported data already exists now, so this can likely skip the mock-data step entirely and build against the real API once §4–5 exists. |
 | 4–5 | BE → FE | Wire picker to real imported data once the importer is validated | **Not started** — no `api` yet to wire through |
@@ -92,4 +96,6 @@ Pulled from `FE_PLAN.md` §5–6 and `BE_PLAN.md` §6–8 — check before start
 - **Docs still to confirm at build time, not from memory**: serializable-transaction retry idiom for the live
   per-session write path (the importer's retry pattern in `packages/play-importer/src/ingest.ts` is a
   reference, not a direct copy — see `BE_PLAN.md` §3); current Bedrock model IDs/pricing; Polly voice
-  catalog; Transcribe API request/response shape; App Runner deploy mode (repo-connected vs. Dockerfile).
+  catalog; Transcribe API request/response shape. ~~ECS Express Mode setup~~ — confirmed and scripted,
+  `infra/aws/ecs-deploy.sh` (IAM roles, ECR push, create/update-express-gateway-service; default VPC/public
+  subnets, no NAT Gateway). ~~Dockerfile for the Deno `api` image~~ — done, `api/Dockerfile`.

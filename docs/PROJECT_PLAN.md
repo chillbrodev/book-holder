@@ -5,7 +5,7 @@
 Built for: CockroachDB × AWS Hackathon — "Build with Agentic Memory"
 Deadline: August 18, 2026
 Team: solo, part-time, ~2-3 weeks
-Stack: React + Vite, CockroachDB (Serverless), AWS (Bedrock, Polly, Transcribe, S3, App Runner, Amplify)
+Stack: React + Vite, Deno + Hono (`api`), CockroachDB (Serverless), AWS (Bedrock, Polly, Transcribe, S3, ECS/Fargate, Amplify)
 Focus play: *The Merry Wives of Windsor* (MIT Shakespeare source), built to expand to other plays later.
  
 ---
@@ -55,7 +55,9 @@ That loop — read memory → decide → act → write memory — is the whole p
 React + Vite client (mic, playback, UI)
         |
         v
-Rehearsal agent — Node/Express API on AWS App Runner
+Rehearsal agent — Deno + Hono API, Dockerized, on AWS ECS Express Mode
+(Fargate-based, auto-provisions its own ALB w/ SSL — required:
+getUserMedia/mic capture needs a secure context)
         |
    -----------------------------------------------
    |            |                |               |
@@ -65,8 +67,21 @@ CockroachDB   Bedrock        Polly + Transcribe   S3
 ```
  
 - **Frontend hosting:** AWS Amplify Hosting (connects to GitHub repo, auto-builds on push)
-- **Backend hosting:** AWS App Runner (Dockerfile or repo-connected, autoscaling, HTTPS out of the box) — chosen
-  over Lambda/API Gateway for a solo build to minimize new-service surface area to learn
+- **Backend hosting:** AWS **ECS Express Mode**, `api` built as a Docker image (Deno + Hono), pushed to ECR.
+  Express Mode is AWS's own recommended App Runner replacement (App Runner stopped accepting new customers
+  2026-04-30 and is now in maintenance-only mode) — it needs only a container image + task execution role +
+  infrastructure role, and auto-provisions the Fargate service, ALB, SSL, autoscaling, and networking that
+  would otherwise be hand-configured. **Same underlying billed resources as a manually-configured ECS
+  service** (Fargate compute + ALB + CloudWatch + data transfer, per AWS's own pricing page for Express Mode
+  — "no additional charge for using Express Mode itself"), so the cost estimate in §9 doesn't change; what
+  changes is build time, not bill. **Confirmed** (AWS CLI walkthrough): Express Mode defaults to an
+  internet-facing ALB in the account's **default VPC and public subnets** — no NAT Gateway in the default
+  path, so the ~$33/mo NAT concern doesn't apply unless custom subnets are specified later.
+- One Express Mode detail worth knowing if a second service is ever added (e.g. the stretch "coach's notes"
+  admin view): AWS explicitly supports **sharing one ALB across multiple Express Mode services** on the same
+  networking config, which would spread that ~$20/mo fixed cost across services instead of duplicating it —
+  not relevant for the single-service MVP, but a reason not to worry about ALB cost scaling linearly if scope
+  grows.
 - **Database:** CockroachDB Serverless (free tier comfortably covers single-user hackathon scale)
 - **LLM:** Amazon Nova Micro/Lite for per-line comparison (cheap, high volume); a stronger model only for
   less-frequent session-summary/coaching-note generation
@@ -176,7 +191,7 @@ against any play in it (useful now for validating Merry Wives against a real spe
  
 **Week 1 — foundation**
 CockroachDB Serverless cluster provisioned via ccloud CLI (scripted, in-repo); schema created; MIT text parsed
-and imported for Merry Wives of Windsor; basic React picker (play → role → act/scene); Amplify + App Runner
+and imported for Merry Wives of Windsor; basic React picker (play → role → act/scene); Amplify + ECS/Fargate
 deployed end-to-end on day one, even with nothing in it yet.
  
 **Week 2 — the agent loop**
@@ -192,15 +207,61 @@ states the "skill model, not fact memory" framing for judges.
 ---
  
 ## 9. Cost notes (out of pocket)
- 
-- CockroachDB Serverless free tier: comfortably covers this scale.
-- Bedrock: no free tier, but pure per-token pricing — Nova Micro/Lite is a small fraction of a cent per session
-  for the comparison step; reserve any pricier model for the infrequent summary step.
-- Polly: neural voices run per-character-synthesized; new AWS accounts get free-tier credit for the first six
-  months, and per-line caching means you only pay to synthesize each line once, not once per rehearsal.
-- Transcribe: pay-per-second of audio; single-user hackathon-scale usage is inexpensive.
+
+Estimated for realistic usage — solo/single-user (Mom), a handful of rehearsal sessions a week, running
+continuously so it's always available, not scale-to-zero. Prices are on-demand, us-east-1-ish reference rates,
+confirm current numbers at build time (they shift). Two cost categories behave very differently here:
+
+**Compute (ECS/Fargate + ALB) — fixed, always-on, this is where a 1-year commitment actually helps:**
+
+| Item | Sizing | On-demand /mo | w/ 1-yr No-Upfront Compute Savings Plan |
+|---|---|---|---|
+| Fargate task | 0.25 vCPU / 0.5 GB (Hono is light; the real work is offloaded to Bedrock/Polly/Transcribe) | ~$9 | ~$7.20 (~20% off) |
+| Application Load Balancer (auto-provisioned by Express Mode) | 1 ALB, 24/7, ~1 LCU avg | ~$20 | *not eligible* — Savings Plans only cover EC2/Fargate/Lambda compute, not ALB hours |
+| ECR image storage + CloudWatch logs | 1 small image, low log volume | ~$1–2 | *not eligible* |
+| **Compute subtotal** | | **~$30–31** | **~$28–29** |
+
+The ALB is the uncomfortable finding here: at this traffic level it costs more than the compute it's
+fronting, and a 1-year Fargate Savings Plan only nets ~$1.80/mo back — real money, but not the lever it
+sounds like going in. It's effectively the fixed cost of "always-on HTTPS" (mic capture needs a secure
+context, so TLS isn't optional). ECS Express Mode auto-provisions this ALB for you (that's the whole point —
+no more hand-configuring target groups/listeners than App Runner required), but it's still billed as a
+regular ALB, not folded into a bundled per-request price the way App Runner's was. Since App Runner itself
+is now in maintenance mode (stopped taking new customers 2026-04-30), this is the real cost of its
+recommended replacement, not an avoidable ECS-specific tax.
+
+**AI services (Bedrock, Polly, Transcribe) — usage-based, no reservation/Savings Plan applies at all:**
+
+At ~13 sessions/month, ~40 lines each (~520 line-transcriptions/month):
+
+- **Transcribe**: $0.024/min, 15-second minimum per request → ~130 billed min/mo ≈ **$3–4/mo**. This is the
+  dominant AI cost, driven by the per-request minimum, not audio length.
+- **Bedrock Nova Micro** (per-line comparison, ~520 calls/mo): well under **$0.05/mo**.
+- **Bedrock** stronger model for session coaching notes (~13 calls/mo, low-frequency by design): well under
+  **$0.05/mo**.
+- **Polly** (neural, cached per line — see `BE_PLAN.md` §4): synthesizing the *entire* play once is ~$2–3
+  **one-time**, not recurring, and likely absorbed by the 1M-character/mo neural free tier for the first 12
+  months anyway.
+- **Titan embeddings** (mistake-log vector search, week-3 stretch): negligible, well under $0.01/mo.
+- **AI services subtotal: ~$3–5/mo.**
+- CockroachDB Serverless free tier: comfortably covers this scale, $0.
 - S3: negligible at this scale.
-- Set an AWS Budget alert at a small threshold as a safety net from day one.
+
+**Realistic total: ~$33–36/mo on-demand, ~$31–34/mo with the 1-year Fargate Compute Savings Plan.** That's
+above the current $25/mo AWS Budget alert threshold (`infra/aws/budget-alert.sh`) — bump it to ~$40/mo for
+real headroom rather than raising it after the first overage email.
+
+Biggest cost-control levers, in order of actual impact at this scale:
+1. **Don't override Express Mode's default networking** (default VPC, public subnets) unless there's a
+   specific reason to — its default already avoids the NAT Gateway trap; switching to private subnets later
+   would add NAT's ~$33/mo base and roughly double the estimate above for no benefit at this scale/threat
+   model.
+2. Accept the ALB as the real fixed cost of always-on HTTPS; the 1-year Savings Plan is worth taking (it's
+   free money) but don't expect it to move the total much — it only touches the Fargate line.
+3. Per-line Polly caching and Nova Micro for the high-frequency comparison call (both already in `BE_PLAN.md`
+   §4) keep the *usage-based* side close to zero regardless of how much she actually rehearses.
+4. Set an AWS Budget alert at a realistic threshold as a safety net from day one — done, but the threshold
+   needs revisiting now that ECS/ALB is the plan (see above).
 ---
  
 ## 10. Open items to verify with Claude Code before/while building

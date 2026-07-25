@@ -1,6 +1,6 @@
 # Backend Plan — `api`
 
-Companion to `PROJECT_PLAN.md`. This doc covers the Node/Express rehearsal agent in enough detail to build
+Companion to `PROJECT_PLAN.md`. This doc covers the Deno + Hono rehearsal agent in enough detail to build
 against: the endpoint/flow breakdown, the read-decide-act-write loop made concrete, cost controls, and
 production-readiness — plus the tools and docs needed to build it.
 
@@ -11,10 +11,27 @@ production-readiness — plus the tools and docs needed to build it.
 **Done**: CockroachDB schema migrated (`infra/cockroachdb/migrations/001_init_schema.sql`), Merry Wives of
 Windsor imported and verified (1 play, 24 characters, 2610 lines, 193 stage directions). The schema actually
 built deviates structurally from `PROJECT_PLAN.md` §5 in two ways (plus one implementation-status note) —
-see §1a below.
+see §1a below. `api` scaffolded with Deno + `deno.json` and a placeholder `Deno.serve` handler
+(`api/main.ts`) — not yet Hono, no endpoints, no Bedrock/Polly/Transcribe/S3 integration yet.
 
-**Not started**: `api` itself — no Express server, no endpoints, no Bedrock/Polly/Transcribe/S3
-integration yet. Everything in this doc past §1a is still a plan, not built.
+**Not started**: routing on Hono, real endpoints, Dockerfile/ECS deploy, Bedrock/Polly/Transcribe/S3
+integration. Everything in this doc past §1a is still a plan, not built.
+
+## 1b. Runtime note: Deno + Hono, not Node/Express
+
+- **Deno**, not Node — `api/deno.json` (not `package.json`) manages tasks and imports; npm packages (AWS SDK
+  v3 for Bedrock/Polly/Transcribe/S3, `pg`, etc.) are pulled in via `npm:` specifiers directly in
+  `deno.json`'s `imports` map or inline `npm:package@version` specifiers, not `npm install`/`node_modules`.
+  Root `package.json`'s `dev` script (`concurrently ... npm run dev --workspace=api`) needs `api`'s script to
+  shell out to `deno task dev`, since `api` isn't an npm workspace in the Node sense.
+- **Hono**, not Express, for routing/middleware — add it to `api/deno.json` imports (`jsr:@hono/hono` or
+  `npm:hono`). Hono's built-in `Deno.serve` adapter is a direct fit for the existing `api/main.ts` handler
+  shape (`Request` → `Response`), so the migration from the placeholder handler to real routes is additive,
+  not a rewrite.
+- Local dev already works via `deno task dev` (`--watch --allow-net`) — permissions will need to expand
+  (`--allow-env`, `--allow-net` scoped to CockroachDB/AWS endpoints) once real integrations land; Deno's
+  explicit permission flags are worth keeping narrow rather than blanket `-A`, both for the "production
+  readiness" judging criterion and because it's free defense-in-depth against a compromised dependency.
 
 ## 1. Scope
 
@@ -71,7 +88,24 @@ Discovered from the real Merry Wives of Windsor XML during import, not hypotheti
 - **Cache Polly synthesis per line** — synthesize once per (line, voice), reuse on every replay. This is
   both a cost control and a latency win.
 - **AWS Budget alert** — done, `infra/aws/budget-alert.sh` ($25/month, 80%/100% actual-spend email alerts),
-  set up before any Bedrock/Polly/Transcribe wiring, per the original intent here.
+  set up before any Bedrock/Polly/Transcribe wiring, per the original intent here. **Needs raising** now that
+  ECS/Fargate + ALB is the deploy target — realistic always-on hosting cost alone is ~$30/mo before any
+  Bedrock/Polly/Transcribe usage; see `PROJECT_PLAN.md` §9 for the full breakdown.
+- **ECS/Fargate sizing**: start the task small (0.25 vCPU / 0.5 GB) — Hono is a thin routing layer, the actual
+  work (Bedrock/Polly/Transcribe calls) happens in managed AWS services, not in-container compute. Resize
+  only if profiling shows the task itself is the bottleneck, not preemptively.
+- **Deploy via ECS Express Mode**, not a hand-rolled ECS service/task-definition/ALB — AWS's own recommended
+  App Runner replacement now that App Runner is in maintenance mode (stopped accepting new customers
+  2026-04-30). Needs only a container image + task execution role + infra role; it auto-provisions the
+  Fargate service, ALB w/ SSL, autoscaling, and networking. **Confirmed**: it defaults to the account's
+  default VPC + public subnets (no NAT Gateway), matching what we'd have chosen manually — see
+  `infra/aws/ecs-deploy.sh`, which scripts the CLI flow AWS documents (IAM role creation, ECR push,
+  `create-express-gateway-service`/`update-express-gateway-service`).
+- A 1-year Compute Savings Plan (No Upfront) on the Fargate usage is worth taking (~20% off, ~$1.80/mo here)
+  but won't move the total much — the ALB Express Mode provisions (not eligible for Savings Plans) is the
+  larger fixed cost at this traffic level, not the compute. If a second service is ever added (e.g. an admin
+  "coach's notes" view), Express Mode supports sharing one ALB across multiple services on the same
+  networking config — worth using rather than paying for a second ALB.
 - **Guard against runaway calls**: request timeouts on Bedrock/Polly/Transcribe calls, and don't let a
   client retry loop turn into repeated paid calls (e.g. debounce "play again" against the cache, not a
   fresh synthesis).
@@ -102,7 +136,21 @@ Discovered from the real Merry Wives of Windsor XML during import, not hypotheti
   scope. In practice: used read-only (`list_tables`, `get_table_schema`, `select_query`, etc.) for
   verification; schema/data writes go through `infra/cockroachdb/migrate.ts` and
   `packages/play-importer` instead, not through MCP.
-- Bedrock, Polly, Transcribe, S3 SDKs (AWS SDK for JavaScript v3). Not installed/wired up yet.
+- Bedrock, Polly, Transcribe, S3 SDKs (AWS SDK for JavaScript v3), pulled into `api` via `npm:` specifiers in
+  `deno.json` (Deno consumes npm packages directly, no `node_modules`/`npm install` step). Not installed/wired
+  up yet.
+- Docker — **done**, `api/Dockerfile` (`denoland/deno:2.9.4` base). Runs as the base image's non-root `deno`
+  user throughout the build, not just at runtime — `/app` is `chown`'d to `deno` before anything is copied
+  in or `deno install` runs, working around denoland/deno_docker#537 (installing as root then switching users
+  right before `CMD` avoids the bug too, but doesn't get non-root's least-privilege benefit during
+  dependency resolution). `deno install --frozen` fails the build loudly if `deno.lock` drifts from
+  `deno.json` instead of silently re-resolving. `api/.dockerignore` excludes `.env*`/`.git` so local secrets
+  can't end up baked into an image layer.
+- AWS CLI `ecs` commands (Express Mode is available via console, CLI, SDKs, CloudFormation, Terraform, and
+  the AWS Labs ECS MCP Server) for creating the Express Mode service and pushing images to ECR — not
+  scripted into `infra/aws` yet. Only three inputs required to stand it up: a container image, a task
+  execution role, and an infrastructure role — meaningfully less setup than hand-rolling task
+  definitions/ALB/target groups.
 - A request client for manual endpoint testing during development (curl, Postman, or Thunder Client) — no
   need for a heavier API-testing framework at this scale.
 
@@ -121,8 +169,16 @@ Discovered from the real Merry Wives of Windsor XML during import, not hypotheti
 - Polly voice catalog — confirm neural voice availability per target character before building
   `POLLY_VOICE_MAP`.
 - Transcribe API docs — confirm request/response shape for post-utterance (non-streaming) transcription.
-- AWS App Runner deploy docs — repo-connected vs. Dockerfile-based deploy, whichever `infra/aws` ends up
-  using.
+- **ECS Express Mode docs** — confirm current setup flow (task execution role + infrastructure role
+  requirements), and specifically its **default networking** (public subnet vs. NAT Gateway) before deploying
+  — see cost note in §4. Also confirm ECR push flow, and how Deno's `npm:`-specifier model interacts with a
+  container build (whether to vendor/cache deps at build time vs. resolve on container start) before writing
+  the Dockerfile — this is the one part of the Deno switch that's genuinely different from a Node container
+  build. Express Mode is AWS's current recommended path (App Runner is in maintenance mode as of
+  2026-04-30), so build against it directly rather than a hand-rolled ECS service.
+- Deno + Hono docs — confirm current idiomatic pattern for Hono's `Deno.serve` adapter and middleware chain;
+  `api/main.ts`'s existing `(req: Request) => Response` handler shape maps directly, but verify at build time
+  rather than assuming Express-style middleware patterns carry over.
 
 ## 8. Open items to verify
 
