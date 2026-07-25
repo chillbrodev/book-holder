@@ -1,4 +1,13 @@
-export type IconName = 'star' | 'lock' | 'check' | 'chevron-right' | 'mic' | 'alert-triangle' | 'bookmark'
+export type IconName =
+  | 'star'
+  | 'lock'
+  | 'check'
+  | 'chevron-right'
+  | 'mic'
+  | 'alert-triangle'
+  | 'bookmark'
+  | 'eye'
+  | 'eye-off'
 
 export interface IconProps {
   name: IconName
@@ -52,5 +61,23 @@ function renderIconBody(name: IconName) {
       )
     case 'bookmark':
       return <path d="M6 3h12v18l-6-4.5L6 21z" strokeLinejoin="round" />
+    case 'eye':
+      return (
+        <>
+          <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z" strokeLinejoin="round" />
+          <circle cx="12" cy="12" r="3" />
+        </>
+      )
+    case 'eye-off':
+      return (
+        <>
+          <path d="M9.5 9.8a3 3 0 0 0 4.2 4.2" />
+          <path
+            d="M6.3 6.3A15.6 15.6 0 0 0 2 12s4 7 10 7a9.5 9.5 0 0 0 4.2-.95M10.6 5.2A10 10 0 0 1 12 5c6 0 10 7 10 7a15.6 15.6 0 0 1-3.2 3.9"
+            strokeLinecap="round"
+          />
+          <path d="M3 3l18 18" strokeLinecap="round" />
+        </>
+      )
   }
 }

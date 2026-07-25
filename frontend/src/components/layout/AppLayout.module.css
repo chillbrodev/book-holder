@@ -20,9 +20,48 @@
   text-decoration: none;
 }
 
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+}
+
 .nav {
   display: flex;
   gap: 28px;
+}
+
+.account {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-left: 20px;
+  border-left: 1px solid var(--bh-border-hairline);
+}
+
+.accountName {
+  font-family: var(--bh-font-sans);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--bh-ink);
+}
+
+/* Same type treatment as .navLink (size/weight/color/baseline) so this reads
+   as part of the same nav family, not a separate bolder/gold CTA. */
+.accountLink {
+  cursor: pointer;
+  font-family: var(--bh-font-sans);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--bh-ink);
+  background: transparent;
+  border: none;
+  padding-bottom: 8px;
+  border-bottom: 2px solid transparent;
+}
+
+.accountLink:hover {
+  border-bottom-color: var(--bh-gold-dark);
 }
 
 .navLink {
