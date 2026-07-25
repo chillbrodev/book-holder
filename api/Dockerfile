@@ -1,7 +1,7 @@
 FROM denoland/deno:2.9.4
 
-# Matches the PORT the app binds to (main.ts) and what ECS Express Mode's
-# container port config should point at.
+# Matches the PORT the app binds to (clients/config-client/configClient.ts)
+# and what ECS Express Mode's container port config should point at.
 EXPOSE 8000
 
 WORKDIR /app
@@ -26,6 +26,12 @@ COPY --chown=deno:deno . .
 
 # Pre-compile so startup doesn't pay the type-check/compile cost on every
 # container boot.
-RUN deno cache main.ts
+RUN deno cache src/main.ts
 
-CMD ["run", "--allow-net", "--allow-env", "main.ts"]
+# Permission flags (including --allow-read=../.env — configClient.ts
+# unconditionally tries to load a repo-root .env; loadSync() no-ops on a
+# missing file, but the container needs the read *permission* granted or
+# Deno throws before it even checks whether the file is there) live in the
+# "production" task in deno.json, single source of truth shared with the
+# other deno task entries rather than duplicated here.
+CMD ["task", "production"]

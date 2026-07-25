@@ -51,7 +51,7 @@ of protecting it.
     │── frontend/                # React + Vite frontend — picker, rehearsal UI, playback
     │── api/                     # Deno + Hono backend — the rehearsal agent, deployed on AWS ECS (Fargate)
     ├── packages/
-    │   ├── shared-types/        # TypeScript types shared between web and api
+    │   ├── shared-types/        # TypeScript types shared between frontend and api
     │   └── play-importer/       # Parses Moby Shakespeare XML and loads it into CockroachDB
     ├── infra/
     │   ├── cockroachdb/         # Schema migrations, ccloud CLI provisioning script
