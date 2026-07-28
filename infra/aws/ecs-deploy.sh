@@ -10,19 +10,21 @@
 #
 # NOTE: wires up AWS_REGION, POLLY_CACHE_BUCKET, POLLY_DEFAULT_VOICE_ID (if
 # exported — per-character voices live in characters.polly_voice_id, not an
-# env var), DENO_ENV=production, and COCKROACHDB_URL/ALLOWED_ORIGIN (pulled
-# from the root .env, or exported to override — see COCKROACHDB_URL/
-# ALLOWED_ORIGIN below). BEDROCK_MODEL_ID_*/S3_RECORDINGS_BUCKET are still
-# NOT passed — nothing reads them yet (Bedrock/S3-recordings integration
-# isn't built), so there's nothing to wire up until that exists.
+# env var), DENO_ENV=production, and COCKROACHDB_URL/ALLOWED_ORIGIN (see
+# COCKROACHDB_URL/ALLOWED_ORIGIN below for where these are read from).
+# BEDROCK_MODEL_ID_*/S3_RECORDINGS_BUCKET are still NOT passed — nothing
+# reads them yet (Bedrock/S3-recordings integration isn't built), so there's
+# nothing to wire up until that exists.
 #
 # Usage:
 #   ./infra/aws/ecs-deploy.sh
 #
-# Optional overrides:
-#   COCKROACHDB_URL=...                                 (default: read from the root .env)
-#   ALLOWED_ORIGIN=https://your-deployed-frontend.example (default: read from the root .env —
-#                                                          must be the real deployed frontend's
+# Optional overrides (precedence: shell-exported > infra/aws/.env.production
+# [gitignored — deploy-only values, e.g. ALLOWED_ORIGIN, that never need
+# toggling for local dev] > root .env):
+#   COCKROACHDB_URL=...                                 (default: read from .env.production, then the root .env)
+#   ALLOWED_ORIGIN=https://your-deployed-frontend.example (default: read from .env.production, then the root
+#                                                          .env — must be the real deployed frontend's
 #                                                          origin, not localhost, or CORS blocks it)
 #   AWS_REGION=us-west-2                              (default)
 #   ECR_REPO_NAME=book-holder-api                      (default)
@@ -80,16 +82,24 @@ read_env_var() {
   printf '%s' "$value"
 }
 
-# Shell-exported values win (same override pattern as POLLY_DEFAULT_VOICE_ID
-# below); otherwise read from the root .env — the same COCKROACHDB_URL local
-# dev uses (one cluster), and whatever ALLOWED_ORIGIN is set there (the
-# deployed frontend's real origin, not localhost — set it in .env before
-# running this against a real deploy).
-COCKROACHDB_URL="${COCKROACHDB_URL:-$(read_env_var COCKROACHDB_URL "$REPO_ROOT/.env")}"
-ALLOWED_ORIGIN="${ALLOWED_ORIGIN:-$(read_env_var ALLOWED_ORIGIN "$REPO_ROOT/.env")}"
+# Precedence: shell-exported value wins, then infra/aws/.env.production (if
+# present — gitignored, holds deploy-only values like the real ALLOWED_ORIGIN
+# so it never has to be toggled in the root .env for local dev), then the
+# root .env (the same COCKROACHDB_URL local dev uses — one cluster).
+PROD_ENV_FILE="$REPO_ROOT/infra/aws/.env.production"
+resolve_var() {
+  local key="$1" val
+  val="${!key:-}"
+  [ -n "$val" ] && { printf '%s' "$val"; return; }
+  val="$(read_env_var "$key" "$PROD_ENV_FILE")"
+  [ -n "$val" ] && { printf '%s' "$val"; return; }
+  read_env_var "$key" "$REPO_ROOT/.env"
+}
+COCKROACHDB_URL="$(resolve_var COCKROACHDB_URL)"
+ALLOWED_ORIGIN="$(resolve_var ALLOWED_ORIGIN)"
 
 : "${COCKROACHDB_URL:?COCKROACHDB_URL is blank/missing in .env — set it before deploying, the container will crash-loop without it}"
-: "${ALLOWED_ORIGIN:?ALLOWED_ORIGIN is blank/missing in .env — set it to the deployed frontend origin before deploying, or CORS will block it}"
+: "${ALLOWED_ORIGIN:?ALLOWED_ORIGIN is blank/missing — set it in infra/aws/.env.production (preferred) or the root .env before deploying, or CORS will block it}"
 
 ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
 IMAGE_TAG="$(git -C "$REPO_ROOT" rev-parse --short HEAD 2>/dev/null || echo latest)"

@@ -101,8 +101,11 @@ Also provisions, idempotently, what the Polly workflow needs at runtime:
   `create-dev-user.sh` above) into the script's own shell, silently overriding the `aws login` session every
   other AWS call in this script relies on. Fails fast with a clear message if either is blank/missing —
   `ALLOWED_ORIGIN` in particular needs to be the *deployed frontend's* real origin, not `localhost`, or CORS
-  blocks it; it's very likely still blank in your local `.env` (that file's `ALLOWED_ORIGIN` is for local
-  dev), so set it there before running this against a real deploy.
+  blocks it. Set it in `infra/aws/.env.production` (gitignored — not a secret, just kept out of git since
+  it's deploy-only config) rather than the root `.env`, which should stay blank so local dev keeps falling
+  back to `http://localhost:5173` (see `configClient.ts`). Precedence is shell-exported value >
+  `infra/aws/.env.production` > root `.env`, so a one-off `ALLOWED_ORIGIN=... ./infra/aws/ecs-deploy.sh`
+  still works too — but `.env.production` means you never have to toggle anything for local dev again.
 
 **Still not wired into the container**: `BEDROCK_MODEL_ID_*`/`S3_RECORDINGS_BUCKET` — nothing reads them yet
 (Bedrock/S3-recordings integration isn't built), so there's nothing to pass until that exists.

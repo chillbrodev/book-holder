@@ -1,6 +1,7 @@
 node_modules/
 dist/
 .env
+infra/aws/.env.production
 *.log
 .DS_Store
 packages/play-importer/output/

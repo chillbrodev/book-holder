@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { getSceneDialogue, getSingleLineDialogue } from '../data/client'
 import { getLineAudio } from '../data/pollyClient'
@@ -13,6 +13,7 @@ import styles from './RehearsalPage.module.css'
 
 const AUTO_ADVANCE_DELAY_MS = 650
 const CAPTURED_ADVANCE_DELAY_MS = 500
+const AUTO_SCROLL_STORAGE_KEY = 'bh:autoScroll'
 
 export function RehearsalPage() {
   const { playId = '', act = '', scene = '' } = useParams()
@@ -30,6 +31,13 @@ export function RehearsalPage() {
   const [textVisible, setTextVisible] = useState(false)
   const [lineRevealed, setLineRevealed] = useState(false)
   const [done, setDone] = useState(false)
+  // Persisted across sessions, not just this scene — someone who turns it
+  // off wants it off everywhere, not re-prompted every rehearsal.
+  const [autoScroll, setAutoScroll] = useState(() => localStorage.getItem(AUTO_SCROLL_STORAGE_KEY) !== 'off')
+
+  useEffect(() => {
+    localStorage.setItem(AUTO_SCROLL_STORAGE_KEY, autoScroll ? 'on' : 'off')
+  }, [autoScroll])
 
   useEffect(() => {
     setCursor(0)
@@ -44,6 +52,21 @@ export function RehearsalPage() {
   useEffect(() => {
     setLineRevealed(false)
   }, [activeLineKey])
+
+  const activeLineRef = useRef<HTMLDivElement>(null)
+
+  // Re-runs on cursor changes (a new line becomes active) and on anything
+  // that grows the active card after the fact (text reveal, mic-state
+  // buttons) — otherwise those can push the mic controls below the fold
+  // with no follow-up scroll. `.lines` carries generous bottom padding
+  // (see RehearsalPage.module.css) so 'end' has room to settle instead of
+  // snapping against the viewport edge. Also fires right when autoScroll
+  // flips back on, so resuming catches up to wherever the rehearsal is
+  // instead of waiting for the next line.
+  useEffect(() => {
+    if (!autoScroll) return
+    activeLineRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+  }, [cursor, textVisible, lineRevealed, micState, autoScroll])
 
   function advance() {
     if (!dialogue) return
@@ -153,14 +176,19 @@ export function RehearsalPage() {
         <Link to={backHref} className={styles.backLink}>
           ← {backLabel}
         </Link>
-        <div
-          className={styles.showTextToggle}
-          onClick={() => {
-            setTextVisible((v) => !v)
-            setLineRevealed(false)
-          }}
-        >
-          {textVisible ? 'Hide text' : 'Show text'}
+        <div className={styles.headerControls}>
+          <div className={styles.showTextToggle} onClick={() => setAutoScroll((v) => !v)}>
+            {autoScroll ? 'Pause auto-scroll' : 'Resume auto-scroll'}
+          </div>
+          <div
+            className={styles.showTextToggle}
+            onClick={() => {
+              setTextVisible((v) => !v)
+              setLineRevealed(false)
+            }}
+          >
+            {textVisible ? 'Hide text' : 'Show text'}
+          </div>
         </div>
       </div>
       <div className={`bh-eyebrow ${styles.eyebrow}`}>
@@ -170,43 +198,53 @@ export function RehearsalPage() {
       <div className={styles.lines}>
         {visible.map((entry, i) => {
           const active = i === cursor && entry.type === 'speech' && entry.isUserLine
+          const ref = i === cursor ? activeLineRef : undefined
           if (entry.type === 'stage') {
-            return <StageDirection key={`stage-${i}`}>{entry.text}</StageDirection>
+            return (
+              <div key={`stage-${i}`} ref={ref} className={styles.lineAnchor}>
+                <StageDirection>{entry.text}</StageDirection>
+              </div>
+            )
           }
           if (!active) {
-            return <DialogueLine key={entry.lineId ?? i} speaker={entry.speaker} coSpeakers={entry.coSpeakers} text={entry.text} />
+            return (
+              <div key={entry.lineId ?? i} ref={ref} className={styles.lineAnchor}>
+                <DialogueLine speaker={entry.speaker} coSpeakers={entry.coSpeakers} text={entry.text} />
+              </div>
+            )
           }
           return (
-            <DialogueLine
-              key={entry.lineId ?? i}
-              speaker={entry.speaker}
-              coSpeakers={entry.coSpeakers}
-              text={textShown ? entry.text : "Line's held back — call for it below if you need it."}
-              active
-              micError={micState === 'cantHear'}
-            >
-              <div className={styles.micRow}>
-                <MicStateIndicator state={micState} onTap={handleMicTap} />
-              </div>
-              <div className={styles.actions}>
-                {micState === 'cantHear' && (
-                  <Button variant="secondary" onClick={retry}>
-                    Try again
-                  </Button>
-                )}
-                {!textVisible && micState !== 'captured' && (
-                  <Button variant="ghost" onClick={() => setLineRevealed(true)}>
-                    Line?
-                  </Button>
-                )}
-                {lineRevealed && !textVisible && <Button variant="secondary">Read line aloud</Button>}
-                {micState === 'listening' && (
-                  <button type="button" className={styles.debugLink} onClick={simulateCantHear}>
-                    Simulate: can't hear you
-                  </button>
-                )}
-              </div>
-            </DialogueLine>
+            <div key={entry.lineId ?? i} ref={ref} className={styles.lineAnchor}>
+              <DialogueLine
+                speaker={entry.speaker}
+                coSpeakers={entry.coSpeakers}
+                text={textShown ? entry.text : "Line's held back — call for it below if you need it."}
+                active
+                micError={micState === 'cantHear'}
+              >
+                <div className={styles.micRow}>
+                  <MicStateIndicator state={micState} onTap={handleMicTap} />
+                </div>
+                <div className={styles.actions}>
+                  {micState === 'cantHear' && (
+                    <Button variant="secondary" onClick={retry}>
+                      Try again
+                    </Button>
+                  )}
+                  {!textVisible && micState !== 'captured' && (
+                    <Button variant="ghost" onClick={() => setLineRevealed(true)}>
+                      Line?
+                    </Button>
+                  )}
+                  {lineRevealed && !textVisible && <Button variant="secondary">Read line aloud</Button>}
+                  {micState === 'listening' && (
+                    <button type="button" className={styles.debugLink} onClick={simulateCantHear}>
+                      Simulate: can't hear you
+                    </button>
+                  )}
+                </div>
+              </DialogueLine>
+            </div>
           )
         })}
       </div>

@@ -9,6 +9,12 @@
   justify-content: space-between;
 }
 
+.headerControls {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
 .backLink {
   font-family: var(--bh-font-sans);
   font-size: 14px;
@@ -30,6 +36,19 @@
 
 .lines {
   margin-top: 16px;
+  /* Room below the last entry for the active card to scroll up into —
+     without this, scrollIntoView on the newest line has nowhere to settle
+     and every advance snaps flush against the document's end. */
+  padding-bottom: 50vh;
+}
+
+/* scrollIntoView's block:'end' aligns the target's bottom edge flush with
+   the viewport's bottom edge — with no offset, that leaves zero visible gap
+   below the active card. scroll-margin-bottom shifts that alignment point up,
+   so the card actually settles with breathing room instead of jammed against
+   the edge. */
+.lineAnchor {
+  scroll-margin-bottom: 20vh;
 }
 
 .micRow {
