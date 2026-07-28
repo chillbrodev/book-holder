@@ -17,7 +17,10 @@ Mode deploy scripted (`api/Dockerfile`, `infra/aws/ecs-deploy.sh`), not yet run 
 Polly voice synthesis wired up (`features/polly`, `clients/polly-client`, `clients/s3-client`): per-`GET
 /polly/lines/:lineId/audio?characterId=`, cached once per `(lineId, voiceId)` in S3, served back via a signed
 URL; falls back to a `VOICE_UNAVAILABLE` error carrying the line text if Polly errors and no cache exists
-(§5 below). Gated behind `sessionMiddleware` since every miss is a billed AWS call. Same code path locally
+(§5 below). No auth gate — like `/plays`, rehearsing (including hearing other characters) works fully as a
+guest; auth is only for persisting progress, which isn't built yet. Every miss is still a potential billed
+AWS call, but the whole play is pre-warmed/cached in S3, so real requests are almost always a cheap cache
+hit — revisit the no-auth call if a play is ever added without pre-warming it. Same code path locally
 and deployed — credentials come from the AWS SDK's default provider chain (env vars locally, ECS task role
 when deployed), not branched in code. `ecs-deploy.sh` now also provisions the Polly cache S3 bucket and a
 task role scoped to `polly:SynthesizeSpeech` + bucket read/write/head/list.
@@ -43,9 +46,21 @@ stageagent.com's cast list; unassigned characters fall back to `POLLY_DEFAULT_VO
 `getLineAudio` now takes `characterId`, not a character name, and joins through `line_speakers` to confirm
 the requested character actually speaks the requested line before resolving a voice (§1a).
 
+The picker/rehearsal read flow from §2 is also wired up (`features/plays`): `GET /plays`,
+`/plays/:playId/characters`, `/plays/:playId/scenes`, `/plays/:playId/scenes/:act/:scene/dialogue`,
+`/plays/:playId/lines/:lineId` — all real CockroachDB reads, no auth gate (same reasoning as Polly above).
+`getSceneDialogue` interleaves `lines` and `stage_directions` into one ordered stream (a direction with
+`after_line_number = N` sorts immediately before line N) but doesn't compute `isUserLine` — that depends on
+which character the browser has locally selected to rehearse as (`selectRole`, still localStorage-only —
+`roles_in_progress` isn't wired up), which this endpoint has no notion of. `frontend/src/data/client.ts` now
+calls these for real instead of its mock fixtures, and `RehearsalPage.tsx` calls the Polly endpoint directly
+for other characters' lines — so Polly is no longer a standalone building block, it's in the real rehearsal
+flow now, just without session/mastery writes yet.
+
 **Not started**: Bedrock (comparison + coaching) and Transcribe (listening) integration, session
-start/submission/end endpoints, the read-decide-act-write loop itself. The Polly endpoint above is a
-standalone building block — nothing yet calls it as part of an actual rehearsal session flow.
+start/submission/end endpoints, the read-decide-act-write loop itself (the *write* half — reads are wired,
+per above). `WrapUpPage`/`PromptBookPage` also still render mock data, since they need mastery data that
+doesn't exist server-side yet.
 
 ## 1b. Runtime note: Deno + Hono, not Node/Express
 

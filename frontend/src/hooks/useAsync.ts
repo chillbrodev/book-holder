@@ -23,6 +23,10 @@ export function useAsync<T>(fn: () => Promise<T>, deps: DependencyList): AsyncSt
         if (!cancelled) setState({ data, loading: false, error: undefined })
       })
       .catch((error: unknown) => {
+        // AsyncStatus only ever shows a generic "something went wrong" —
+        // this is the one place the actual error (network failure, 401,
+        // 500, etc.) is visible at all, so it must not be swallowed.
+        console.error('useAsync fetch failed:', error)
         if (!cancelled) setState({ data: undefined, loading: false, error })
       })
 

@@ -1,8 +1,7 @@
-import { FOCUS_PLAY_ID } from './plays'
 import { ACT_2_SCENE_1_LINES } from './lines'
 
 function lineId(lineNumber: number): string {
-  return `${FOCUS_PLAY_ID}-II-1-${lineNumber}`
+  return `merry-wives-of-windsor-II-1-${lineNumber}`
 }
 
 /**

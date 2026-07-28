@@ -4,6 +4,7 @@ import { useAsync } from '../hooks/useAsync'
 import { StatCard } from '../components/cards/StatCard'
 import { FlaggedLineRow } from '../components/lists/FlaggedLineRow'
 import { Button } from '../components/core/Button'
+import { AsyncStatus } from '../components/core/AsyncStatus'
 import styles from './WrapUpPage.module.css'
 
 function formatDuration(seconds: number): string {
@@ -15,10 +16,10 @@ export function WrapUpPage() {
   const { playId = '', act = '', scene = '' } = useParams()
   const navigate = useNavigate()
 
-  const { data: summary, loading } = useAsync(() => getWrapUpSummary(playId, act, scene), [playId, act, scene])
+  const { data: summary, loading, error } = useAsync(() => getWrapUpSummary(playId, act, scene), [playId, act, scene])
 
-  if (loading || !summary) {
-    return <p className="bh-label">Loading…</p>
+  if (loading || error || !summary) {
+    return <AsyncStatus loading={loading} error={error} />
   }
 
   const backParam = encodeURIComponent(`/play/${playId}/wrap-up/${act}/${scene}`)

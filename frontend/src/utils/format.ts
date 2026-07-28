@@ -2,6 +2,17 @@ import type { SceneSummary } from '../types/views'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
+/** "ANNE PAGE" / "Host" / "MISTRESS QUICKLY" -> "Anne Page" / "Host" / "Mistress Quickly". Character
+ * names come straight from the Shakespeare XML SPEAKER tags with inconsistent casing (see
+ * docs/PROJECT_PLAN.md §6), so this is purely a display concern — the canonical DB value stays as
+ * imported, since Polly voice/cache lookups key off it exactly. */
+export function toDisplayName(name: string): string {
+  return name
+    .split(' ')
+    .map((word) => (word.length === 0 ? word : word[0].toUpperCase() + word.slice(1).toLowerCase()))
+    .join(' ')
+}
+
 export function formatRelativeTime(iso: string, now: Date = new Date()): string {
   const then = new Date(iso)
   const days = Math.floor((now.getTime() - then.getTime()) / DAY_MS)

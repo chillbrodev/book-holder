@@ -28,6 +28,8 @@ export interface SceneSummary {
 export interface DialogueEntry {
   type: 'stage' | 'speech'
   lineId?: string
+  /** The primary speaker's character id — needed to fetch Polly audio for this line. Undefined for stage directions and the user's own lines (no audio to fetch, she reads those). */
+  speakerId?: string
   speaker?: string
   coSpeakers?: string[]
   text: string

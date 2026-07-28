@@ -1,5 +1,8 @@
 .wrap {
-  max-width: 520px;
+  /* Wide enough for auto-fill to naturally cap at 6 columns of the grid's
+     150px-minimum tiles (6*150 + 5*10px gaps = 950px) — narrower viewports
+     fall to fewer columns via the same auto-fill math, no breakpoints needed. */
+  max-width: 960px;
 }
 
 .backLink {
@@ -19,10 +22,10 @@
   margin-bottom: 22px;
 }
 
-.list {
-  border: 1px solid var(--bh-border-hairline);
-  border-radius: var(--bh-radius-md);
-  overflow: hidden;
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
 }
 
 .confirmRow {

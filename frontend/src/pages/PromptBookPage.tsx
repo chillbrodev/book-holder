@@ -4,14 +4,15 @@ import { useAsync } from '../hooks/useAsync'
 import { formatRelativeTime } from '../utils/format'
 import { MasteryBar } from '../components/mastery/MasteryBar'
 import { FlaggedLineRow } from '../components/lists/FlaggedLineRow'
+import { AsyncStatus } from '../components/core/AsyncStatus'
 import styles from './PromptBookPage.module.css'
 
 export function PromptBookPage() {
   const navigate = useNavigate()
-  const { data: summary, loading } = useAsync(() => getPromptBookSummary(FOCUS_PLAY_ID), [])
+  const { data: summary, loading, error } = useAsync(() => getPromptBookSummary(FOCUS_PLAY_ID), [])
 
-  if (loading || !summary) {
-    return <p className="bh-label">Loading…</p>
+  if (loading || error || !summary) {
+    return <AsyncStatus loading={loading} error={error} />
   }
 
   return (

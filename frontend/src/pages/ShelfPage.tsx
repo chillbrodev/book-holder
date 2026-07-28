@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { getPlays } from '../data/client'
 import { useAsync } from '../hooks/useAsync'
 import { PlayCard } from '../components/cards/PlayCard'
+import { AsyncStatus } from '../components/core/AsyncStatus'
 import { FilterTabs } from '../components/navigation/FilterTabs'
 import styles from './ShelfPage.module.css'
 
@@ -11,10 +12,10 @@ const FILTERS = ['All', 'Favorites', 'In progress']
 export function ShelfPage() {
   const navigate = useNavigate()
   const [filter, setFilter] = useState('All')
-  const { data: plays, loading } = useAsync(() => getPlays(), [])
+  const { data: plays, loading, error } = useAsync(() => getPlays(), [])
 
-  if (loading || !plays) {
-    return <p className="bh-label">Loading…</p>
+  if (loading || error || !plays) {
+    return <AsyncStatus loading={loading} error={error} />
   }
 
   const visible = plays.filter((play) => {

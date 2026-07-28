@@ -1,29 +1,30 @@
 /**
- * Stub "API" — one async function per data need, matching the shape a real fetch-based
- * implementation will eventually have so callers don't change when it's swapped in.
+ * Play/character/scene/dialogue data is real now (api's features/plays) —
+ * see FE-Stub-Plan.md's original stub shapes, which this was deliberately
+ * built to match so swapping in a real fetch required no caller changes.
+ *
+ * Still mock/localStorage-backed, on purpose (session_history/line_mastery
+ * don't exist server-side yet): getSelectedRole/selectRole's persistence,
+ * getWrapUpSummary, getPromptBookSummary.
  */
 import type { Play, Character } from '../types/domain'
 import type { PlaySummary, SceneSummary, DialogueEntry, FlaggedLine, WrapUpSummary, PromptBookSummary } from '../types/views'
-import { delay } from './latency'
-import { MOCK_PLAYS, FOCUS_PLAY_ID } from './mock/plays'
-import { MOCK_CHARACTERS, USER_CHARACTER_ID } from './mock/characters'
+import { apiRequest } from './apiClient'
 import { ACT_2_SCENE_1_LINES } from './mock/lines'
-import { ACT_2_SCENE_1_STAGE_DIRECTIONS } from './mock/stageDirections'
-import { MOCK_SCENES_SUMMARY } from './mock/scenesSummary'
 import { MOCK_FLAGGED_LINES, WRAP_UP_FLAGGED_LINE_IDS, findLineById } from './mock/promptBook'
 import { MOCK_USER_ID } from './mock/roles'
+
+const FOCUS_PLAY_ID = 'merry-wives-of-windsor'
 
 function roleStorageKey(playId: string): string {
   return `bh:role:${playId}`
 }
 
-function characterName(characterId: string): string {
-  return MOCK_CHARACTERS.find((c) => c.id === characterId)?.name ?? characterId
-}
-
-/** The character the user is actually rehearsing as right now, falling back to the default seed role. */
+/** The character the user is actually rehearsing as right now, or '' if none selected yet
+ * (matches nothing, so isUserLine is false for every line — the picker flow redirects to
+ * role-select before this matters in practice). */
 function getEffectiveCharacterId(playId: string): string {
-  return localStorage.getItem(roleStorageKey(playId)) ?? USER_CHARACTER_ID
+  return localStorage.getItem(roleStorageKey(playId)) ?? ''
 }
 
 function buildFlaggedLine(entry: { lineId: string; mistakeCount: number; lastPracticedAt: string }): FlaggedLine | undefined {
@@ -39,98 +40,107 @@ function buildFlaggedLine(entry: { lineId: string; mistakeCount: number; lastPra
   }
 }
 
-interface SortableDialogueEntry {
-  sortKey: number
-  sortTiebreak: number
-  entry: DialogueEntry
+interface RawPlay {
+  id: string
+  title: string
+  sourceUrl: string | null
+  createdAt: string
 }
 
-/** Builds the ordered dialogue stream for Act II Scene 1 by interleaving lines and stage directions. */
-function buildSceneDialogue(playId: string, act: string, scene: string): DialogueEntry[] {
-  if (act !== 'II' || scene !== '1') return []
+interface RawSceneSummary {
+  act: string
+  actOrder: number
+  scene: string
+  sceneOrder: number
+  description: string | null
+  totalLines: number
+}
 
-  const userCharacterId = getEffectiveCharacterId(playId)
-  const sortable: SortableDialogueEntry[] = []
+type RawDialogueEntry =
+  | { type: 'stage'; text: string }
+  | { type: 'speech'; lineId: string; lineNumber: number; text: string; speakerIds: string[]; speakerNames: string[] }
 
-  for (const line of ACT_2_SCENE_1_LINES) {
-    const [primarySpeakerId, ...coSpeakerIds] = line.speakerIds
-    sortable.push({
-      sortKey: line.lineNumber,
-      sortTiebreak: 1,
-      entry: {
-        type: 'speech',
-        lineId: line.id,
-        speaker: characterName(primarySpeakerId),
-        coSpeakers: coSpeakerIds.length > 0 ? coSpeakerIds.map(characterName) : undefined,
-        text: line.text,
-        isUserLine: line.speakerIds.includes(userCharacterId),
-      },
-    })
+function toDialogueEntry(raw: RawDialogueEntry, userCharacterId: string): DialogueEntry {
+  if (raw.type === 'stage') {
+    return { type: 'stage', text: raw.text, isUserLine: false }
   }
-
-  for (const direction of ACT_2_SCENE_1_STAGE_DIRECTIONS) {
-    sortable.push({
-      sortKey: direction.afterLineNumber,
-      sortTiebreak: 0,
-      entry: {
-        type: 'stage',
-        text: direction.text,
-        isUserLine: false,
-      },
-    })
+  // Only the primary speaker's id is carried forward — Polly playback voices
+  // one character per line, and joint-speech lines are rare (BE_PLAN.md §1a).
+  const coSpeakerNames = raw.speakerNames.slice(1)
+  return {
+    type: 'speech',
+    lineId: raw.lineId,
+    speakerId: raw.speakerIds[0],
+    speaker: raw.speakerNames[0],
+    coSpeakers: coSpeakerNames.length > 0 ? coSpeakerNames : undefined,
+    text: raw.text,
+    isUserLine: raw.speakerIds.includes(userCharacterId),
   }
-
-  sortable.sort((a, b) => a.sortKey - b.sortKey || a.sortTiebreak - b.sortTiebreak)
-
-  return sortable.map((item) => item.entry)
 }
 
-export function getPlays(): Promise<PlaySummary[]> {
-  return delay(MOCK_PLAYS)
+export async function getPlays(): Promise<PlaySummary[]> {
+  const plays = await apiRequest<RawPlay[]>('/plays')
+  return plays.map((play) => ({
+    id: play.id,
+    title: play.title,
+    sourceUrl: play.sourceUrl ?? undefined,
+    createdAt: play.createdAt,
+    status: 'focus',
+    locked: false,
+    favorite: true,
+  }))
 }
 
-export function getPlay(playId: string): Promise<Play | undefined> {
-  const play = MOCK_PLAYS.find((p) => p.id === playId)
-  return delay(play ? { id: play.id, title: play.title, sourceUrl: play.sourceUrl, createdAt: play.createdAt } : undefined)
+export async function getPlay(playId: string): Promise<Play | undefined> {
+  const plays = await apiRequest<RawPlay[]>('/plays')
+  const play = plays.find((p) => p.id === playId)
+  return play ? { id: play.id, title: play.title, sourceUrl: play.sourceUrl ?? undefined, createdAt: play.createdAt } : undefined
 }
 
 export function getCharacters(playId: string): Promise<Character[]> {
-  return delay(MOCK_CHARACTERS.filter((c) => c.playId === playId))
+  return apiRequest(`/plays/${playId}/characters`)
 }
 
-export function getSelectedRole(playId: string): Promise<Character | null> {
+export async function getSelectedRole(playId: string): Promise<Character | null> {
   const characterId = localStorage.getItem(roleStorageKey(playId))
-  const character = characterId ? (MOCK_CHARACTERS.find((c) => c.id === characterId) ?? null) : null
-  return delay(character)
+  if (!characterId) return null
+  const characters = await getCharacters(playId)
+  return characters.find((c) => c.id === characterId) ?? null
 }
 
 export function selectRole(playId: string, characterId: string): Promise<void> {
   localStorage.setItem(roleStorageKey(playId), characterId)
-  return delay(undefined)
+  return Promise.resolve()
 }
 
-export function getScenesSummary(_playId: string): Promise<SceneSummary[]> {
-  return delay(MOCK_SCENES_SUMMARY)
+export async function getScenesSummary(playId: string): Promise<SceneSummary[]> {
+  const scenes = await apiRequest<RawSceneSummary[]>(`/plays/${playId}/scenes`)
+  return scenes.map((s) => ({
+    act: s.act,
+    actOrder: s.actOrder,
+    scene: s.scene,
+    sceneOrder: s.sceneOrder,
+    title: `Scene ${s.scene}`,
+    description: s.description ?? undefined,
+    // No session_history/line_mastery yet — every scene is legitimately
+    // "not started," not a fake fraction. isCurrent likewise always false;
+    // ScenePickerPage already falls back to scenes[0] when none match.
+    mastered: 0,
+    total: s.totalLines,
+    isCurrent: false,
+  }))
 }
 
-export function getSceneDialogue(playId: string, act: string, scene: string): Promise<DialogueEntry[]> {
-  return delay(buildSceneDialogue(playId, act, scene))
-}
-
-export function getSingleLineDialogue(playId: string, lineId: string): Promise<DialogueEntry[]> {
-  const line = findLineById(lineId)
-  if (!line) return delay([])
+export async function getSceneDialogue(playId: string, act: string, scene: string): Promise<DialogueEntry[]> {
   const userCharacterId = getEffectiveCharacterId(playId)
-  const [primarySpeakerId, ...coSpeakerIds] = line.speakerIds
-  const entry: DialogueEntry = {
-    type: 'speech',
-    lineId: line.id,
-    speaker: characterName(primarySpeakerId),
-    coSpeakers: coSpeakerIds.length > 0 ? coSpeakerIds.map(characterName) : undefined,
-    text: line.text,
-    isUserLine: line.speakerIds.includes(userCharacterId),
-  }
-  return delay([entry])
+  const raw = await apiRequest<RawDialogueEntry[]>(`/plays/${playId}/scenes/${act}/${scene}/dialogue`)
+  return raw.map((entry) => toDialogueEntry(entry, userCharacterId))
+}
+
+export async function getSingleLineDialogue(playId: string, lineId: string): Promise<DialogueEntry[]> {
+  const userCharacterId = getEffectiveCharacterId(playId)
+  const raw = await apiRequest<RawDialogueEntry>(`/plays/${playId}/lines/${lineId}`)
+  return [toDialogueEntry(raw, userCharacterId)]
 }
 
 export function getWrapUpSummary(playId: string, act: string, scene: string): Promise<WrapUpSummary> {
@@ -139,7 +149,7 @@ export function getWrapUpSummary(playId: string, act: string, scene: string): Pr
     .map(buildFlaggedLine)
     .filter((entry): entry is FlaggedLine => entry !== undefined)
 
-  return delay({
+  return Promise.resolve({
     playId,
     act,
     scene,
@@ -150,15 +160,14 @@ export function getWrapUpSummary(playId: string, act: string, scene: string): Pr
 }
 
 export function getPromptBookSummary(playId: string): Promise<PromptBookSummary> {
-  const play = MOCK_PLAYS.find((p) => p.id === playId)
   const needsAnotherLook = MOCK_FLAGGED_LINES.map(buildFlaggedLine).filter((entry): entry is FlaggedLine => entry !== undefined)
 
-  return delay({
+  return Promise.resolve({
     playId,
-    playTitle: play?.title ?? '',
-    characterName: characterName(getEffectiveCharacterId(playId)),
-    mastered: play?.mastery?.mastered ?? 0,
-    total: play?.mastery?.total ?? 0,
+    playTitle: 'The Merry Wives of Windsor',
+    characterName: 'Mistress Ford',
+    mastered: 71,
+    total: 96,
     needsAnotherLook,
   })
 }

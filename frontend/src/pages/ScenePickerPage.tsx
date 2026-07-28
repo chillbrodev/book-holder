@@ -5,14 +5,18 @@ import { useAsync } from '../hooks/useAsync'
 import { groupScenesByAct } from '../utils/format'
 import { MasteryBar } from '../components/mastery/MasteryBar'
 import { SceneRow } from '../components/lists/SceneRow'
+import { AsyncStatus } from '../components/core/AsyncStatus'
 import styles from './ScenePickerPage.module.css'
 
 export function ScenePickerPage() {
   const { playId = '' } = useParams()
   const navigate = useNavigate()
 
-  const { data: character, loading: roleLoading } = useAsync(() => getSelectedRole(playId), [playId])
-  const { data: scenes, loading: scenesLoading } = useAsync(() => getScenesSummary(playId), [playId])
+  const { data: character, loading: roleLoading, error: roleError } = useAsync(() => getSelectedRole(playId), [playId])
+  const { data: scenes, loading: scenesLoading, error: scenesError } = useAsync(
+    () => getScenesSummary(playId),
+    [playId],
+  )
 
   useEffect(() => {
     if (!roleLoading && !character) {
@@ -20,8 +24,8 @@ export function ScenePickerPage() {
     }
   }, [roleLoading, character, playId, navigate])
 
-  if (roleLoading || scenesLoading || !character || !scenes) {
-    return <p className="bh-label">Loading…</p>
+  if (roleLoading || scenesLoading || scenesError || !character || !scenes) {
+    return <AsyncStatus loading={roleLoading || scenesLoading} error={roleError ?? scenesError} />
   }
 
   const current = scenes.find((scene) => scene.isCurrent) ?? scenes[0]
