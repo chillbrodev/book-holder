@@ -78,7 +78,7 @@ is a solo, out-of-pocket, time-boxed build and there's no benefit to learning ne
 | Backend hosting | AWS ECS Express Mode (Fargate-based, auto-provisioned ALB) | AWS's recommended App Runner replacement (App Runner is in maintenance mode as of 2026-04-30); HTTPS termination for mic capture's secure-context requirement — see `docs/PROJECT_PLAN.md` §9 for the real cost breakdown |
 | Database | CockroachDB Serverless | Memory layer: sessions, line mastery, mistake embeddings, all transactional |
 | LLM | Amazon Bedrock — Nova Micro/Lite (per-line comparison), a stronger model (session summaries) | Cost-scaled to call frequency |
-| Voice | Amazon Polly (neural voices, one per character, cached per line) | |
+| Voice | Amazon Polly (generative voices, one per character via `characters.polly_voice_id`, cached per line) | |
 | Listening | Amazon Transcribe (post-utterance, not streaming) | Live STT cut for time/risk — stretch goal |
 | Recordings | Amazon S3 | Session playback |
 
@@ -105,7 +105,8 @@ is a solo, out-of-pocket, time-boxed build and there's no benefit to learning ne
     BEDROCK_MODEL_ID_COMPARISON=  # cheap model, per-line comparison (e.g. Nova Micro/Lite)
     BEDROCK_MODEL_ID_SUMMARY=     # stronger model, infrequent session summaries
     S3_RECORDINGS_BUCKET=
-    POLLY_VOICE_MAP=              # character -> Polly voice ID mapping, see api/config
+    POLLY_CACHE_BUCKET=           # S3 bucket for cached line audio; see infra/aws/README.md
+    POLLY_DEFAULT_VOICE_ID=       # fallback voice for a character with no characters.polly_voice_id set; defaults to Brian
 
 No AWS keys are ever present in `frontend` — all Bedrock/Polly/Transcribe/S3 calls route through `api`.
 

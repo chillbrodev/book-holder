@@ -11,11 +11,41 @@ production-readiness — plus the tools and docs needed to build it.
 **Done**: CockroachDB schema migrated (`infra/cockroachdb/migrations/001_init_schema.sql`), Merry Wives of
 Windsor imported and verified (1 play, 24 characters, 2610 lines, 193 stage directions). The schema actually
 built deviates structurally from `PROJECT_PLAN.md` §5 in two ways (plus one implementation-status note) —
-see §1a below. `api` scaffolded with Deno + `deno.json` and a placeholder `Deno.serve` handler
-(`api/main.ts`) — not yet Hono, no endpoints, no Bedrock/Polly/Transcribe/S3 integration yet.
+see §1a below. `api` built on Deno + Hono with username+PIN auth (`features/auth`). Dockerfile + ECS Express
+Mode deploy scripted (`api/Dockerfile`, `infra/aws/ecs-deploy.sh`), not yet run against a real account.
 
-**Not started**: routing on Hono, real endpoints, Dockerfile/ECS deploy, Bedrock/Polly/Transcribe/S3
-integration. Everything in this doc past §1a is still a plan, not built.
+Polly voice synthesis wired up (`features/polly`, `clients/polly-client`, `clients/s3-client`): per-`GET
+/polly/lines/:lineId/audio?characterId=`, cached once per `(lineId, voiceId)` in S3, served back via a signed
+URL; falls back to a `VOICE_UNAVAILABLE` error carrying the line text if Polly errors and no cache exists
+(§5 below). Gated behind `sessionMiddleware` since every miss is a billed AWS call. Same code path locally
+and deployed — credentials come from the AWS SDK's default provider chain (env vars locally, ECS task role
+when deployed), not branched in code. `ecs-deploy.sh` now also provisions the Polly cache S3 bucket and a
+task role scoped to `polly:SynthesizeSpeech` + bucket read/write/head/list.
+
+Cache key is `{play}/{character}/{lineId}__{voiceId}.mp3` (slugified play title and character name), not a
+flat `{lineId}/{voiceId}.mp3` — grouped for browsability in the S3 console; see `PollyService`'s `cacheKey`/
+`slugify`. `s3:ListBucket` on the bucket itself (not just object-level actions) is required for this to work
+correctly — without it, S3 masks "object doesn't exist" as a generic `403` instead of `404` for a scoped IAM
+principal, which breaks cache-miss detection. Confirmed by hitting this directly; both `create-dev-user.sh`
+and `ecs-deploy.sh`'s task role grant it.
+
+Local dev's AWS SDK calls (this is not the AWS CLI) cannot use `aws login` sessions — that session type isn't
+recognized by the SDK's credential chain. `./infra/aws/create-dev-user.sh` provisions a separate, scoped IAM
+user with a permanent key for this; see `infra/aws/README.md`.
+
+Uses the **Generative** engine (not Neural) — Amazon Polly's most expressive/human-like voices; confirmed
+available in `us-west-2` (our deploy default). Voice is per-character, stored in `characters.polly_voice_id`
+(`infra/cockroachdb/migrations/003_polly_voice_id.sql`), not an env var — `characters` is already play-scoped
+in the schema, so this lets two plays' same-named characters carry different voices and lets a voice change
+via `UPDATE` rather than an env edit + redeploy. Merry Wives of Windsor is currently assigned British English
+generative voices (**Amy**/female, **Brian**/male) per character gender, sourced from
+stageagent.com's cast list; unassigned characters fall back to `POLLY_DEFAULT_VOICE_ID` (default `Brian`).
+`getLineAudio` now takes `characterId`, not a character name, and joins through `line_speakers` to confirm
+the requested character actually speaks the requested line before resolving a voice (§1a).
+
+**Not started**: Bedrock (comparison + coaching) and Transcribe (listening) integration, session
+start/submission/end endpoints, the read-decide-act-write loop itself. The Polly endpoint above is a
+standalone building block — nothing yet calls it as part of an actual rehearsal session flow.
 
 ## 1b. Runtime note: Deno + Hono, not Node/Express
 
@@ -166,8 +196,8 @@ Discovered from the real Merry Wives of Windsor XML during import, not hypotheti
   treatment described in §3 above.
 - Current Bedrock model IDs and pricing for Nova Micro/Lite and whichever stronger model is chosen for
   summaries — verify at build time, not from memory (pricing/IDs shift).
-- Polly voice catalog — confirm neural voice availability per target character before building
-  `POLLY_VOICE_MAP`.
+- ~~Polly voice catalog~~ — resolved: Generative engine, British English (Amy/Brian), assigned per character
+  via `characters.polly_voice_id`. See §0 above.
 - Transcribe API docs — confirm request/response shape for post-utterance (non-streaming) transcription.
 - **ECS Express Mode docs** — confirm current setup flow (task execution role + infrastructure role
   requirements), and specifically its **default networking** (public subnet vs. NAT Gateway) before deploying

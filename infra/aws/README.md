@@ -2,9 +2,12 @@
 
 ## Credentials (local dev)
 
-Configured via `aws login` (AWS CLI ≥2.32.0), not a static IAM access key: it reuses your AWS Console
-sign-in through a browser OAuth flow and caches short-lived credentials (auto-refreshed, ~12h) locally. No
-long-lived secret sitting in `~/.aws/credentials` or `.env` to leak or rotate.
+Two separate credential paths — don't conflate them:
+
+**The `aws` CLI itself** (running `ecs-deploy.sh`, `budget-alert.sh`, `create-dev-user.sh`, or any manual
+`aws ...` command) uses `aws login` (AWS CLI ≥2.32.0): reuses your AWS Console sign-in through a browser
+OAuth flow, caches short-lived credentials (auto-refreshed, ~12h) locally. No long-lived secret sitting in
+`~/.aws/credentials` to leak or rotate.
 
 ```
 aws login
@@ -15,6 +18,33 @@ Root is unrestricted, so treat this like any other elevated session (don't leave
 re-run `aws login` when it expires rather than reaching for a permanent key). If tighter scoping is ever
 wanted, an IAM user with the `SignInLocalDevelopmentAccess` managed policy can be used with `aws login`
 instead — see the discussion this traded off against in conversation history if picking that up later.
+
+**The `api` app's own AWS SDK calls** (Polly, S3 — made by whatever process runs `deno task dev`/`warm-polly-cache`/`test-polly-line`
+on your machine) **cannot use `aws login` sessions at all.** `aws login` creates a CLI-only `login_session`
+profile type in `~/.aws/config` that the AWS SDK for JavaScript doesn't recognize — confirmed by hitting this
+directly: the SDK's default credential chain fails with "Could not load credentials from any providers" against
+a fresh `aws login` session, even though the CLI itself authenticates fine. (A `credential_process` shim can
+bridge this, but it means granting the Deno process subprocess/`~/.aws` read permissions for something that
+still expires every ~12h — more moving parts than it's worth here.)
+
+Instead, run:
+
+```
+./infra/aws/create-dev-user.sh
+```
+
+Creates a scoped IAM user (`book-holder-local-dev`) with a permanent access key, writes
+`AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` straight into the root `.env` (never printed to the terminal —
+that's the only moment AWS reveals the secret half of the pair), and grants exactly `polly:SynthesizeSpeech`
+plus read/write/head/list on the Polly cache bucket — nothing broader. Idempotent: re-running updates the
+policy in place and skips creating a second access key if one already exists (IAM caps a user at 2 keys,
+and AWS won't show you an existing secret again). As local dev needs more AWS access later (Bedrock,
+Transcribe), extend this script's policy rather than creating another user.
+
+Bucket-level `s3:ListBucket` is included deliberately, not just object-level `GetObject`/`PutObject`/`HeadObject`
+— without it, S3 masks "object doesn't exist" as a generic `403` instead of `404` for this principal, which
+breaks the cache-miss detection `PollyService` relies on. Also hit this directly; see the matching comment in
+`ecs-deploy.sh`'s task role policy.
 
 ## Budget alert
 
@@ -48,6 +78,27 @@ it with `BUDGET_AMOUNT_USD=40 ./infra/aws/budget-alert.sh` once ECS is live.
 ```
 
 Builds `api/Dockerfile`, pushes to ECR, and creates (first run) or updates (subsequent runs) the
-`book-holder-api` Express Mode service — idempotent, same pattern as `budget-alert.sh`. Requires Docker and
-an authenticated AWS CLI session locally. **This creates real, billed AWS resources (ALB + Fargate task)
+`book-holder-api` Express Mode service — idempotent, same pattern as `budget-alert.sh`. Requires Docker, `jq`,
+and an authenticated AWS CLI session locally. **This creates real, billed AWS resources (ALB + Fargate task)
 the moment the service goes `ACTIVE`** — not a dry run, don't run it casually against a real account.
+
+Also provisions, idempotently, what the Polly workflow needs at runtime:
+- An S3 bucket for cached line audio (`book-holder-polly-cache-<account-id>` by default — S3 bucket names
+  are globally unique, so the account ID is appended; override with `POLLY_CACHE_BUCKET_NAME`).
+- A **task role** (`book-holder-api-task-role` by default, override with `TASK_ROLE_NAME`) — distinct from
+  the task *execution* role above, which only covers image pull + logs. This is the role the running
+  container assumes to call `polly:SynthesizeSpeech` and `s3:GetObject`/`PutObject`/`HeadObject` on its own
+  cache bucket, scoped via an inline policy rather than a broad managed one.
+- Passes `AWS_REGION` and `POLLY_CACHE_BUCKET` into the container's environment automatically, plus
+  `POLLY_DEFAULT_VOICE_ID` if it's exported in your shell before running the script (the script doesn't read
+  `.env` — it's a separate deploy-time environment from local dev's). Per-character voices live in
+  `characters.polly_voice_id` (DB, not env) — see `docs/BE_PLAN.md` §4.
+
+**Not yet wired into the container by this script**: `COCKROACHDB_URL`, `ALLOWED_ORIGIN`, and the rest of
+`.env.example` — a pre-existing gap, unrelated to Polly, that still needs closing before a real end-to-end
+deploy works.
+
+For **local dev**, set `POLLY_CACHE_BUCKET` in the root `.env` to whatever bucket name you're using (run
+`ecs-deploy.sh` once to have it create `book-holder-polly-cache-<account-id>` and reuse that name locally, or
+create your own bucket manually first). Local Polly calls use the same code path as deployed — no mock — with
+credentials resolved from `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` in `.env` rather than a task role.
