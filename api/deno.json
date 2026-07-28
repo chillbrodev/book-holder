@@ -1,7 +1,7 @@
 {
   "tasks": {
     "dev": "deno run --watch --allow-net --allow-env --allow-read=../.env --allow-sys=osRelease src/main.ts",
-    "production": "deno run --allow-net --allow-env --allow-read=../.env --allow-sys=osRelease src/main.ts",
+    "production": "deno run --allow-net --allow-env --allow-sys=osRelease src/main.ts",
     "start": "deno run --allow-net --allow-env --allow-read=../.env --allow-sys=osRelease src/main.ts",
     "test": "deno test --allow-net --allow-env --allow-read=../.env --allow-sys=osRelease",
     "warm-polly-cache": "deno run --allow-net --allow-env --allow-read=../.env --allow-sys=osRelease src/scripts/warmPollyCache.ts",

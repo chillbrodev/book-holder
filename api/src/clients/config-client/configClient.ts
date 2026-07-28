@@ -4,12 +4,21 @@ import { bold, red } from "@std/fmt/colors";
 // Repo root .env (one level above api/) — shared with infra/cockroachdb's
 // migrate.ts and packages/play-importer, which read the same
 // COCKROACHDB_URL. Resolved relative to CWD: `deno task` sets CWD to
-// api/ (deno.json's directory), so "../.env" lands on the repo root both
-// in local dev and inside the Docker image (WORKDIR /app mirrors api/).
-// In deployed ECS, no .env file exists (see api/.dockerignore) — loadSync
-// no-ops silently on a missing file, and real values come from the ECS
-// task definition's environment instead.
-loadSync({ envPath: "../.env", export: true });
+// api/ (deno.json's directory), so "../.env" lands on the repo root in
+// local dev.
+//
+// Skipped entirely in production — ECS injects the task definition's
+// environment variables directly into the process before the container's
+// CMD even runs, so there's no .env file to load there (see
+// api/.dockerignore) and no reason to grant read-file permission to attempt
+// one. Deno's permission check happens before the file-existence check, so
+// the "production" deno task deliberately doesn't grant
+// --allow-read=../.env — attempting loadSync unconditionally would throw
+// PermissionDenied on every boot instead of the graceful no-op a missing
+// file would otherwise get.
+if (Deno.env.get("DENO_ENV") !== "production") {
+  loadSync({ envPath: "../.env", export: true });
+}
 
 // `KEY=` (blank, not removed) is how `.env.example` marks an unfilled var,
 // and `Deno.env.get` returns "" for it, not undefined — `===undefined`/`??`

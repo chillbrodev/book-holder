@@ -90,13 +90,22 @@ Also provisions, idempotently, what the Polly workflow needs at runtime:
   container assumes to call `polly:SynthesizeSpeech` and `s3:GetObject`/`PutObject`/`HeadObject` on its own
   cache bucket, scoped via an inline policy rather than a broad managed one.
 - Passes `AWS_REGION` and `POLLY_CACHE_BUCKET` into the container's environment automatically, plus
-  `POLLY_DEFAULT_VOICE_ID` if it's exported in your shell before running the script (the script doesn't read
-  `.env` — it's a separate deploy-time environment from local dev's). Per-character voices live in
-  `characters.polly_voice_id` (DB, not env) — see `docs/BE_PLAN.md` §4.
+  `POLLY_DEFAULT_VOICE_ID` if it's exported in your shell before running the script. Per-character voices
+  live in `characters.polly_voice_id` (DB, not env) — see `docs/BE_PLAN.md` §4.
+- Also passes `DENO_ENV=production` (hardcoded — required for the auth cookie's cross-origin
+  `Secure`/`SameSite=None` flags, since Amplify and ECS are different origins), plus `COCKROACHDB_URL` and
+  `ALLOWED_ORIGIN`, pulled from the root `.env` (or exported to override — e.g.
+  `ALLOWED_ORIGIN=https://your-domain ./infra/aws/ecs-deploy.sh`). The script parses just those two specific
+  keys out of `.env` rather than sourcing the whole file — sourcing it would also export
+  `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` (the scoped Polly-only local-dev user's keys, see
+  `create-dev-user.sh` above) into the script's own shell, silently overriding the `aws login` session every
+  other AWS call in this script relies on. Fails fast with a clear message if either is blank/missing —
+  `ALLOWED_ORIGIN` in particular needs to be the *deployed frontend's* real origin, not `localhost`, or CORS
+  blocks it; it's very likely still blank in your local `.env` (that file's `ALLOWED_ORIGIN` is for local
+  dev), so set it there before running this against a real deploy.
 
-**Not yet wired into the container by this script**: `COCKROACHDB_URL`, `ALLOWED_ORIGIN`, and the rest of
-`.env.example` — a pre-existing gap, unrelated to Polly, that still needs closing before a real end-to-end
-deploy works.
+**Still not wired into the container**: `BEDROCK_MODEL_ID_*`/`S3_RECORDINGS_BUCKET` — nothing reads them yet
+(Bedrock/S3-recordings integration isn't built), so there's nothing to pass until that exists.
 
 For **local dev**, set `POLLY_CACHE_BUCKET` in the root `.env` to whatever bucket name you're using (run
 `ecs-deploy.sh` once to have it create `book-holder-polly-cache-<account-id>` and reuse that name locally, or

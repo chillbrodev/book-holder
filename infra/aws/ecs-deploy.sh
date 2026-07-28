@@ -8,23 +8,29 @@
 #
 # Requires: docker, jq, aws CLI configured (see infra/aws/README.md — `aws login`).
 #
-# NOTE: this only wires up the container env vars the Polly workflow needs
-# (AWS_REGION, POLLY_CACHE_BUCKET, and POLLY_DEFAULT_VOICE_ID if exported
-# before running — per-character voices live in characters.polly_voice_id,
-# not an env var). COCKROACHDB_URL, ALLOWED_ORIGIN, and the rest of
-# .env.example are NOT yet passed to the deployed container — that's a
-# pre-existing gap, not something this script closes.
+# NOTE: wires up AWS_REGION, POLLY_CACHE_BUCKET, POLLY_DEFAULT_VOICE_ID (if
+# exported — per-character voices live in characters.polly_voice_id, not an
+# env var), DENO_ENV=production, and COCKROACHDB_URL/ALLOWED_ORIGIN (pulled
+# from the root .env, or exported to override — see COCKROACHDB_URL/
+# ALLOWED_ORIGIN below). BEDROCK_MODEL_ID_*/S3_RECORDINGS_BUCKET are still
+# NOT passed — nothing reads them yet (Bedrock/S3-recordings integration
+# isn't built), so there's nothing to wire up until that exists.
 #
 # Usage:
 #   ./infra/aws/ecs-deploy.sh
 #
 # Optional overrides:
+#   COCKROACHDB_URL=...                                 (default: read from the root .env)
+#   ALLOWED_ORIGIN=https://your-deployed-frontend.example (default: read from the root .env —
+#                                                          must be the real deployed frontend's
+#                                                          origin, not localhost, or CORS blocks it)
 #   AWS_REGION=us-west-2                              (default)
 #   ECR_REPO_NAME=book-holder-api                      (default)
 #   SERVICE_NAME=book-holder-api                        (default)
-#   ECS_CPU=0.25                                        (default — vCPU; confirm the API accepts fractional
-#                                                         values, docs examples only show whole numbers)
-#   ECS_MEMORY=0.5                                      (default — GB)
+#   ECS_CPU=256                                          (default — CPU *units*, not vCPUs: 256 = .25 vCPU.
+#                                                         Confirmed via `aws ecs create-express-gateway-service
+#                                                         help` — a bare "0.25" 400s with InvalidParameterException.)
+#   ECS_MEMORY=512                                        (default — MiB, not GB, same help output)
 #   CONTAINER_PORT=8000                                 (default — must match api/main.ts's PORT fallback)
 #   HEALTH_CHECK_PATH=/                                 (default)
 #   EXEC_ROLE_NAME=ecsTaskExecutionRole                 (default, AWS's suggested name)
@@ -43,8 +49,8 @@ set -euo pipefail
 AWS_REGION="${AWS_REGION:-us-west-2}"
 ECR_REPO_NAME="${ECR_REPO_NAME:-book-holder-api}"
 SERVICE_NAME="${SERVICE_NAME:-book-holder-api}"
-ECS_CPU="${ECS_CPU:-0.25}"
-ECS_MEMORY="${ECS_MEMORY:-0.5}"
+ECS_CPU="${ECS_CPU:-256}"
+ECS_MEMORY="${ECS_MEMORY:-512}"
 CONTAINER_PORT="${CONTAINER_PORT:-8000}"
 HEALTH_CHECK_PATH="${HEALTH_CHECK_PATH:-/}"
 EXEC_ROLE_NAME="${EXEC_ROLE_NAME:-ecsTaskExecutionRole}"
@@ -53,6 +59,37 @@ TASK_ROLE_NAME="${TASK_ROLE_NAME:-book-holder-api-task-role}"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 API_DIR="$REPO_ROOT/api"
+
+# Pulls just the one named key out of .env — deliberately not `source .env`
+# or a full export, which would also pull in AWS_ACCESS_KEY_ID/
+# AWS_SECRET_ACCESS_KEY (the scoped Polly-only local-dev IAM user's keys,
+# see create-dev-user.sh) into this script's shell and silently override the
+# `aws login` session every other AWS call here relies on, breaking ECR/IAM/
+# ECS access with an unrelated permissions error.
+read_env_var() {
+  local key="$1" file="$2" line value
+  [ -f "$file" ] || return 0
+  line="$(grep -E "^${key}=" "$file" | tail -1)"
+  value="${line#*=}"
+  # Strip one pair of surrounding double quotes, if present (plain bash
+  # parameter expansion rather than sed, to sidestep nested-quote escaping).
+  if [[ "$value" == \"*\" && "$value" == *\" ]]; then
+    value="${value#\"}"
+    value="${value%\"}"
+  fi
+  printf '%s' "$value"
+}
+
+# Shell-exported values win (same override pattern as POLLY_DEFAULT_VOICE_ID
+# below); otherwise read from the root .env — the same COCKROACHDB_URL local
+# dev uses (one cluster), and whatever ALLOWED_ORIGIN is set there (the
+# deployed frontend's real origin, not localhost — set it in .env before
+# running this against a real deploy).
+COCKROACHDB_URL="${COCKROACHDB_URL:-$(read_env_var COCKROACHDB_URL "$REPO_ROOT/.env")}"
+ALLOWED_ORIGIN="${ALLOWED_ORIGIN:-$(read_env_var ALLOWED_ORIGIN "$REPO_ROOT/.env")}"
+
+: "${COCKROACHDB_URL:?COCKROACHDB_URL is blank/missing in .env — set it before deploying, the container will crash-loop without it}"
+: "${ALLOWED_ORIGIN:?ALLOWED_ORIGIN is blank/missing in .env — set it to the deployed frontend origin before deploying, or CORS will block it}"
 
 ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
 IMAGE_TAG="$(git -C "$REPO_ROOT" rev-parse --short HEAD 2>/dev/null || echo latest)"
@@ -89,6 +126,29 @@ aws ecr get-login-password --region "$AWS_REGION" \
 docker build -t "$ECR_URI:$IMAGE_TAG" -t "$ECR_URI:latest" "$API_DIR"
 docker push "$ECR_URI:$IMAGE_TAG"
 docker push "$ECR_URI:latest"
+
+# --- AWS-managed service-linked roles (idempotent) ---
+# Distinct from the roles below: these are AWS's own predefined roles (fixed
+# permissions, not ours to author) that ECS/ELB need to exist in the account
+# at all before Express Mode can provision anything. Normally auto-created
+# the first time the console/CLI touches the relevant service, but a fresh
+# or lightly-used account (like this one, hit directly) may never have
+# triggered that. create-service-linked-role has no "does it exist" flag, so
+# check via get-role first — this is not something to try creating twice.
+# service:role_name pairs — AWS's role-naming isn't a predictable transform
+# of the service name (ECS is the all-caps acronym, ElasticLoadBalancing is
+# title-cased), so this is an explicit list, not derived.
+SERVICE_LINKED_ROLES="ecs.amazonaws.com:AWSServiceRoleForECS elasticloadbalancing.amazonaws.com:AWSServiceRoleForElasticLoadBalancing"
+for pair in $SERVICE_LINKED_ROLES; do
+  service="${pair%%:*}"
+  role_name="${pair##*:}"
+  if ! aws iam get-role --role-name "$role_name" >/dev/null 2>&1; then
+    echo "Creating AWS service-linked role '$role_name'..."
+    aws iam create-service-linked-role --aws-service-name "$service" >/dev/null
+  else
+    echo "AWS service-linked role '$role_name' already exists — skipping."
+  fi
+done
 
 # --- IAM roles (idempotent) ---
 ROLE_JUST_CREATED=0
@@ -171,13 +231,22 @@ CANDIDATE_SERVICE_ARN="arn:aws:ecs:$AWS_REGION:$ACCOUNT_ID:service/default/$SERV
 
 # Built with jq rather than string interpolation for the same reason as the
 # IAM policy above — safe to extend with values that might contain quotes
-# later without re-deriving escaping rules.
+# (COCKROACHDB_URL has ':', '@', '?' in it) without re-deriving escaping
+# rules. DENO_ENV is hardcoded "production", not sourced from .env — local
+# dev's .env deliberately says LOCAL, but the deployed container should
+# always be "production" regardless of what the deploying machine's local
+# dev config says (it controls the auth cookie's Secure/SameSite=None
+# flags, required since Amplify and ECS are different origins).
 CONTAINER_ENV_JSON=$(jq -n \
   --arg port "$CONTAINER_PORT" \
   --arg region "$AWS_REGION" \
   --arg bucket "$POLLY_CACHE_BUCKET_NAME" \
   --arg defaultVoice "${POLLY_DEFAULT_VOICE_ID:-}" \
-  '[{name: "PORT", value: $port}, {name: "AWS_REGION", value: $region}, {name: "POLLY_CACHE_BUCKET", value: $bucket}]
+  --arg dbUrl "$COCKROACHDB_URL" \
+  --arg allowedOrigin "$ALLOWED_ORIGIN" \
+  '[{name: "PORT", value: $port}, {name: "AWS_REGION", value: $region}, {name: "POLLY_CACHE_BUCKET", value: $bucket},
+     {name: "DENO_ENV", value: "production"}, {name: "COCKROACHDB_URL", value: $dbUrl},
+     {name: "ALLOWED_ORIGIN", value: $allowedOrigin}]
    + (if $defaultVoice != "" then [{name: "POLLY_DEFAULT_VOICE_ID", value: $defaultVoice}] else [] end)')
 
 PRIMARY_CONTAINER=$(jq -n \
