@@ -28,3 +28,9 @@
 .masteryRow {
   margin-top: 9px;
 }
+
+.meta {
+  font-family: var(--bh-font-sans);
+  font-size: 13px;
+  color: var(--bh-text-muted);
+}

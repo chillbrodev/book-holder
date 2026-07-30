@@ -28,6 +28,11 @@ export type SceneSummaryRow = {
   sceneOrder: number;
   description: string | null;
   totalLines: number;
+  /** Lines spoken in this scene by the character listScenes was called for,
+   * or 0 when it was called without one. Lets the scene picker lead with the
+   * scenes a part is actually in — for a 12-line role, a flat list of all 23
+   * scenes buries the one that matters. */
+  characterLines: number;
 };
 
 export type DialogueEntryRow =
@@ -129,16 +134,26 @@ export const PlaysService = {
     }));
   },
 
-  async listScenes(playId: string): Promise<SceneSummaryRow[]> {
+  /** The LEFT JOIN is filtered to one character in its ON clause, not the
+   * WHERE — so scenes the character isn't in still come back (at 0), and each
+   * line still contributes exactly one row, keeping count(*) an honest total.
+   * count(ls.line_id) then counts only the matched rows. Passing a null
+   * characterId matches nothing, so characterLines is 0 throughout. */
+  async listScenes(
+    playId: string,
+    characterId?: string,
+  ): Promise<SceneSummaryRow[]> {
     const result = await DbClient.getPool().query(
-      `SELECT act, act_order, scene, scene_order,
-              max(scene_description) AS scene_description,
-              count(*) AS total_lines
-       FROM lines
-       WHERE play_id = $1
-       GROUP BY act, act_order, scene, scene_order
-       ORDER BY act_order, scene_order`,
-      [playId],
+      `SELECT l.act, l.act_order, l.scene, l.scene_order,
+              max(l.scene_description) AS scene_description,
+              count(*) AS total_lines,
+              count(ls.line_id) AS character_lines
+       FROM lines l
+       LEFT JOIN line_speakers ls ON ls.line_id = l.id AND ls.character_id = $2
+       WHERE l.play_id = $1
+       GROUP BY l.act, l.act_order, l.scene, l.scene_order
+       ORDER BY l.act_order, l.scene_order`,
+      [playId, characterId ?? null],
     );
     return result.rows.map((
       r: {
@@ -148,6 +163,7 @@ export const PlaysService = {
         scene_order: number | string;
         scene_description: string | null;
         total_lines: number | string;
+        character_lines: number | string;
       },
     ) => ({
       act: r.act,
@@ -156,6 +172,7 @@ export const PlaysService = {
       sceneOrder: Number(r.scene_order),
       description: r.scene_description,
       totalLines: Number(r.total_lines),
+      characterLines: Number(r.character_lines),
     }));
   },
 

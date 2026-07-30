@@ -15,9 +15,17 @@ plays.get(
   async (c) => c.json(await PlaysService.listCharacters(c.req.param("playId"))),
 );
 
+// Optional ?characterId= adds that character's per-scene line count, so the
+// scene picker can lead with the scenes their part is actually in.
 plays.get(
   "/:playId/scenes",
-  async (c) => c.json(await PlaysService.listScenes(c.req.param("playId"))),
+  async (c) =>
+    c.json(
+      await PlaysService.listScenes(
+        c.req.param("playId"),
+        c.req.query("characterId"),
+      ),
+    ),
 );
 
 plays.get("/:playId/scenes/:act/:scene/dialogue", async (c) => {

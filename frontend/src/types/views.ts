@@ -22,6 +22,9 @@ export interface SceneSummary {
   description?: string
   mastered: number
   total: number
+  /** Lines the rehearsing character speaks in this scene; 0 if they're not in
+   * it. Undefined when the scenes were fetched without a character. */
+  characterLines?: number
   isCurrent: boolean
 }
 

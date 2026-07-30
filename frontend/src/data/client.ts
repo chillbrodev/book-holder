@@ -84,6 +84,7 @@ interface RawSceneSummary {
   sceneOrder: number
   description: string | null
   totalLines: number
+  characterLines: number
 }
 
 type RawDialogueEntry =
@@ -143,8 +144,11 @@ export function selectRole(playId: string, characterId: string): Promise<void> {
   return Promise.resolve()
 }
 
-export async function getScenesSummary(playId: string): Promise<SceneSummary[]> {
-  const scenes = await apiRequest<RawSceneSummary[]>(`/plays/${playId}/scenes`)
+/** `characterId` asks the API for that character's per-scene line counts, so
+ * the picker can lead with the scenes their part is actually in. */
+export async function getScenesSummary(playId: string, characterId?: string): Promise<SceneSummary[]> {
+  const query = characterId ? `?characterId=${characterId}` : ''
+  const scenes = await apiRequest<RawSceneSummary[]>(`/plays/${playId}/scenes${query}`)
   return scenes.map((s) => ({
     act: s.act,
     actOrder: s.actOrder,
@@ -157,6 +161,7 @@ export async function getScenesSummary(playId: string): Promise<SceneSummary[]> 
     // the play page's resume card reads the locally-stored last scene instead.
     mastered: 0,
     total: s.totalLines,
+    characterLines: s.characterLines,
     isCurrent: false,
   }))
 }

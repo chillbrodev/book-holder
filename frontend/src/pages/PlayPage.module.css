@@ -115,6 +115,10 @@
    padding, so tiles don't show through beside or beneath the bar as they pass;
    the bottom one also lets it sit flush with the viewport edge at full scroll
    instead of floating 40px above it. */
+.sceneFilter {
+  margin-bottom: 18px;
+}
+
 .stepActions {
   position: sticky;
   bottom: 0;

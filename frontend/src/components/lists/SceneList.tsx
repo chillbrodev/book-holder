@@ -24,6 +24,7 @@ export function SceneList({ scenes, onSelect }: SceneListProps) {
                 description={scene.description}
                 mastered={scene.mastered}
                 total={scene.total}
+                yourLines={scene.characterLines}
                 current={scene.isCurrent}
                 onClick={() => onSelect(scene)}
                 isLast={i === group.scenes.length - 1}

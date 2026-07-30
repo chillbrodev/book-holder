@@ -4,6 +4,7 @@ import { getCharacters, getLastScene, getPlay, getScenesSummary, getSelectedRole
 import { useAsync } from '../hooks/useAsync'
 import { CharacterTile } from '../components/cards/CharacterTile'
 import { SceneList } from '../components/lists/SceneList'
+import { FilterTabs } from '../components/navigation/FilterTabs'
 import { AsyncStatus } from '../components/core/AsyncStatus'
 import { Button } from '../components/core/Button'
 import { Icon } from '../components/core/Icon'
@@ -35,13 +36,23 @@ export function PlayPage() {
     () => getCharacters(playId),
     [playId],
   )
-  const { data: scenes, loading: scenesLoading, error: scenesError } = useAsync(() => getScenesSummary(playId), [playId])
   const { data: existingRole, loading: roleLoading, error: roleError } = useAsync(() => getSelectedRole(playId), [playId])
   const { data: lastScene, loading: lastSceneLoading } = useAsync(() => getLastScene(playId), [playId])
 
   // Highlighted but not yet committed — the part is only saved on Continue, so
   // backing out of step one leaves the previously chosen part untouched.
   const [pickedRoleId, setPickedRoleId] = useState<string | null>(null)
+  const [showAllScenes, setShowAllScenes] = useState(false)
+
+  // Scenes are fetched per character so each row can say how much of it is
+  // hers. Keyed on the role id, so choosing a different part refetches — and
+  // because useAsync clears data while refetching, the page falls back to its
+  // loading state rather than briefly showing counts for the previous part.
+  const roleIdForScenes = pickedRoleId ?? existingRole?.id
+  const { data: scenes, loading: scenesLoading, error: scenesError } = useAsync(
+    () => getScenesSummary(playId, roleIdForScenes),
+    [playId, roleIdForScenes],
+  )
 
   const loading = playLoading || charactersLoading || scenesLoading || roleLoading || lastSceneLoading
   const error = playError ?? charactersError ?? scenesError ?? roleError
@@ -57,6 +68,10 @@ export function PlayPage() {
   // A part alone isn't a session — she may have chosen one and never started.
   // Both halves have to be present before offering to resume.
   const canResume = existingRole != null && lastScene != null
+  // Scenes the part actually appears in. For a 12-line role that's 1 row out
+  // of 23 — the whole reason the filter exists.
+  const scenesWithRole = scenes.filter((scene) => (scene.characterLines ?? 0) > 0)
+
   // Landing with no step named: resume if there's somewhere to resume to,
   // otherwise start at step one.
   //
@@ -157,7 +172,18 @@ export function PlayPage() {
               Change part
             </button>
           </p>
-          <SceneList scenes={scenes} onSelect={handlePickScene} />
+          {/* Only worth offering when it filters something out — a part in
+              every scene would get two tabs showing the same list. */}
+          {scenesWithRole.length < scenes.length && (
+            <div className={styles.sceneFilter}>
+              <FilterTabs
+                options={[`${toDisplayName(selected.name)}'s scenes`, 'All scenes']}
+                value={showAllScenes ? 'All scenes' : `${toDisplayName(selected.name)}'s scenes`}
+                onChange={(value) => setShowAllScenes(value === 'All scenes')}
+              />
+            </div>
+          )}
+          <SceneList scenes={showAllScenes ? scenes : scenesWithRole} onSelect={handlePickScene} />
         </section>
       )}
     </div>
