@@ -74,19 +74,42 @@
   color: var(--bh-gold-dark);
 }
 
-.section {
-  margin-top: 36px;
+.stepLabel {
+  margin-bottom: 6px;
 }
 
-.sectionTitle {
+.stepTitle {
   margin-bottom: 4px;
 }
 
-.sectionHint {
+.stepHint {
   font-family: var(--bh-font-sans);
   font-size: 15px;
   color: var(--bh-text-muted);
   margin: 0 0 18px;
+}
+
+/* Matches the surrounding sentence rather than sitting as a separate control —
+   it's an aside within the hint, not a second call to action competing with
+   the scene list. */
+.inlineLink {
+  font: inherit;
+  font-weight: 600;
+  color: var(--bh-gold-dark);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.stepActions {
+  margin-top: 22px;
+}
+
+.stepButton {
+  width: 100%;
 }
 
 .grid {

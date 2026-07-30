@@ -5,30 +5,30 @@ import { useAsync } from '../hooks/useAsync'
 import { CharacterTile } from '../components/cards/CharacterTile'
 import { SceneList } from '../components/lists/SceneList'
 import { AsyncStatus } from '../components/core/AsyncStatus'
+import { Button } from '../components/core/Button'
 import { Icon } from '../components/core/Icon'
 import { pluralize, toDisplayName } from '../utils/format'
 import type { SceneSummary } from '../types/views'
 import styles from './PlayPage.module.css'
 
 /**
- * Everything between picking a play and starting a scene, on one page under
- * one centred title — replaces the separate role-picker and scene-picker
- * routes, which split the decision across two screens and never said which
- * play you were in.
+ * Everything between picking a play and starting a scene, under one centred
+ * title — but as two separate steps, not one long page. Choosing a part and
+ * choosing a scene are different decisions, and stacking them meant the scene
+ * list appeared under your feet the moment you tapped a name.
  *
- * Two states:
- *  - Somewhere to resume (a saved part *and* a saved place) — two cards,
- *    carry on or start over. Nothing else competing for attention.
- *  - Otherwise — the part grid, then the scene list once a part is chosen.
+ * The step lives in the URL (`?step=role|scene`) rather than in component
+ * state so browser Back steps between them instead of leaving for the shelf —
+ * which is what someone reaching for Back after mis-tapping a part expects.
+ *
+ * With nowhere to resume, or arriving from the rehearsal screen's change
+ * links, it opens straight at the relevant step.
  */
 export function PlayPage() {
   const { playId = '' } = useParams()
   const navigate = useNavigate()
-  // `?change=scene|role` arrives from the rehearsal screen's change links —
-  // she's already mid-run and knows where she is, so the resume card would
-  // just be one more tap in the way of the picker she asked for.
   const [searchParams] = useSearchParams()
-  const arrivedToChange = searchParams.get('change') != null
+  const step = searchParams.get('step')
 
   const { data: play, loading: playLoading, error: playError } = useAsync(() => getPlay(playId), [playId])
   const { data: characters, loading: charactersLoading, error: charactersError } = useAsync(
@@ -39,9 +39,8 @@ export function PlayPage() {
   const { data: existingRole, loading: roleLoading, error: roleError } = useAsync(() => getSelectedRole(playId), [playId])
   const { data: lastScene, loading: lastSceneLoading } = useAsync(() => getLastScene(playId), [playId])
 
-  // Set when she chooses "start a new run" from the resume card — keeps her on
-  // this page in setup mode rather than routing somewhere else to do the same job.
-  const [startingOver, setStartingOver] = useState(arrivedToChange)
+  // Highlighted but not yet committed — the part is only saved on Continue, so
+  // backing out of step one leaves the previously chosen part untouched.
   const [pickedRoleId, setPickedRoleId] = useState<string | null>(null)
 
   const loading = playLoading || charactersLoading || scenesLoading || roleLoading || lastSceneLoading
@@ -53,18 +52,29 @@ export function PlayPage() {
   // Synthetic characters (e.g. "All", the group-speaker for unison lines —
   // see PROJECT_PLAN.md §6 parsing rule 5) aren't someone you can rehearse as.
   const selectableCharacters = characters.filter((c) => !c.isSynthetic)
+  const selected = selectableCharacters.find((c) => c.id === (pickedRoleId ?? existingRole?.id))
 
   // A part alone isn't a session — she may have chosen one and never started.
   // Both halves have to be present before offering to resume.
-  const canResume = existingRole != null && lastScene != null && !startingOver
-  const activeRoleId = pickedRoleId ?? existingRole?.id ?? null
-  const activeRole = selectableCharacters.find((c) => c.id === activeRoleId)
+  const canResume = existingRole != null && lastScene != null
+  // Landing with no step named: resume if there's somewhere to resume to,
+  // otherwise start at step one.
+  //
+  // Naming a step always skips the resume cards, even when the step can't be
+  // honoured — asking for the scene list with an unusable saved part (a stale
+  // id after a re-import, or one pointing at a synthetic character) should
+  // land on step one, not silently on a resume card she didn't ask for.
+  const namedStep = step === 'role' || step === 'scene'
+  const view = step === 'scene' && selected ? 'scene' : namedStep || !canResume ? 'role' : 'resume'
 
-  function handlePickRole(characterId: string) {
-    setPickedRoleId(characterId)
-    // Persisted immediately rather than on scene click — leaving now and
-    // coming back should remember the part, same as before.
-    void selectRole(playId, characterId)
+  function goToStep(next: 'role' | 'scene') {
+    navigate(`/play/${playId}?step=${next}`)
+  }
+
+  function handleContinueFromRole() {
+    if (!selected) return
+    void selectRole(playId, selected.id)
+    goToStep('scene')
   }
 
   function handlePickScene(scene: SceneSummary) {
@@ -75,7 +85,9 @@ export function PlayPage() {
     <div className={styles.wrap}>
       <h1 className={`bh-display ${styles.title}`}>{play.title}</h1>
 
-      {canResume ? (
+      {/* lastScene/existingRole are restated rather than relied on via
+          canResume — `view` is a string, so narrowing doesn't carry through it. */}
+      {view === 'resume' && lastScene && existingRole && (
         <div className={styles.cards}>
           <button
             type="button"
@@ -92,7 +104,7 @@ export function PlayPage() {
             </span>
           </button>
 
-          <button type="button" className={styles.card} onClick={() => setStartingOver(true)}>
+          <button type="button" className={styles.card} onClick={() => goToStep('role')}>
             <span className="bh-eyebrow">Start a new run</span>
             <span className={styles.cardTitle}>Read a different part</span>
             <span className={styles.cardBody}>Pick another role and choose a scene to work on.</span>
@@ -101,41 +113,52 @@ export function PlayPage() {
             </span>
           </button>
         </div>
-      ) : (
-        <>
-          <section className={styles.section}>
-            <h2 className={`bh-h2 ${styles.sectionTitle}`}>Who are you reading?</h2>
-            <p className={styles.sectionHint}>
-              {activeRole
-                ? `Reading ${toDisplayName(activeRole.name)}. Pick a different part if you'd rather.`
-                : 'Pick your part — the number of lines and scenes tells you how big it is.'}
-            </p>
-            <div className={styles.grid}>
-              {selectableCharacters.map((character) => (
-                <CharacterTile
-                  key={character.id}
-                  name={toDisplayName(character.name)}
-                  lineCount={character.lineCount}
-                  sceneCount={character.sceneCount}
-                  selected={activeRoleId === character.id}
-                  onClick={() => handlePickRole(character.id)}
-                />
-              ))}
-            </div>
-          </section>
+      )}
 
-          {activeRole && (
-            <section className={styles.section}>
-              <h2 className={`bh-h2 ${styles.sectionTitle}`}>Where do you want to start?</h2>
-              <p className={styles.sectionHint}>
-                {activeRole.sceneCount > 0
-                  ? `${toDisplayName(activeRole.name)} appears in ${pluralize(activeRole.sceneCount, 'scene')}. Pick any scene to run.`
-                  : 'Pick any scene to run.'}
-              </p>
-              <SceneList scenes={scenes} onSelect={handlePickScene} />
-            </section>
-          )}
-        </>
+      {view === 'role' && (
+        <section>
+          <div className={`bh-eyebrow ${styles.stepLabel}`}>Step 1 of 2</div>
+          <h2 className={`bh-h2 ${styles.stepTitle}`}>Who are you reading?</h2>
+          <p className={styles.stepHint}>
+            {existingRole
+              ? `Last time you read ${toDisplayName(existingRole.name)}. Carry on, or pick a different part.`
+              : 'The lines and scenes under each name tell you how big the part is.'}
+          </p>
+          <div className={styles.grid}>
+            {selectableCharacters.map((character) => (
+              <CharacterTile
+                key={character.id}
+                name={toDisplayName(character.name)}
+                lineCount={character.lineCount}
+                sceneCount={character.sceneCount}
+                selected={selected?.id === character.id}
+                onClick={() => setPickedRoleId(character.id)}
+              />
+            ))}
+          </div>
+          {/* A confirm step rather than advancing on tap: a mis-tap here would
+              otherwise change the part and move the page in one go. */}
+          <div className={styles.stepActions}>
+            <Button variant="primary" disabled={!selected} onClick={handleContinueFromRole} className={styles.stepButton}>
+              {selected ? `Continue as ${toDisplayName(selected.name)}` : 'Pick a part to continue'}
+            </Button>
+          </div>
+        </section>
+      )}
+
+      {view === 'scene' && selected && (
+        <section>
+          <div className={`bh-eyebrow ${styles.stepLabel}`}>Step 2 of 2</div>
+          <h2 className={`bh-h2 ${styles.stepTitle}`}>Where do you want to start?</h2>
+          <p className={styles.stepHint}>
+            Reading {toDisplayName(selected.name)} · {pluralize(selected.lineCount, 'line')} across{' '}
+            {pluralize(selected.sceneCount, 'scene')}.{' '}
+            <button type="button" className={styles.inlineLink} onClick={() => goToStep('role')}>
+              Change part
+            </button>
+          </p>
+          <SceneList scenes={scenes} onSelect={handlePickScene} />
+        </section>
       )}
     </div>
   )

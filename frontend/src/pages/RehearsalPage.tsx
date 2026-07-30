@@ -227,10 +227,10 @@ export function RehearsalPage() {
           {/* Replaces the old "back to the play" link — same destination, but
               named for what she'd actually be going there to do. */}
           <span className={styles.sceneActions}>
-            <Link to={`/play/${playId}?change=scene`} className={styles.changeLink}>
+            <Link to={`/play/${playId}?step=scene`} className={styles.changeLink}>
               Change scene
             </Link>
-            <Link to={`/play/${playId}?change=role`} className={styles.changeLink}>
+            <Link to={`/play/${playId}?step=role`} className={styles.changeLink}>
               Change role
             </Link>
           </span>
