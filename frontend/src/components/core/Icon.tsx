@@ -8,6 +8,10 @@ export type IconName =
   | 'bookmark'
   | 'eye'
   | 'eye-off'
+  | 'pause'
+  | 'play'
+  | 'scroll-down'
+  | 'scroll-off'
 
 export interface IconProps {
   name: IconName
@@ -61,6 +65,30 @@ function renderIconBody(name: IconName) {
       )
     case 'bookmark':
       return <path d="M6 3h12v18l-6-4.5L6 21z" strokeLinejoin="round" />
+    case 'pause':
+      return (
+        <>
+          <rect x="6" y="4" width="4" height="16" rx="1" />
+          <rect x="14" y="4" width="4" height="16" rx="1" />
+        </>
+      )
+    case 'play':
+      return <path d="M7 4l13 8-13 8z" strokeLinejoin="round" />
+    case 'scroll-down':
+      return (
+        <>
+          <path d="M12 4v14" strokeLinecap="round" />
+          <path d="M6 13l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+        </>
+      )
+    case 'scroll-off':
+      return (
+        <>
+          <path d="M12 4v6M12 14v4" strokeLinecap="round" />
+          <path d="M6 13l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M3 3l18 18" strokeLinecap="round" />
+        </>
+      )
     case 'eye':
       return (
         <>

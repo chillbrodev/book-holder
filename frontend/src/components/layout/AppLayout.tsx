@@ -45,9 +45,15 @@ export function AppLayout() {
           )}
         </div>
       </header>
-      <main className={styles.main}>
-        <Outlet />
-      </main>
+      {/* The scroll region is this wrapper, not the document — so a page can
+          size itself against the viewport and have its own sticky furniture,
+          and so the scrollbar tracks the full width rather than the centred
+          content column. */}
+      <div className={styles.scroll}>
+        <main className={styles.main}>
+          <Outlet />
+        </main>
+      </div>
       {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} />}
     </div>
   )

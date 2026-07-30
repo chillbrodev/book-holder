@@ -1,5 +1,8 @@
+/* Fixed to the viewport rather than min-height, so the app header stays put
+   and everything below it scrolls in .scroll. dvh (not vh) so mobile browser
+   chrome collapsing doesn't leave the bottom of the page unreachable. */
 .shell {
-  min-height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
 }
@@ -79,8 +82,15 @@
   border-bottom-color: var(--bh-gold-dark);
 }
 
-.main {
+/* min-height:0 is load-bearing — without it a flex child refuses to shrink
+   below its content height and the region never scrolls. */
+.scroll {
   flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.main {
   padding: 40px;
   max-width: 980px;
   width: 100%;

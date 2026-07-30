@@ -18,7 +18,8 @@ export function DialogueLine({ speaker, coSpeakers, text, active = false, micErr
       <div className={styles.passed}>
         <div className={styles.speaker}>{speaker}</div>
         {coSpeakers && coSpeakers.length > 0 && <div className={styles.coSpeakers}>with {coSpeakers.join(', ')}</div>}
-        <div className={styles.passedText}>{text}</div>
+        {/* Empty when the "Other lines" toggle is off — speaker name alone. */}
+        {text && <div className={styles.passedText}>{text}</div>}
       </div>
     )
   }

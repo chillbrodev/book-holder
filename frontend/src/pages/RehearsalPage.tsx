@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { getSceneDialogue, getSingleLineDialogue } from '../data/client'
+import { getPlay, getSceneDialogue, getSelectedRole, getSingleLineDialogue, setLastScene } from '../data/client'
 import { getLineAudio } from '../data/pollyClient'
 import { useAsync } from '../hooks/useAsync'
 import { useMicSimulation } from '../hooks/useMicSimulation'
@@ -8,7 +8,10 @@ import { DialogueLine } from '../components/rehearsal/DialogueLine'
 import { StageDirection } from '../components/rehearsal/StageDirection'
 import { MicStateIndicator } from '../components/rehearsal/MicStateIndicator'
 import { Button } from '../components/core/Button'
+import { Icon } from '../components/core/Icon'
+import { ToggleButton } from '../components/core/ToggleButton'
 import { AsyncStatus } from '../components/core/AsyncStatus'
+import { toDisplayName } from '../utils/format'
 import styles from './RehearsalPage.module.css'
 
 const AUTO_ADVANCE_DELAY_MS = 650
@@ -26,9 +29,13 @@ export function RehearsalPage() {
     () => (lineId ? getSingleLineDialogue(playId, lineId) : getSceneDialogue(playId, act, scene)),
     [playId, act, scene, lineId],
   )
+  const { data: play } = useAsync(() => getPlay(playId), [playId])
+  const { data: role } = useAsync(() => getSelectedRole(playId), [playId])
 
   const [cursor, setCursor] = useState(0)
-  const [textVisible, setTextVisible] = useState(false)
+  const [showYourLines, setShowYourLines] = useState(false)
+  const [showOtherLines, setShowOtherLines] = useState(true)
+  const [readingPaused, setReadingPaused] = useState(false)
   const [lineRevealed, setLineRevealed] = useState(false)
   const [done, setDone] = useState(false)
   // Persisted across sessions, not just this scene — someone who turns it
@@ -38,6 +45,13 @@ export function RehearsalPage() {
   useEffect(() => {
     localStorage.setItem(AUTO_SCROLL_STORAGE_KEY, autoScroll ? 'on' : 'off')
   }, [autoScroll])
+
+  // Records her place for the play page's resume card. Not written for a
+  // single-line practice run (`?line=`) — that's a drill launched from
+  // somewhere else, not a place in the play to come back to.
+  useEffect(() => {
+    if (!lineId && act && scene) setLastScene(playId, act, scene)
+  }, [playId, act, scene, lineId])
 
   useEffect(() => {
     setCursor(0)
@@ -66,7 +80,30 @@ export function RehearsalPage() {
   useEffect(() => {
     if (!autoScroll) return
     activeLineRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
-  }, [cursor, textVisible, lineRevealed, micState, autoScroll])
+  }, [cursor, showYourLines, showOtherLines, lineRevealed, micState, autoScroll])
+
+  // With auto-scroll off, the rehearsal keeps advancing while the view stays
+  // put — so the live line silently ends up below the fold with nothing on
+  // screen saying so. Watching the active line directly (rather than assuming
+  // it's offscreen) means the prompt only appears when it actually is.
+  const [activeLineOffscreen, setActiveLineOffscreen] = useState(false)
+
+  useEffect(() => {
+    const el = activeLineRef.current
+    if (!el || autoScroll) {
+      setActiveLineOffscreen(false)
+      return
+    }
+    const observer = new IntersectionObserver(([entry]) => setActiveLineOffscreen(!entry.isIntersecting), {
+      threshold: 0.4,
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [cursor, dialogue, autoScroll])
+
+  function jumpToActiveLine() {
+    activeLineRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+  }
 
   function advance() {
     if (!dialogue) return
@@ -91,7 +128,7 @@ export function RehearsalPage() {
   // guarded out here so the two effects never both schedule an advance for
   // the same entry.
   useEffect(() => {
-    if (!dialogue || done) return
+    if (!dialogue || done || readingPaused) return
     const entry = dialogue[cursor]
     if (!entry) return
     if (entry.type === 'speech' && entry.isUserLine) return
@@ -100,14 +137,18 @@ export function RehearsalPage() {
     const timer = setTimeout(() => advance(), AUTO_ADVANCE_DELAY_MS)
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- advance()/finishRehearsal() close over cursor/dialogue, re-derived every render
-  }, [cursor, dialogue, done])
+  }, [cursor, dialogue, done, readingPaused])
 
   // Other characters' lines: fetch real Polly audio and advance when it
   // finishes playing, rather than a fixed delay. Falls back to the timer if
   // Polly errors — graceful degradation per docs/BE_PLAN.md §5, so a
   // synthesis failure never blocks the rehearsal.
+  // Pausing tears this effect down, which stops the audio mid-line; resuming
+  // re-runs it and replays that line from its start rather than resuming
+  // mid-word. For a rehearsal cue that's the useful behaviour — you paused
+  // because you missed it.
   useEffect(() => {
-    if (!dialogue || done) return
+    if (!dialogue || done || readingPaused) return
     const entry = dialogue[cursor]
     if (!entry || entry.type !== 'speech' || entry.isUserLine) return
     if (!entry.lineId || !entry.speakerId) return
@@ -138,7 +179,7 @@ export function RehearsalPage() {
       if (fallbackTimer) clearTimeout(fallbackTimer)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- advance() closes over cursor/dialogue, re-derived every render
-  }, [cursor, dialogue, done])
+  }, [cursor, dialogue, done, readingPaused])
 
   function handleMicTap() {
     if (micState === 'captured') {
@@ -148,8 +189,12 @@ export function RehearsalPage() {
     tapMic()
   }
 
-  const backHref = backTo ?? `/play/${playId}/scenes`
-  const backLabel = backTo?.includes('wrap-up') ? 'Back to wrap-up' : backTo?.includes('prompt-book') ? 'Back to Prompt Book' : 'Scene picker'
+  const backHref = backTo ?? `/play/${playId}`
+  const backLabel = backTo?.includes('wrap-up')
+    ? 'Back to wrap-up'
+    : backTo?.includes('prompt-book')
+      ? 'Back to Prompt Book'
+      : `Back to ${play?.title ?? 'the play'}`
 
   if (loading || error || !dialogue) {
     return <AsyncStatus loading={loading} error={error} />
@@ -168,48 +213,97 @@ export function RehearsalPage() {
   }
 
   const visible = dialogue?.slice(0, cursor + 1) ?? []
-  const textShown = textVisible || lineRevealed
+  const textShown = showYourLines || lineRevealed
 
   return (
     <div className={styles.wrap}>
-      <div className={styles.header}>
-        <Link to={backHref} className={styles.backLink}>
-          ← {backLabel}
-        </Link>
-        <div className={styles.headerControls}>
-          <div className={styles.showTextToggle} onClick={() => setAutoScroll((v) => !v)}>
-            {autoScroll ? 'Pause auto-scroll' : 'Resume auto-scroll'}
-          </div>
-          <div
-            className={styles.showTextToggle}
+      <header className={styles.header}>
+        {play && <h1 className={`bh-display ${styles.playTitle}`}>{play.title}</h1>}
+        <div className={styles.sceneLine}>
+          <span className={styles.sceneLabel}>
+            Act {act}, Scene {scene}
+            {role && <span className={styles.sceneRole}> · as {toDisplayName(role.name)}</span>}
+          </span>
+          {/* Replaces the old "back to the play" link — same destination, but
+              named for what she'd actually be going there to do. */}
+          <span className={styles.sceneActions}>
+            <Link to={`/play/${playId}?change=scene`} className={styles.changeLink}>
+              Change scene
+            </Link>
+            <Link to={`/play/${playId}?change=role`} className={styles.changeLink}>
+              Change role
+            </Link>
+          </span>
+        </div>
+        <div className={styles.controls}>
+          <ToggleButton
+            on={!readingPaused}
+            label="Scene reading"
+            onStateLabel="Playing"
+            offStateLabel="Paused"
+            onIcon="pause"
+            offIcon="play"
+            onClick={() => setReadingPaused((v) => !v)}
+          />
+          <ToggleButton
+            on={autoScroll}
+            label="Auto-scroll"
+            onStateLabel="On"
+            offStateLabel="Off"
+            onIcon="scroll-down"
+            offIcon="scroll-off"
+            onClick={() => setAutoScroll((v) => !v)}
+          />
+          <ToggleButton
+            on={showYourLines}
+            label="Your lines"
+            onStateLabel="Shown"
+            offStateLabel="Hidden"
+            onIcon="eye"
+            offIcon="eye-off"
             onClick={() => {
-              setTextVisible((v) => !v)
+              setShowYourLines((v) => !v)
               setLineRevealed(false)
             }}
-          >
-            {textVisible ? 'Hide text' : 'Show text'}
-          </div>
+          />
+          <ToggleButton
+            on={showOtherLines}
+            label="Other lines"
+            onStateLabel="Shown"
+            offStateLabel="Hidden"
+            onIcon="eye"
+            offIcon="eye-off"
+            onClick={() => setShowOtherLines((v) => !v)}
+          />
         </div>
-      </div>
-      <div className={`bh-eyebrow ${styles.eyebrow}`}>
-        Act {act}, Scene {scene}
-      </div>
+      </header>
 
       <div className={styles.lines}>
         {visible.map((entry, i) => {
           const active = i === cursor && entry.type === 'speech' && entry.isUserLine
           const ref = i === cursor ? activeLineRef : undefined
           if (entry.type === 'stage') {
-            return (
+            // Grouped with the other characters' text rather than kept always
+            // on: with both text toggles off the screen should actually be
+            // clear, and a stage direction is someone else's cue, not her line.
+            return showOtherLines ? (
               <div key={`stage-${i}`} ref={ref} className={styles.lineAnchor}>
                 <StageDirection>{entry.text}</StageDirection>
               </div>
+            ) : (
+              <div key={`stage-${i}`} ref={ref} className={styles.lineAnchor} />
             )
           }
           if (!active) {
+            // Speaker name stays even when the text is hidden — she still needs
+            // to follow who's talking to know when her cue lands.
             return (
               <div key={entry.lineId ?? i} ref={ref} className={styles.lineAnchor}>
-                <DialogueLine speaker={entry.speaker} coSpeakers={entry.coSpeakers} text={entry.text} />
+                <DialogueLine
+                  speaker={entry.speaker}
+                  coSpeakers={entry.coSpeakers}
+                  text={showOtherLines ? entry.text : ''}
+                />
               </div>
             )
           }
@@ -231,12 +325,12 @@ export function RehearsalPage() {
                       Try again
                     </Button>
                   )}
-                  {!textVisible && micState !== 'captured' && (
+                  {!showYourLines && micState !== 'captured' && (
                     <Button variant="ghost" onClick={() => setLineRevealed(true)}>
                       Line?
                     </Button>
                   )}
-                  {lineRevealed && !textVisible && <Button variant="secondary">Read line aloud</Button>}
+                  {lineRevealed && !showYourLines && <Button variant="secondary">Read line aloud</Button>}
                   {micState === 'listening' && (
                     <button type="button" className={styles.debugLink} onClick={simulateCantHear}>
                       Simulate: can't hear you
@@ -248,6 +342,13 @@ export function RehearsalPage() {
           )
         })}
       </div>
+
+      {activeLineOffscreen && (
+        <button type="button" className={styles.jumpToLine} onClick={jumpToActiveLine}>
+          <Icon name="scroll-down" size={20} />
+          Jump to the live line
+        </button>
+      )}
     </div>
   )
 }

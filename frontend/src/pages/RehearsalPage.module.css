@@ -1,54 +1,134 @@
+/* Wider than the 640px reading column so the four controls sit on one row;
+   .lines below keeps the dialogue itself at its original measure. */
 .wrap {
-  max-width: 640px;
+  max-width: 960px;
   margin: 0 auto;
 }
 
+/* Three stacked, centred rows — title, then where you are, then the controls.
+   Side-by-side put the scene label and a four-button row on one line, which
+   read as two unrelated clusters fighting for the same space.
+
+   Pinned so the script scrolls underneath it: which scene, which part, and
+   the text toggles all stay reachable without scrolling back up mid-run. The
+   app header above is not sticky, so it scrolls away and this takes over the
+   top of the viewport rather than stacking under it. Negative side margins
+   pull the parchment fill out over AppLayout .main's 40px padding, so lines
+   don't show through beside it as they pass. */
 .header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin: -40px -40px 0;
+  padding: 24px 40px 18px;
+  background: var(--bh-parchment);
+  border-bottom: 1px solid var(--bh-border-hairline);
+}
+
+.playTitle {
+  text-align: center;
+  margin: 4px 0 0;
+}
+
+.sceneLine {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px 18px;
 }
 
-.headerControls {
+.sceneLabel {
+  font-family: var(--bh-font-sans);
+  font-size: 18px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.sceneActions {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 16px;
 }
 
-.backLink {
+.changeLink {
+  display: flex;
+  align-items: center;
+  min-height: var(--bh-tap-target-min);
   font-family: var(--bh-font-sans);
-  font-size: 14px;
-  cursor: pointer;
-  text-decoration: none;
-}
-
-.showTextToggle {
-  font-family: var(--bh-font-sans);
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--bh-gold-dark);
-  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
-.eyebrow {
-  margin-top: 16px;
+.sceneRole {
+  font-weight: 500;
+  color: var(--bh-text-muted);
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 2px;
 }
 
 .lines {
-  margin-top: 16px;
-  /* Room below the last entry for the active card to scroll up into —
-     without this, scrollIntoView on the newest line has nowhere to settle
-     and every advance snaps flush against the document's end. */
-  padding-bottom: 50vh;
+  /* The script stays at its original reading measure even though the page
+     around it widened for the control row. */
+  max-width: 640px;
+  margin: 16px auto 0;
+  /* Just enough to keep the active card's mic controls off the viewport edge.
+     This was 50vh, which bought scrollIntoView somewhere to settle but meant
+     the page always had a half-screen of empty scroll below the script — a
+     scrollbar from the first line, and an "end of page" nowhere near the end
+     of the scene. */
+  padding-bottom: 32px;
 }
 
-/* scrollIntoView's block:'end' aligns the target's bottom edge flush with
-   the viewport's bottom edge — with no offset, that leaves zero visible gap
-   below the active card. scroll-margin-bottom shifts that alignment point up,
-   so the card actually settles with breathing room instead of jammed against
-   the edge. */
+/* scrollIntoView's block:'end' aligns the target's bottom edge flush with the
+   viewport's bottom edge — scroll-margin-bottom shifts that alignment point
+   up so the card settles with breathing room instead of jammed against the
+   edge. Only reachable while there's scrollable content below; on the last
+   line the scroll simply stops at the end, which is the intent. */
 .lineAnchor {
-  scroll-margin-bottom: 20vh;
+  scroll-margin-bottom: 12vh;
+}
+
+/* Pinned to the viewport rather than the scroll region, so it stays put while
+   she reads back over earlier lines — that's exactly when it's needed. */
+.jumpToLine {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--bh-tap-target-min);
+  padding: 10px 22px;
+  background: var(--bh-gold-mid);
+  color: var(--bh-on-primary);
+  border: none;
+  border-radius: var(--bh-radius-pill);
+  font-family: var(--bh-font-sans);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgb(43 29 20 / 22%);
+}
+
+.jumpToLine:hover {
+  background: var(--bh-gold-dark);
 }
 
 .micRow {

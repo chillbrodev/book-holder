@@ -1,0 +1,48 @@
+.button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--bh-tap-target-min);
+  padding: 6px 14px;
+  background: var(--bh-surface);
+  border: 1px solid var(--bh-border-hairline);
+  border-radius: var(--bh-radius-md);
+  color: var(--bh-text-muted);
+  cursor: pointer;
+  text-align: left;
+}
+
+.button:hover {
+  border-color: var(--bh-ash-mid);
+}
+
+/* Gold fill + gold-dark text is the same "this is on" language the selected
+   character tile and the featured play card already use. */
+.button.on {
+  background: var(--bh-gold-light);
+  border-color: var(--bh-gold-mid);
+  color: var(--bh-gold-dark);
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.label {
+  font-family: var(--bh-font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--bh-ink);
+}
+
+.on .label {
+  color: var(--bh-gold-dark);
+}
+
+.state {
+  font-family: var(--bh-font-sans);
+  font-size: 13px;
+  color: inherit;
+}
