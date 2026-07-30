@@ -104,8 +104,25 @@
   text-underline-offset: 3px;
 }
 
+/* Pinned to the bottom of the scroll region rather than sitting after the
+   grid. Five rows of parts meant the button was always off-screen — below the
+   fold on arrival, and still below it after picking from a lower row. Sticky
+   means it's reachable from any scroll position without moving the page, and
+   keeps the choose-then-confirm reading order that putting it in the header
+   would invert.
+
+   Negative margins pull the parchment fill out over AppLayout .main's 40px
+   padding, so tiles don't show through beside or beneath the bar as they pass;
+   the bottom one also lets it sit flush with the viewport edge at full scroll
+   instead of floating 40px above it. */
 .stepActions {
-  margin-top: 22px;
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  margin: 22px -40px -40px;
+  padding: 16px 40px 20px;
+  background: var(--bh-parchment);
+  border-top: 1px solid var(--bh-border-hairline);
 }
 
 .stepButton {
