@@ -165,3 +165,39 @@ it behaves identically before and after this migration, and re-running it from a
 silently downgrade a secrets-based service back to plaintext.
 
 To rotate: re-run `secrets-bootstrap.sh` after updating `.env.production`, then redeploy.
+
+### Two OIDC gotchas this hit, both worth knowing
+
+**Immutable subject claims.** GitHub may issue subjects that embed the numeric
+user and repo ids — `repo:owner@2694785/name@1307076327:ref:refs/heads/main`,
+not `repo:owner/name:ref:refs/heads/main`. That's deliberate: renaming a repo
+or account then can't hand its trust to whoever claims the old name. A trust
+policy written against the plain form fails with a bare *"Not authorized to
+perform sts:AssumeRoleWithWebIdentity"* and no indication why. The bootstrap
+script asks GitHub for the real prefix
+(`/repos/{repo}/actions/oidc/customization/sub`) rather than assuming either
+shape, so it needs the `gh` CLI authenticated.
+
+**The thumbprint is still validated.** Plenty of advice says AWS ignores it
+now; it does not. It must be the SHA-1 of the *root* of the endpoint's
+certificate chain, and GitHub has moved that endpoint from DigiCert to Let's
+Encrypt/ISRG — so the widely-copy-pasted `6938fd4d…` DigiCert value now matches
+nothing and produces the same opaque error. The script derives it from the live
+chain instead of hardcoding it, and refreshes it on re-run, so a future CA
+rotation is fixed by running the script again.
+
+Both failures look identical from the workflow log, so check the trust policy's
+`sub` first and the thumbprint second.
+
+### Permissions the deploy role needs, and why
+
+`ecs:RegisterTaskDefinition` is required even though the workflow never calls
+it — rolling an Express Mode service registers a new task-definition revision
+under the hood.
+
+`iam:PassRole` uses `StringEqualsIfExists` over both `ecs-tasks.amazonaws.com`
+and `ecs.amazonaws.com`: the update is made by the ECS control plane, so
+`iam:PassedToService` isn't necessarily populated with `ecs-tasks`, and a plain
+`StringEquals` fails closed. The scoping that matters is `Resource` — an
+unscoped `iam:PassRole` is a privilege-escalation path to any role in the
+account.
