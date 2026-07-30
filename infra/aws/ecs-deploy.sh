@@ -133,7 +133,11 @@ fi
 aws ecr get-login-password --region "$AWS_REGION" \
   | docker login --username AWS --password-stdin "$ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com"
 
-docker build -t "$ECR_URI:$IMAGE_TAG" -t "$ECR_URI:latest" "$API_DIR"
+# Pinned to match the service's ARM64 runtimePlatform rather than inheriting
+# the builder's architecture — deploying from an x86_64 machine would
+# otherwise push an image ECS cannot exec, and the task would die on startup
+# with "exec /tini: exec format error" while the service quietly rolled back.
+docker build --platform linux/arm64 -t "$ECR_URI:$IMAGE_TAG" -t "$ECR_URI:latest" "$API_DIR"
 docker push "$ECR_URI:$IMAGE_TAG"
 docker push "$ECR_URI:latest"
 
@@ -252,8 +256,9 @@ CONTAINER_ENV_JSON=$(jq -n \
   --arg region "$AWS_REGION" \
   --arg bucket "$POLLY_CACHE_BUCKET_NAME" \
   --arg defaultVoice "${POLLY_DEFAULT_VOICE_ID:-}" \
+  --arg appVersion "$IMAGE_TAG" \
   '[{name: "PORT", value: $port}, {name: "AWS_REGION", value: $region}, {name: "POLLY_CACHE_BUCKET", value: $bucket},
-     {name: "DENO_ENV", value: "production"}]
+     {name: "DENO_ENV", value: "production"}, {name: "APP_VERSION", value: $appVersion}]
    + (if $defaultVoice != "" then [{name: "POLLY_DEFAULT_VOICE_ID", value: $defaultVoice}] else [] end)')
 
 # COCKROACHDB_URL/ALLOWED_ORIGIN come from Secrets Manager when the secret

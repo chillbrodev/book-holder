@@ -51,7 +51,12 @@ env:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    # arm64 runner, matching the service's ARM64 runtimePlatform. A default
+    # x86_64 runner builds an amd64 image that ECS cannot exec ("exec /tini:
+    # exec format error"), the task dies, and the service silently rolls back
+    # to the previous revision. Native rather than QEMU emulation, which is
+    # slow enough to matter on a Deno image. Free for public repos.
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
 
@@ -73,7 +78,9 @@ jobs:
           # Same short-SHA tagging ecs-deploy.sh uses, so an image can always
           # be traced back to the commit that produced it.
           TAG="$(git rev-parse --short HEAD)"
-          docker build -t "$IMAGE:$TAG" -t "$IMAGE:latest" api
+          # Pinned explicitly, not left to the builder's own architecture, so
+          # the image matches the service no matter what builds it.
+          docker build --platform linux/arm64 -t "$IMAGE:$TAG" -t "$IMAGE:latest" api
           docker push "$IMAGE:$TAG"
           docker push "$IMAGE:latest"
           echo "uri=$IMAGE:$TAG" >> "$GITHUB_OUTPUT"
@@ -100,6 +107,7 @@ jobs:
             --argjson portNum "$CONTAINER_PORT" \
             --arg region "$AWS_REGION" \
             --arg bucket "book-holder-polly-cache-${ACCOUNT_ID}" \
+            --arg version "$(git rev-parse --short HEAD)" \
             --arg secretArn "$SECRET_ARN" \
             '{
               image: $image,
@@ -108,7 +116,8 @@ jobs:
                 {name: "PORT",               value: $port},
                 {name: "AWS_REGION",         value: $region},
                 {name: "POLLY_CACHE_BUCKET", value: $bucket},
-                {name: "DENO_ENV",           value: "production"}
+                {name: "DENO_ENV",           value: "production"},
+                {name: "APP_VERSION",        value: $version}
               ],
               secrets: [
                 {name: "COCKROACHDB_URL", valueFrom: ($secretArn + ":COCKROACHDB_URL::")},
@@ -123,7 +132,7 @@ jobs:
             --primary-container "$PRIMARY_CONTAINER" \
             --monitor-resources
 
-      - name: Wait for the new image to serve traffic
+      - name: Wait for this commit to serve traffic
         run: |
           set -euo pipefail
           ACCOUNT_ID="${{ secrets.AWS_ACCOUNT_ID }}"
@@ -147,16 +156,19 @@ jobs:
           esac
           echo "Service URL: $URL"
 
-          # A green deploy that serves 5xx is still a failed deploy. Poll
-          # /health rather than trusting the update call's return.
-          for attempt in $(seq 1 30); do
-            code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "${URL%/}/health" || true)"
-            if [ "$code" = "200" ]; then
-              echo "Healthy after ${attempt} attempt(s)."
+          # Match on the reported version, not just a 200: during a rollout
+          # both revisions are live and the OLD one answers /health perfectly
+          # well, so a status-only check passes instantly and proves nothing.
+          WANT="$(git rev-parse --short HEAD)"
+          echo "Waiting for version $WANT"
+          for attempt in $(seq 1 40); do
+            got="$(curl -s --max-time 10 "${URL%/}/health" | jq -r '.version // empty' || true)"
+            if [ "$got" = "$WANT" ]; then
+              echo "Serving $WANT after ${attempt} attempt(s)."
               exit 0
             fi
-            echo "  attempt ${attempt}: HTTP ${code:-none}"
-            sleep 10
+            echo "  attempt ${attempt}: serving '${got:-nothing}'"
+            sleep 15
           done
-          echo "::error::Service did not return 200 from /health within 5 minutes."
+          echo "::error::$WANT did not reach the service within 10 minutes."
           exit 1

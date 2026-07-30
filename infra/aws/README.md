@@ -201,3 +201,21 @@ and `ecs.amazonaws.com`: the update is made by the ECS control plane, so
 `StringEquals` fails closed. The scoping that matters is `Resource` — an
 unscoped `iam:PassRole` is a privilege-escalation path to any role in the
 account.
+
+### The image must be arm64
+
+The service's `runtimePlatform` is `ARM64` — it was created from an image built
+on an Apple Silicon Mac, and arm64 is the cheaper Fargate option anyway. Both
+`ecs-deploy.sh` and the workflow pass `--platform linux/arm64` explicitly
+rather than inheriting the builder's architecture, and the workflow runs on
+`ubuntu-24.04-arm` so it builds natively instead of under QEMU.
+
+Get this wrong and the failure is quiet: the task dies at startup with
+`exec /tini: exec format error`, ECS rolls the service back to the previous
+revision, and the endpoint keeps happily serving the old build. That is
+exactly why the deploy step waits for `/health` to report the **deploying
+commit** rather than merely returning 200 — the old revision returns 200 the
+whole time, so a status-only check passes instantly and proves nothing.
+
+`APP_VERSION` carries that commit into the container; `/health` echoes it back
+as `version`, and reports `"dev"` locally where nothing sets it.
