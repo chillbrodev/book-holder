@@ -43,12 +43,16 @@ export function PlayPage() {
   // backing out of step one leaves the previously chosen part untouched.
   const [pickedRoleId, setPickedRoleId] = useState<string | null>(null)
   const [showAllScenes, setShowAllScenes] = useState(false)
+  // The part the scene counts belong to. Separate from pickedRoleId on
+  // purpose: keying the fetch on the tentative pick meant every tap in the
+  // grid refetched, and useAsync clears data while refetching, so the whole
+  // page dropped to its loading state and the grid vanished under her finger.
+  // Only committing on Continue keeps step one entirely local.
+  const [committedRoleId, setCommittedRoleId] = useState<string | null>(null)
 
   // Scenes are fetched per character so each row can say how much of it is
-  // hers. Keyed on the role id, so choosing a different part refetches — and
-  // because useAsync clears data while refetching, the page falls back to its
-  // loading state rather than briefly showing counts for the previous part.
-  const roleIdForScenes = pickedRoleId ?? existingRole?.id
+  // hers.
+  const roleIdForScenes = committedRoleId ?? existingRole?.id
   const { data: scenes, loading: scenesLoading, error: scenesError } = useAsync(
     () => getScenesSummary(playId, roleIdForScenes),
     [playId, roleIdForScenes],
@@ -89,6 +93,9 @@ export function PlayPage() {
   function handleContinueFromRole() {
     if (!selected) return
     void selectRole(playId, selected.id)
+    // Commit here, not on tap — this is the point the scene counts need to be
+    // refetched for, and the only point the part actually changes.
+    setCommittedRoleId(selected.id)
     goToStep('scene')
   }
 
