@@ -41,7 +41,7 @@ export function ShelfPage() {
             favorite={play.favorite}
             mastered={play.mastery?.mastered ?? 0}
             total={play.mastery?.total ?? 0}
-            onClick={play.locked ? undefined : () => navigate(`/play/${play.id}/scenes`)}
+            onClick={play.locked ? undefined : () => navigate(`/play/${play.id}`)}
           />
         ))}
       </div>

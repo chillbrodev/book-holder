@@ -14,6 +14,11 @@ export type CharacterRow = {
   name: string;
   description: string | null;
   isSynthetic: boolean;
+  /** Spoken lines (rows in `lines`, i.e. lines of verse/prose — not speeches)
+   * attributed to this character anywhere in the play. */
+  lineCount: number;
+  /** Distinct act+scene pairs the character speaks in. */
+  sceneCount: number;
 };
 
 export type SceneSummaryRow = {
@@ -85,10 +90,22 @@ export const PlaysService = {
     }));
   },
 
+  /** LEFT JOINs so a character with no attributed lines still comes back (at
+   * 0/0) rather than vanishing from the role picker. scene_count concatenates
+   * act/scene rather than counting a tuple because `||` yields NULL for a
+   * character with no lines, which count() then skips — a tuple would count
+   * as one. */
   async listCharacters(playId: string): Promise<CharacterRow[]> {
     const result = await DbClient.getPool().query(
-      `SELECT id, play_id, name, description, is_synthetic
-       FROM characters WHERE play_id = $1 ORDER BY name`,
+      `SELECT c.id, c.play_id, c.name, c.description, c.is_synthetic,
+              count(l.id) AS line_count,
+              count(DISTINCT l.act || ':' || l.scene) AS scene_count
+       FROM characters c
+       LEFT JOIN line_speakers ls ON ls.character_id = c.id
+       LEFT JOIN lines l ON l.id = ls.line_id
+       WHERE c.play_id = $1
+       GROUP BY c.id, c.play_id, c.name, c.description, c.is_synthetic
+       ORDER BY c.name`,
       [playId],
     );
     return result.rows.map((
@@ -98,6 +115,8 @@ export const PlaysService = {
         name: string;
         description: string | null;
         is_synthetic: boolean;
+        line_count: number | string;
+        scene_count: number | string;
       },
     ) => ({
       id: r.id,
@@ -105,6 +124,8 @@ export const PlaysService = {
       name: r.name,
       description: r.description,
       isSynthetic: r.is_synthetic,
+      lineCount: Number(r.line_count),
+      sceneCount: Number(r.scene_count),
     }));
   },
 

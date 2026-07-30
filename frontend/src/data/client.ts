@@ -20,6 +20,36 @@ function roleStorageKey(playId: string): string {
   return `bh:role:${playId}`
 }
 
+function lastSceneStorageKey(playId: string): string {
+  return `bh:lastScene:${playId}`
+}
+
+export interface LastScene {
+  act: string
+  scene: string
+}
+
+/** Where she stopped last, so the play page can offer to resume rather than
+ * making her find her place again. localStorage for the same reason the role
+ * is — session_history doesn't exist server-side yet. */
+export function getLastScene(playId: string): Promise<LastScene | null> {
+  const raw = localStorage.getItem(lastSceneStorageKey(playId))
+  if (!raw) return Promise.resolve(null)
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    const { act, scene } = parsed as Partial<LastScene>
+    return Promise.resolve(typeof act === 'string' && typeof scene === 'string' ? { act, scene } : null)
+  } catch {
+    // Hand-edited or half-written value — treat as "no saved place" rather
+    // than breaking the play page on load.
+    return Promise.resolve(null)
+  }
+}
+
+export function setLastScene(playId: string, act: string, scene: string): void {
+  localStorage.setItem(lastSceneStorageKey(playId), JSON.stringify({ act, scene }))
+}
+
 /** The character the user is actually rehearsing as right now, or '' if none selected yet
  * (matches nothing, so isUserLine is false for every line — the picker flow redirects to
  * role-select before this matters in practice). */
@@ -124,7 +154,7 @@ export async function getScenesSummary(playId: string): Promise<SceneSummary[]> 
     description: s.description ?? undefined,
     // No session_history/line_mastery yet — every scene is legitimately
     // "not started," not a fake fraction. isCurrent likewise always false;
-    // ScenePickerPage already falls back to scenes[0] when none match.
+    // the play page's resume card reads the locally-stored last scene instead.
     mastered: 0,
     total: s.totalLines,
     isCurrent: false,

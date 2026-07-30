@@ -1,0 +1,96 @@
+.wrap {
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.title {
+  text-align: center;
+  margin: 8px 0 28px;
+}
+
+/* Two side-by-side choices at desktop width, stacking before either card gets
+   narrow enough to squeeze its label onto three lines. */
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 24px;
+  background: var(--bh-surface);
+  border: 1px solid var(--bh-border-hairline);
+  border-radius: var(--bh-radius-lg);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+
+.card:hover {
+  border-color: var(--bh-ash-mid);
+}
+
+/* 2px gold border, same "one featured thing at a time" treatment as the
+   focus play card in style guide §7 — resuming is the expected action. */
+.resumeCard {
+  background: var(--bh-gold-light);
+  border: 2px solid var(--bh-gold-mid);
+}
+
+.resumeCard:hover {
+  border-color: var(--bh-gold-dark);
+}
+
+.cardTitle {
+  font-family: var(--bh-font-sans);
+  font-size: 21px;
+  font-weight: 700;
+  margin-top: 2px;
+}
+
+.cardBody {
+  font-family: var(--bh-font-sans);
+  font-size: 15px;
+  color: var(--bh-text-muted);
+}
+
+.resumeCard .cardBody {
+  color: var(--bh-gold-dark);
+}
+
+.cardAction {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 12px;
+  font-family: var(--bh-font-sans);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--bh-gold-dark);
+}
+
+.section {
+  margin-top: 36px;
+}
+
+.sectionTitle {
+  margin-bottom: 4px;
+}
+
+.sectionHint {
+  font-family: var(--bh-font-sans);
+  font-size: 15px;
+  color: var(--bh-text-muted);
+  margin: 0 0 18px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}

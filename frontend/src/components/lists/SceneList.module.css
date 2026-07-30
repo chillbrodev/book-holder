@@ -1,0 +1,13 @@
+.actGroup {
+  margin-top: 30px;
+}
+
+.actLabel {
+  margin-bottom: 10px;
+}
+
+.sceneList {
+  border: 1px solid var(--bh-border-hairline);
+  border-radius: var(--bh-radius-md);
+  overflow: hidden;
+}

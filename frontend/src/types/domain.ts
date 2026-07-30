@@ -16,6 +16,10 @@ export interface Character {
   name: string
   description?: string
   isSynthetic: boolean
+  /** Derived by the API (not a schema column): spoken lines attributed to this
+   * character across the whole play, and how many distinct scenes they're in. */
+  lineCount: number
+  sceneCount: number
 }
 
 export interface Line {

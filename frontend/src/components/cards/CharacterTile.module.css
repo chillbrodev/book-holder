@@ -1,9 +1,9 @@
 .tile {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 14px 16px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  padding: 12px 16px;
   min-height: var(--bh-tap-target-min);
   box-sizing: border-box;
   background: var(--bh-surface);
@@ -17,7 +17,24 @@
   border-color: var(--bh-gold-mid);
 }
 
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .name {
   font-family: var(--bh-font-sans);
   font-size: 16px;
+}
+
+.meta {
+  font-family: var(--bh-font-sans);
+  font-size: 12px;
+  color: var(--bh-text-muted);
+}
+
+.selected .meta {
+  color: var(--bh-gold-dark);
 }

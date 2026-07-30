@@ -13,6 +13,12 @@ export function toDisplayName(name: string): string {
     .join(' ')
 }
 
+/** "12 lines" / "1 line". Regular plurals only — every caller so far is a
+ * countable noun that just takes an -s. */
+export function pluralize(count: number, noun: string): string {
+  return `${count} ${noun}${count === 1 ? '' : 's'}`
+}
+
 export function formatRelativeTime(iso: string, now: Date = new Date()): string {
   const then = new Date(iso)
   const days = Math.floor((now.getTime() - then.getTime()) / DAY_MS)
