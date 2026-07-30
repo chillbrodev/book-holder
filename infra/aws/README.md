@@ -114,3 +114,54 @@ For **local dev**, set `POLLY_CACHE_BUCKET` in the root `.env` to whatever bucke
 `ecs-deploy.sh` once to have it create `book-holder-polly-cache-<account-id>` and reuse that name locally, or
 create your own bucket manually first). Local Polly calls use the same code path as deployed — no mock — with
 credentials resolved from `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` in `.env` rather than a task role.
+
+---
+
+## Automatic API deploys (`.github/workflows/deploy-api.yml`)
+
+Amplify redeploys the frontend on every push to `main`; the API does not, so a push touching both ships a
+frontend against a stale API. `deploy-api.yml` closes that gap: on any push to `main` under `api/**` it
+builds the image, pushes it to ECR, rolls the Express Mode service, and polls `/health` until the new task
+serves 200 (a green deploy that 5xxs is still a failed deploy).
+
+The workflow deliberately does **not** run `ecs-deploy.sh`. That script *bootstraps* — it creates IAM roles,
+attaches policies, creates the S3 cache bucket and the service itself — and CI holding `iam:CreateRole` /
+`iam:PutRolePolicy` is far more privilege than a deploy needs. Bootstrap stays local and occasional; CI only
+builds, pushes, and updates.
+
+### One-time setup
+
+```bash
+./infra/aws/secrets-bootstrap.sh      # COCKROACHDB_URL + ALLOWED_ORIGIN -> Secrets Manager
+./infra/aws/github-oidc-bootstrap.sh  # OIDC provider + scoped book-holder-api-deploy role
+gh secret set AWS_ACCOUNT_ID --body "$(aws sts get-caller-identity --query Account --output text)"
+./infra/aws/ecs-deploy.sh             # once more, so the service picks up the secrets-based task def
+```
+
+Order matters only in that `secrets-bootstrap.sh` should run before the final `ecs-deploy.sh`.
+
+### Credentials
+
+CI authenticates via GitHub's OIDC provider assuming `book-holder-api-deploy` — there are **no long-lived AWS
+keys in the repo**. The role's trust policy pins both the repository *and* `refs/heads/main`; without the ref
+condition a branch from a fork could assume it and deploy to production.
+
+The role can push to this one ECR repository, describe/update this one service, and `PassRole` exactly the
+execution and task roles (scoped — an unscoped `iam:PassRole` is a privilege-escalation path to any role in
+the account). It **cannot** create roles, change policies, or read the database secret.
+
+### Secrets
+
+`COCKROACHDB_URL` and `ALLOWED_ORIGIN` live in one Secrets Manager secret, `book-holder/api`, as JSON. The
+task definition references them by ARN with a `:KEY::` selector, so CI passes only the ARN and never handles
+the values; the ECS **execution** role resolves them at container start. (Execution role, not task role — the
+task role only covers what the running app calls itself, i.e. Polly and S3.)
+
+This also gets the database URL out of the task definition, where it was previously plaintext and readable by
+anyone who could describe the service in the console.
+
+`ecs-deploy.sh` detects whether the secret exists and uses it if so, falling back to plaintext env if not — so
+it behaves identically before and after this migration, and re-running it from an un-migrated machine can't
+silently downgrade a secrets-based service back to plaintext.
+
+To rotate: re-run `secrets-bootstrap.sh` after updating `.env.production`, then redeploy.

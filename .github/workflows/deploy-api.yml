@@ -1,0 +1,147 @@
+# Builds api/Dockerfile and rolls the ECS Express Mode service to the new
+# image on every push to main that touches the API.
+#
+# Deliberately does NOT run infra/aws/ecs-deploy.sh. That script bootstraps
+# infrastructure — it creates IAM roles, attaches policies, creates the S3
+# cache bucket and the service itself — and CI holding iam:CreateRole /
+# iam:PutRolePolicy is far more privilege than a deploy needs. Bootstrap stays
+# a local, occasional, human-run thing; this only builds, pushes, and updates.
+#
+# Credentials come from GitHub's OIDC provider assuming an AWS role, so there
+# are no long-lived AWS keys in the repo. Run infra/aws/github-oidc-bootstrap.sh
+# once to create that role, and infra/aws/secrets-bootstrap.sh once to move
+# COCKROACHDB_URL/ALLOWED_ORIGIN into Secrets Manager.
+#
+# Note this workflow never reads those secret values — it only passes the
+# secret's ARN into the task definition, and the ECS *execution role* resolves
+# it at container start.
+#
+# Requires one repo secret: AWS_ACCOUNT_ID.
+
+name: Deploy API
+
+on:
+  push:
+    branches: [main]
+    # Frontend-only pushes shouldn't rebuild and roll the API. Amplify handles
+    # the frontend independently off the same push.
+    paths:
+      - 'api/**'
+      - '.github/workflows/deploy-api.yml'
+  workflow_dispatch: {}
+
+# Never let two deploys race to update the same service. Not cancel-in-progress:
+# a half-finished deploy that gets cancelled leaves the service in whatever
+# state it reached.
+concurrency:
+  group: deploy-api
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write # required for OIDC
+
+env:
+  AWS_REGION: us-west-2
+  ECR_REPO_NAME: book-holder-api
+  SERVICE_NAME: book-holder-api
+  SECRET_ID: book-holder/api
+  CONTAINER_PORT: '8000'
+  TASK_ROLE_NAME: book-holder-api-task-role
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assume AWS deploy role via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/book-holder-api-deploy
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push image
+        id: image
+        run: |
+          set -euo pipefail
+          IMAGE="${{ steps.ecr.outputs.registry }}/${ECR_REPO_NAME}"
+          # Same short-SHA tagging ecs-deploy.sh uses, so an image can always
+          # be traced back to the commit that produced it.
+          TAG="$(git rev-parse --short HEAD)"
+          docker build -t "$IMAGE:$TAG" -t "$IMAGE:latest" api
+          docker push "$IMAGE:$TAG"
+          docker push "$IMAGE:latest"
+          echo "uri=$IMAGE:$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Roll the Express Mode service
+        run: |
+          set -euo pipefail
+          ACCOUNT_ID="${{ secrets.AWS_ACCOUNT_ID }}"
+          SERVICE_ARN="arn:aws:ecs:${AWS_REGION}:${ACCOUNT_ID}:service/default/${SERVICE_NAME}"
+          TASK_ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/${TASK_ROLE_NAME}"
+
+          # Resolve, don't hardcode: Secrets Manager appends a random 6-char
+          # suffix to every secret ARN, so it can't be derived from the name.
+          SECRET_ARN="$(aws secretsmanager describe-secret \
+            --secret-id "$SECRET_ID" --query ARN --output text)"
+
+          # ':KEY::' selects one key out of the secret's JSON, so both values
+          # live in a single secret. The trailing empty fields are the
+          # version-stage and version-id slots — required, and left blank to
+          # mean "current".
+          PRIMARY_CONTAINER="$(jq -n \
+            --arg image "${{ steps.image.outputs.uri }}" \
+            --arg port "$CONTAINER_PORT" \
+            --argjson portNum "$CONTAINER_PORT" \
+            --arg region "$AWS_REGION" \
+            --arg bucket "book-holder-polly-cache-${ACCOUNT_ID}" \
+            --arg secretArn "$SECRET_ARN" \
+            '{
+              image: $image,
+              containerPort: $portNum,
+              environment: [
+                {name: "PORT",               value: $port},
+                {name: "AWS_REGION",         value: $region},
+                {name: "POLLY_CACHE_BUCKET", value: $bucket},
+                {name: "DENO_ENV",           value: "production"}
+              ],
+              secrets: [
+                {name: "COCKROACHDB_URL", valueFrom: ($secretArn + ":COCKROACHDB_URL::")},
+                {name: "ALLOWED_ORIGIN",  valueFrom: ($secretArn + ":ALLOWED_ORIGIN::")}
+              ]
+            }')"
+
+          aws ecs update-express-gateway-service \
+            --region "$AWS_REGION" \
+            --service-arn "$SERVICE_ARN" \
+            --task-role-arn "$TASK_ROLE_ARN" \
+            --primary-container "$PRIMARY_CONTAINER" \
+            --monitor-resources
+
+      - name: Wait for the new image to serve traffic
+        run: |
+          set -euo pipefail
+          ACCOUNT_ID="${{ secrets.AWS_ACCOUNT_ID }}"
+          SERVICE_ARN="arn:aws:ecs:${AWS_REGION}:${ACCOUNT_ID}:service/default/${SERVICE_NAME}"
+          URL="$(aws ecs describe-express-gateway-service --region "$AWS_REGION" \
+            --service-arn "$SERVICE_ARN" --query 'service.url' --output text)"
+          echo "Service URL: $URL"
+
+          # A green deploy that serves 5xx is still a failed deploy. Poll
+          # /health rather than trusting the update call's return.
+          for attempt in $(seq 1 30); do
+            code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "${URL%/}/health" || true)"
+            if [ "$code" = "200" ]; then
+              echo "Healthy after ${attempt} attempt(s)."
+              exit 0
+            fi
+            echo "  attempt ${attempt}: HTTP ${code:-none}"
+            sleep 10
+          done
+          echo "::error::Service did not return 200 from /health within 5 minutes."
+          exit 1

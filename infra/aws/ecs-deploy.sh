@@ -252,18 +252,45 @@ CONTAINER_ENV_JSON=$(jq -n \
   --arg region "$AWS_REGION" \
   --arg bucket "$POLLY_CACHE_BUCKET_NAME" \
   --arg defaultVoice "${POLLY_DEFAULT_VOICE_ID:-}" \
-  --arg dbUrl "$COCKROACHDB_URL" \
-  --arg allowedOrigin "$ALLOWED_ORIGIN" \
   '[{name: "PORT", value: $port}, {name: "AWS_REGION", value: $region}, {name: "POLLY_CACHE_BUCKET", value: $bucket},
-     {name: "DENO_ENV", value: "production"}, {name: "COCKROACHDB_URL", value: $dbUrl},
-     {name: "ALLOWED_ORIGIN", value: $allowedOrigin}]
+     {name: "DENO_ENV", value: "production"}]
    + (if $defaultVoice != "" then [{name: "POLLY_DEFAULT_VOICE_ID", value: $defaultVoice}] else [] end)')
+
+# COCKROACHDB_URL/ALLOWED_ORIGIN come from Secrets Manager when the secret
+# exists (see secrets-bootstrap.sh), and as plaintext env vars when it
+# doesn't. Detected rather than assumed so this script works identically
+# before and after that migration, and so re-running it never downgrades a
+# secrets-based service back to plaintext — which is what would otherwise
+# happen every time someone deployed from a machine that hadn't migrated.
+SECRET_ID="${SECRET_ID:-book-holder/api}"
+SECRET_ARN="$(aws secretsmanager describe-secret --region "$AWS_REGION" \
+  --secret-id "$SECRET_ID" --query ARN --output text 2>/dev/null || true)"
+
+if [ -n "$SECRET_ARN" ] && [ "$SECRET_ARN" != "None" ]; then
+  echo "Secret '$SECRET_ID' found — wiring COCKROACHDB_URL/ALLOWED_ORIGIN from Secrets Manager."
+  # ':KEY::' selects one key from the secret's JSON; the trailing empty
+  # fields are the version-stage and version-id slots, blank for "current".
+  CONTAINER_SECRETS_JSON=$(jq -n --arg arn "$SECRET_ARN" \
+    '[{name: "COCKROACHDB_URL", valueFrom: ($arn + ":COCKROACHDB_URL::")},
+      {name: "ALLOWED_ORIGIN",  valueFrom: ($arn + ":ALLOWED_ORIGIN::")}]')
+else
+  echo "Secret '$SECRET_ID' not found — passing COCKROACHDB_URL/ALLOWED_ORIGIN as plaintext env."
+  echo "  (run ./infra/aws/secrets-bootstrap.sh to move them out of the task definition)"
+  CONTAINER_ENV_JSON=$(jq -n \
+    --argjson base "$CONTAINER_ENV_JSON" \
+    --arg dbUrl "$COCKROACHDB_URL" \
+    --arg allowedOrigin "$ALLOWED_ORIGIN" \
+    '$base + [{name: "COCKROACHDB_URL", value: $dbUrl}, {name: "ALLOWED_ORIGIN", value: $allowedOrigin}]')
+  CONTAINER_SECRETS_JSON='[]'
+fi
 
 PRIMARY_CONTAINER=$(jq -n \
   --arg image "$ECR_URI:$IMAGE_TAG" \
   --argjson port "$CONTAINER_PORT" \
   --argjson environment "$CONTAINER_ENV_JSON" \
-  '{image: $image, containerPort: $port, environment: $environment}')
+  --argjson secrets "$CONTAINER_SECRETS_JSON" \
+  '{image: $image, containerPort: $port, environment: $environment}
+   + (if ($secrets | length) > 0 then {secrets: $secrets} else {} end)')
 
 if aws ecs describe-express-gateway-service --region "$AWS_REGION" \
     --service-arn "$CANDIDATE_SERVICE_ARN" >/dev/null 2>&1; then
