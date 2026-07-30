@@ -128,8 +128,23 @@ jobs:
           set -euo pipefail
           ACCOUNT_ID="${{ secrets.AWS_ACCOUNT_ID }}"
           SERVICE_ARN="arn:aws:ecs:${AWS_REGION}:${ACCOUNT_ID}:service/default/${SERVICE_NAME}"
-          URL="$(aws ecs describe-express-gateway-service --region "$AWS_REGION" \
-            --service-arn "$SERVICE_ARN" --query 'service.url' --output text)"
+          # DescribeExpressGatewayService has no top-level `url`: the endpoint
+          # lives at service.activeConfigurations[].ingressPaths[].endpoint.
+          # Flattened across configurations because a deploy in progress can
+          # report more than one, and returned without a scheme
+          # (bo-<id>.ecs.<region>.on.aws), so https:// is prepended below.
+          HOST="$(aws ecs describe-express-gateway-service --region "$AWS_REGION" \
+            --service-arn "$SERVICE_ARN" \
+            --query 'service.activeConfigurations[].ingressPaths[].endpoint | [0]' \
+            --output text)"
+          if [ -z "$HOST" ] || [ "$HOST" = "None" ]; then
+            echo "::error::Could not resolve the service endpoint from describe-express-gateway-service."
+            exit 1
+          fi
+          case "$HOST" in
+            http://*|https://*) URL="$HOST" ;;
+            *)                  URL="https://$HOST" ;;
+          esac
           echo "Service URL: $URL"
 
           # A green deploy that serves 5xx is still a failed deploy. Poll
