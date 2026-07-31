@@ -4,7 +4,8 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "import:play": "tsx src/index.ts"
+    "import:play": "tsx src/index.ts",
+    "export:fixture": "tsx src/exportFixture.ts"
   },
   "dependencies": {
     "@xmldom/xmldom": "^0.8.10",

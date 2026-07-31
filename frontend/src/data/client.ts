@@ -8,7 +8,7 @@
  * getWrapUpSummary, getPromptBookSummary.
  */
 import type { Play, Character } from '../types/domain'
-import type { PlaySummary, SceneSummary, DialogueEntry, FlaggedLine, WrapUpSummary, PromptBookSummary } from '../types/views'
+import type { PlaySummary, SceneSummary, DialogueBlock, DialogueItem, FlaggedLine, WrapUpSummary, PromptBookSummary } from '../types/views'
 import { apiRequest } from './apiClient'
 import { ACT_2_SCENE_1_LINES } from './mock/lines'
 import { MOCK_FLAGGED_LINES, WRAP_UP_FLAGGED_LINE_IDS, findLineById } from './mock/promptBook'
@@ -87,26 +87,90 @@ interface RawSceneSummary {
   characterLines: number
 }
 
-type RawDialogueEntry =
-  | { type: 'stage'; text: string }
-  | { type: 'speech'; lineId: string; lineNumber: number; text: string; speakerIds: string[]; speakerNames: string[] }
+/** One beat, as the API sends it. See docs/beats-and-blocks-plan.md §2. */
+interface RawBeat {
+  type: 'speech'
+  lineId: string
+  lineNumber: number
+  blockId: string
+  beatNumber: number
+  text: string
+  sourceLines: string[]
+  sharesFirstSourceLine: boolean
+  isVerse: boolean
+  speakerIds: string[]
+  speakerNames: string[]
+}
 
-function toDialogueEntry(raw: RawDialogueEntry, userCharacterId: string): DialogueEntry {
-  if (raw.type === 'stage') {
-    return { type: 'stage', text: raw.text, isUserLine: false }
+type RawDialogueEntry = { type: 'stage'; text: string } | RawBeat
+
+/**
+ * Groups beats into blocks — one speaker header, one paragraph, one Polly
+ * render.
+ *
+ * Groups *consecutive* beats sharing a blockId, not every beat with that id: a
+ * stage direction between two blocks has to stay between them, and adjacency
+ * preserves that for free. Block ids are unique per speech-run, so this can
+ * never merge across one.
+ */
+function toDialogueItems(raw: RawDialogueEntry[], userCharacterId: string): DialogueItem[] {
+  const items: DialogueItem[] = []
+
+  for (const entry of raw) {
+    if (entry.type === 'stage') {
+      items.push({ type: 'stage', text: entry.text })
+      continue
+    }
+
+    const beat = {
+      lineId: entry.lineId,
+      beatNumber: entry.beatNumber,
+      text: entry.text,
+      sourceLines: entry.sourceLines,
+      sharesFirstSourceLine: entry.sharesFirstSourceLine,
+    }
+
+    const previous = items[items.length - 1]
+    if (previous?.type === 'speech' && previous.blockId === entry.blockId) {
+      previous.beats.push(beat)
+      continue
+    }
+
+    // Only the primary speaker's id is carried forward — Polly voices one
+    // character per block, and joint-speech blocks are rare (BE_PLAN.md §1a).
+    const coSpeakerNames = entry.speakerNames.slice(1)
+    items.push({
+      type: 'speech',
+      blockId: entry.blockId,
+      speakerId: entry.speakerIds[0],
+      speaker: entry.speakerNames[0],
+      coSpeakers: coSpeakerNames.length > 0 ? coSpeakerNames : undefined,
+      isVerse: entry.isVerse,
+      beats: [beat],
+      isUserLine: entry.speakerIds.includes(userCharacterId),
+    })
   }
-  // Only the primary speaker's id is carried forward — Polly playback voices
-  // one character per line, and joint-speech lines are rare (BE_PLAN.md §1a).
-  const coSpeakerNames = raw.speakerNames.slice(1)
-  return {
-    type: 'speech',
-    lineId: raw.lineId,
-    speakerId: raw.speakerIds[0],
-    speaker: raw.speakerNames[0],
-    coSpeakers: coSpeakerNames.length > 0 ? coSpeakerNames : undefined,
-    text: raw.text,
-    isUserLine: raw.speakerIds.includes(userCharacterId),
-  }
+
+  return items
+}
+
+/** A block's verse lines, each exactly once — what a verse display renders.
+ *
+ * A beat boundary usually falls mid-line, so that line is the last entry of one
+ * beat and the first of the next. `sharesFirstSourceLine` marks exactly that,
+ * rather than comparing the text: a song refrain can legitimately repeat an
+ * identical line inside one block, and equality would swallow the repeat. */
+export function blockVerseLines(block: DialogueBlock): string[] {
+  return block.beats.flatMap((beat) =>
+    beat.sharesFirstSourceLine ? beat.sourceLines.slice(1) : beat.sourceLines,
+  )
+}
+
+/** What the screen shows for a block: verse keeps its lineation, prose flows.
+ * Prose "lines" are only Moby's fixed-width typesetting and would look
+ * arbitrary at any width but the one they were set for. */
+export function blockDisplayLines(block: DialogueBlock): string[] {
+  return block.isVerse ? blockVerseLines(block) : [block.beats.map((b) => b.text).join(' ')]
 }
 
 export async function getPlays(): Promise<PlaySummary[]> {
@@ -166,16 +230,19 @@ export async function getScenesSummary(playId: string, characterId?: string): Pr
   }))
 }
 
-export async function getSceneDialogue(playId: string, act: string, scene: string): Promise<DialogueEntry[]> {
+export async function getSceneDialogue(playId: string, act: string, scene: string): Promise<DialogueItem[]> {
   const userCharacterId = getEffectiveCharacterId(playId)
   const raw = await apiRequest<RawDialogueEntry[]>(`/plays/${playId}/scenes/${act}/${scene}/dialogue`)
-  return raw.map((entry) => toDialogueEntry(entry, userCharacterId))
+  return toDialogueItems(raw, userCharacterId)
 }
 
-export async function getSingleLineDialogue(playId: string, lineId: string): Promise<DialogueEntry[]> {
+/** The Prompt Book's drill on a flagged beat opens that beat's whole *block*.
+ * A beat is one thought, and practising it with no run-up into it isn't how the
+ * speech is delivered — the API returns the block, the page marks the beat. */
+export async function getSingleLineDialogue(playId: string, lineId: string): Promise<DialogueItem[]> {
   const userCharacterId = getEffectiveCharacterId(playId)
-  const raw = await apiRequest<RawDialogueEntry>(`/plays/${playId}/lines/${lineId}`)
-  return [toDialogueEntry(raw, userCharacterId)]
+  const raw = await apiRequest<RawDialogueEntry[]>(`/plays/${playId}/lines/${lineId}/block`)
+  return toDialogueItems(raw, userCharacterId)
 }
 
 export function getWrapUpSummary(playId: string, act: string, scene: string): Promise<WrapUpSummary> {

@@ -44,3 +44,24 @@
   margin-top: 8px;
   line-height: 1.5;
 }
+
+/* A pentameter line too long for the viewport wraps with a hanging indent, so
+   the wrap reads as continuation rather than as a new line of verse. */
+.verseLine {
+  padding-left: 1.4em;
+  text-indent: -1.4em;
+}
+
+.verseLine + .verseLine {
+  margin-top: 0;
+}
+
+/* The prompt: one beat, set apart from the held-back block above it. */
+.promptedBeat {
+  font-family: var(--bh-font-sans);
+  font-size: 18px;
+  line-height: 1.5;
+  margin-top: 10px;
+  padding-left: 12px;
+  border-left: 3px solid var(--bh-gold-mid);
+}

@@ -28,17 +28,40 @@ export interface SceneSummary {
   isCurrent: boolean
 }
 
-export interface DialogueEntry {
-  type: 'stage' | 'speech'
-  lineId?: string
-  /** The primary speaker's character id — needed to fetch Polly audio for this line. Undefined for stage directions and the user's own lines (no audio to fetch, she reads those). */
-  speakerId?: string
-  speaker?: string
-  coSpeakers?: string[]
+/** One thought — the unit the coach scores and `line_mastery` keys on. Not a
+ * line of verse. See docs/beats-and-blocks-plan.md §2. */
+export interface DialogueBeat {
+  lineId: string
+  beatNumber: number
+  /** The joined text: what Polly speaks and what a transcript is compared
+   * against. For a verse block this is *not* what the screen shows — sourceLines
+   * is, because a part is memorized by its lineation. */
   text: string
-  /** Generalizes the prototype's `isFord` — true when this is the line the rehearsing user reads. */
+  sourceLines: string[]
+  /** sourceLines[0] repeats the previous beat's last line (the beat boundary
+   * fell mid-line), so block-level verse display drops it. */
+  sharesFirstSourceLine: boolean
+}
+
+/** A speech, cut wherever a stage direction falls inside it. One speaker
+ * header, one paragraph, one Polly render. */
+export interface DialogueBlock {
+  type: 'speech'
+  blockId: string
+  speaker: string
+  /** The primary speaker's character id — needed to fetch Polly audio for this
+   * block. Playback voices one character per block, so a jointly spoken block
+   * still resolves to one voice (BE_PLAN.md §1a). */
+  speakerId: string
+  coSpeakers?: string[]
+  isVerse: boolean
+  beats: DialogueBeat[]
+  /** True when this is the block the rehearsing user reads — she gets the mic,
+   * and no Polly audio is fetched for it. */
   isUserLine: boolean
 }
+
+export type DialogueItem = DialogueBlock | { type: 'stage'; text: string }
 
 export interface FlaggedLine {
   lineId: string

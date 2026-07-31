@@ -1,34 +1,75 @@
 import type { ReactNode } from 'react'
+import { blockDisplayLines } from '../../data/client'
+import type { DialogueBlock } from '../../types/views'
 import { cx } from '../../utils/cx'
 import styles from './DialogueLine.module.css'
 
 export interface DialogueLineProps {
-  speaker?: string
-  coSpeakers?: string[]
-  text: string
+  block: DialogueBlock
   active?: boolean
   micError?: boolean
+  /** Replaces the block's text entirely — the held-back prompt on her own
+   * lines, or the empty string when "Other lines" is toggled off. */
+  overrideText?: string
+  /** Shown after the block when she's called for a prompt: the next beat only,
+   * never the whole speech. A block can be sixteen thoughts long, and handing
+   * her all of them isn't a prompt, it's the answer. */
+  promptedBeat?: string
   children?: ReactNode
 }
 
-/** A dialogue block — passed (muted, already spoken) or active (the current turn, gets the mic card treatment). Multi-speaker lines show a secondary "with X, Y" tag. */
-export function DialogueLine({ speaker, coSpeakers, text, active = false, micError = false, children }: DialogueLineProps) {
+/**
+ * One speech, under one speaker header — the unit of display and of a single
+ * Polly render (docs/beats-and-blocks-plan.md §2). Passed blocks are muted;
+ * the active one gets the mic card treatment.
+ *
+ * Verse renders its own lineation, prose flows as a paragraph. Multi-speaker
+ * blocks show a secondary "with X, Y" tag.
+ */
+export function DialogueLine({
+  block,
+  active = false,
+  micError = false,
+  overrideText,
+  promptedBeat,
+  children,
+}: DialogueLineProps) {
+  const showBlockText = overrideText === undefined
+  const lines = showBlockText ? blockDisplayLines(block) : [overrideText]
+
+  const body = lines.map((line, i) => (
+    <div
+      key={i}
+      className={cx(active ? styles.activeText : styles.passedText, showBlockText && block.isVerse && styles.verseLine)}
+    >
+      {line}
+    </div>
+  ))
+
+  const header = (
+    <>
+      <div className={styles.speaker}>{block.speaker}</div>
+      {block.coSpeakers && block.coSpeakers.length > 0 && (
+        <div className={styles.coSpeakers}>with {block.coSpeakers.join(', ')}</div>
+      )}
+    </>
+  )
+
   if (!active) {
     return (
       <div className={styles.passed}>
-        <div className={styles.speaker}>{speaker}</div>
-        {coSpeakers && coSpeakers.length > 0 && <div className={styles.coSpeakers}>with {coSpeakers.join(', ')}</div>}
+        {header}
         {/* Empty when the "Other lines" toggle is off — speaker name alone. */}
-        {text && <div className={styles.passedText}>{text}</div>}
+        {overrideText !== '' && body}
       </div>
     )
   }
 
   return (
     <div className={cx(styles.active, micError ? styles.activeAsh : styles.activeGold)}>
-      <div className={styles.speaker}>{speaker}</div>
-      {coSpeakers && coSpeakers.length > 0 && <div className={styles.coSpeakers}>with {coSpeakers.join(', ')}</div>}
-      <div className={styles.activeText}>{text}</div>
+      {header}
+      {body}
+      {promptedBeat && <div className={styles.promptedBeat}>{promptedBeat}</div>}
       {children}
     </div>
   )

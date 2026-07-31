@@ -14,8 +14,10 @@ export type CharacterRow = {
   name: string;
   description: string | null;
   isSynthetic: boolean;
-  /** Spoken lines (rows in `lines`, i.e. lines of verse/prose — not speeches)
-   * attributed to this character anywhere in the play. */
+  /** Beats attributed to this character anywhere in the play — rows in
+   * `lines`, which since migration 004 hold one thought each, not one line of
+   * verse and not a whole speech. Copy that says "lines" to the user is
+   * counting these. */
   lineCount: number;
   /** Distinct act+scene pairs the character speaks in. */
   sceneCount: number;
@@ -28,20 +30,39 @@ export type SceneSummaryRow = {
   sceneOrder: number;
   description: string | null;
   totalLines: number;
-  /** Lines spoken in this scene by the character listScenes was called for,
+  /** Beats spoken in this scene by the character listScenes was called for,
    * or 0 when it was called without one. Lets the scene picker lead with the
-   * scenes a part is actually in — for a 12-line role, a flat list of all 23
+   * scenes a part is actually in — for a 12-beat role, a flat list of all 23
    * scenes buries the one that matters. */
   characterLines: number;
 };
 
+/** One *beat* — one thought, which is what the coach scores and what
+ * line_mastery keys on. Display and Polly work on the block it belongs to; see
+ * docs/beats-and-blocks-plan.md §2. */
 export type DialogueEntryRow =
   | { type: "stage"; text: string }
   | {
     type: "speech";
     lineId: string;
     lineNumber: number;
+    /** The speech-block this beat belongs to — a speech, cut wherever a stage
+     * direction falls inside it. Assigned at import, not derived here: only
+     * the importer knows where a direction split a speech, and persisting it
+     * is what lets the audio endpoint take a block id instead of a
+     * client-supplied ordered array of line ids. */
+    blockId: string;
+    beatNumber: number;
+    /** The joined beat text — what Polly speaks and what a transcript is
+     * compared against. For a verse block this is *not* what the screen
+     * shows; sourceLines is. */
     text: string;
+    sourceLines: string[];
+    /** sourceLines[0] repeats the previous beat's last line (the boundary fell
+     * mid-line), so block-level verse display drops it. */
+    sharesFirstSourceLine: boolean;
+    /** Block-level: verse keeps its lineation on screen, prose is wrapped. */
+    isVerse: boolean;
     // Ordered by character name for determinism — line_speakers is an
     // unordered many-to-many join (BE_PLAN.md §1a), so there's no real
     // "primary speaker" for the rare jointly-spoken line. Callers that need
@@ -59,17 +80,32 @@ export type DialogueEntryRow =
 type RawLineRow = {
   id: string;
   line_number: number | string;
+  block_id: string;
+  beat_number: number | string;
   text: string;
+  source_lines: string[];
+  shares_first_source_line: boolean;
+  is_verse: boolean;
   speaker_ids: string[];
   speaker_names: string[];
 };
+
+/** The columns every beat query needs, kept in one place so getSceneDialogue
+ * and getLine can't drift apart — they feed the same client-side grouping. */
+const BEAT_COLUMNS = `l.id, l.line_number, l.block_id, l.beat_number, l.text,
+        l.source_lines, l.shares_first_source_line, l.is_verse`;
 
 function mapLineRow(r: RawLineRow): DialogueEntryRow {
   return {
     type: "speech",
     lineId: r.id,
     lineNumber: Number(r.line_number),
+    blockId: r.block_id,
+    beatNumber: Number(r.beat_number),
     text: r.text,
+    sourceLines: r.source_lines,
+    sharesFirstSourceLine: r.shares_first_source_line,
+    isVerse: r.is_verse,
     speakerIds: r.speaker_ids,
     speakerNames: r.speaker_names,
   };
@@ -189,14 +225,14 @@ export const PlaysService = {
     const pool = DbClient.getPool();
     const [lines, directions] = await Promise.all([
       pool.query(
-        `SELECT l.id, l.line_number, l.text,
+        `SELECT ${BEAT_COLUMNS},
                 array_agg(c.id ORDER BY c.name) AS speaker_ids,
                 array_agg(c.name ORDER BY c.name) AS speaker_names
          FROM lines l
          JOIN line_speakers ls ON ls.line_id = l.id
          JOIN characters c ON c.id = ls.character_id
          WHERE l.play_id = $1 AND l.act = $2 AND l.scene = $3
-         GROUP BY l.id, l.line_number, l.text
+         GROUP BY ${BEAT_COLUMNS}
          ORDER BY l.line_number`,
         [playId, act, scene],
       ),
@@ -239,19 +275,43 @@ export const PlaysService = {
 
   async getLine(lineId: string): Promise<DialogueEntryRow> {
     const result = await DbClient.getPool().query(
-      `SELECT l.id, l.line_number, l.text,
+      `SELECT ${BEAT_COLUMNS},
               array_agg(c.id ORDER BY c.name) AS speaker_ids,
               array_agg(c.name ORDER BY c.name) AS speaker_names
        FROM lines l
        JOIN line_speakers ls ON ls.line_id = l.id
        JOIN characters c ON c.id = ls.character_id
        WHERE l.id = $1
-       GROUP BY l.id, l.line_number, l.text`,
+       GROUP BY ${BEAT_COLUMNS}`,
       [lineId],
     );
     if (result.rows.length === 0) {
       throw new PlaysError("LINE_NOT_FOUND", `No line with id ${lineId}.`);
     }
     return mapLineRow(result.rows[0]);
+  },
+
+  /** Every beat of the block a given beat belongs to, in order.
+   *
+   * What the Prompt Book's single-beat drill (`?line=`) should open: a beat is
+   * one thought, and practising it with no run-up into it isn't how the speech
+   * is delivered. The caller highlights the requested beat within the block. */
+  async getBlockForLine(lineId: string): Promise<DialogueEntryRow[]> {
+    const result = await DbClient.getPool().query(
+      `SELECT ${BEAT_COLUMNS},
+              array_agg(c.id ORDER BY c.name) AS speaker_ids,
+              array_agg(c.name ORDER BY c.name) AS speaker_names
+       FROM lines l
+       JOIN line_speakers ls ON ls.line_id = l.id
+       JOIN characters c ON c.id = ls.character_id
+       WHERE l.block_id = (SELECT block_id FROM lines WHERE id = $1)
+       GROUP BY ${BEAT_COLUMNS}
+       ORDER BY l.beat_number`,
+      [lineId],
+    );
+    if (result.rows.length === 0) {
+      throw new PlaysError("LINE_NOT_FOUND", `No line with id ${lineId}.`);
+    }
+    return result.rows.map(mapLineRow);
   },
 };

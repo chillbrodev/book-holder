@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { getPlay, getSceneDialogue, getSelectedRole, getSingleLineDialogue, setLastScene } from '../data/client'
-import { getLineAudio } from '../data/pollyClient'
+import { getBlockAudio } from '../data/pollyClient'
 import { useAsync } from '../hooks/useAsync'
 import { useMicSimulation } from '../hooks/useMicSimulation'
 import { DialogueLine } from '../components/rehearsal/DialogueLine'
@@ -36,7 +36,9 @@ export function RehearsalPage() {
   const [showYourLines, setShowYourLines] = useState(false)
   const [showOtherLines, setShowOtherLines] = useState(true)
   const [readingPaused, setReadingPaused] = useState(false)
-  const [lineRevealed, setLineRevealed] = useState(false)
+  // How many beats of the active block she's called for. 0 = nothing revealed;
+  // each "Line?" hands over one more thought, never the whole speech.
+  const [beatsRevealed, setBeatsRevealed] = useState(0)
   const [done, setDone] = useState(false)
   // Persisted across sessions, not just this scene — someone who turns it
   // off wants it off everywhere, not re-prompted every rehearsal.
@@ -59,12 +61,15 @@ export function RehearsalPage() {
   }, [dialogue])
 
   const activeEntry = dialogue?.[cursor]
-  const activeLineKey = activeEntry?.lineId ?? `entry-${cursor}`
+  // Keyed on the block, not a beat — the mic stays open across a whole speech,
+  // so resetting its state at every beat boundary would interrupt exactly the
+  // continuous delivery beats exist to avoid scoring away.
+  const activeLineKey = activeEntry?.type === 'speech' ? activeEntry.blockId : `entry-${cursor}`
 
   const { micState, tapMic, retry, simulateCantHear } = useMicSimulation(activeLineKey)
 
   useEffect(() => {
-    setLineRevealed(false)
+    setBeatsRevealed(0)
   }, [activeLineKey])
 
   const activeLineRef = useRef<HTMLDivElement>(null)
@@ -80,7 +85,7 @@ export function RehearsalPage() {
   useEffect(() => {
     if (!autoScroll) return
     activeLineRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
-  }, [cursor, showYourLines, showOtherLines, lineRevealed, micState, autoScroll])
+  }, [cursor, showYourLines, showOtherLines, beatsRevealed, micState, autoScroll])
 
   // With auto-scroll off, the rehearsal keeps advancing while the view stays
   // put — so the live line silently ends up below the fold with nothing on
@@ -132,15 +137,16 @@ export function RehearsalPage() {
     const entry = dialogue[cursor]
     if (!entry) return
     if (entry.type === 'speech' && entry.isUserLine) return
-    if (entry.type === 'speech' && entry.lineId && entry.speakerId) return
+    if (entry.type === 'speech' && entry.blockId && entry.speakerId) return
 
     const timer = setTimeout(() => advance(), AUTO_ADVANCE_DELAY_MS)
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- advance()/finishRehearsal() close over cursor/dialogue, re-derived every render
   }, [cursor, dialogue, done, readingPaused])
 
-  // Other characters' lines: fetch real Polly audio and advance when it
-  // finishes playing, rather than a fixed delay. Falls back to the timer if
+  // Other characters' blocks: fetch real Polly audio and advance when it
+  // finishes playing, rather than a fixed delay. One request per block, so a
+  // speech plays as one continuous delivery instead of a run of clips. Falls back to the timer if
   // Polly errors — graceful degradation per docs/BE_PLAN.md §5, so a
   // synthesis failure never blocks the rehearsal.
   // Pausing tears this effect down, which stops the audio mid-line; resuming
@@ -151,13 +157,13 @@ export function RehearsalPage() {
     if (!dialogue || done || readingPaused) return
     const entry = dialogue[cursor]
     if (!entry || entry.type !== 'speech' || entry.isUserLine) return
-    if (!entry.lineId || !entry.speakerId) return
+    if (!entry.blockId || !entry.speakerId) return
 
     let cancelled = false
     let audio: HTMLAudioElement | undefined
     let fallbackTimer: ReturnType<typeof setTimeout> | undefined
 
-    getLineAudio(entry.lineId, entry.speakerId)
+    getBlockAudio(entry.blockId, entry.speakerId)
       .then(({ audioUrl }) => {
         if (cancelled) return
         audio = new Audio(audioUrl)
@@ -213,7 +219,6 @@ export function RehearsalPage() {
   }
 
   const visible = dialogue?.slice(0, cursor + 1) ?? []
-  const textShown = showYourLines || lineRevealed
 
   return (
     <div className={styles.wrap}>
@@ -263,7 +268,7 @@ export function RehearsalPage() {
             offIcon="eye-off"
             onClick={() => {
               setShowYourLines((v) => !v)
-              setLineRevealed(false)
+              setBeatsRevealed(0)
             }}
           />
           <ToggleButton
@@ -298,21 +303,29 @@ export function RehearsalPage() {
             // Speaker name stays even when the text is hidden — she still needs
             // to follow who's talking to know when her cue lands.
             return (
-              <div key={entry.lineId ?? i} ref={ref} className={styles.lineAnchor}>
-                <DialogueLine
-                  speaker={entry.speaker}
-                  coSpeakers={entry.coSpeakers}
-                  text={showOtherLines ? entry.text : ''}
-                />
+              <div key={entry.blockId} ref={ref} className={styles.lineAnchor}>
+                <DialogueLine block={entry} overrideText={showOtherLines ? undefined : ''} />
               </div>
             )
           }
+          // Her own block. Shown outright only if "Your lines" is on; otherwise
+          // held back, and each "Line?" hands over one more beat — one thought
+          // at a time, so a sixteen-beat speech isn't given away in one tap.
+          const nextBeat = entry.beats[beatsRevealed]
           return (
-            <div key={entry.lineId ?? i} ref={ref} className={styles.lineAnchor}>
+            <div key={entry.blockId} ref={ref} className={styles.lineAnchor}>
               <DialogueLine
-                speaker={entry.speaker}
-                coSpeakers={entry.coSpeakers}
-                text={textShown ? entry.text : "Line's held back — call for it below if you need it."}
+                block={entry}
+                overrideText={
+                  showYourLines
+                    ? undefined
+                    : beatsRevealed === 0
+                      ? "Line's held back — call for it below if you need it."
+                      : ''
+                }
+                promptedBeat={
+                  showYourLines ? undefined : entry.beats.slice(0, beatsRevealed).map((b) => b.text).join(' ')
+                }
                 active
                 micError={micState === 'cantHear'}
               >
@@ -325,12 +338,12 @@ export function RehearsalPage() {
                       Try again
                     </Button>
                   )}
-                  {!showYourLines && micState !== 'captured' && (
-                    <Button variant="ghost" onClick={() => setLineRevealed(true)}>
-                      Line?
+                  {!showYourLines && micState !== 'captured' && nextBeat && (
+                    <Button variant="ghost" onClick={() => setBeatsRevealed((n) => n + 1)}>
+                      {beatsRevealed === 0 ? 'Line?' : 'Next bit?'}
                     </Button>
                   )}
-                  {lineRevealed && !showYourLines && <Button variant="secondary">Read line aloud</Button>}
+                  {beatsRevealed > 0 && !showYourLines && <Button variant="secondary">Read line aloud</Button>}
                   {micState === 'listening' && (
                     <button type="button" className={styles.debugLink} onClick={simulateCantHear}>
                       Simulate: can't hear you

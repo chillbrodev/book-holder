@@ -1,10 +1,16 @@
-// Pre-synthesizes and caches Polly audio for lines, grouped by character
+// Pre-synthesizes and caches Polly audio for speech *blocks*, grouped by
+// character
 // (one Polly voice per character, see characters.polly_voice_id —
 // infra/cockroachdb/migrations/003_polly_voice_id.sql) so a user's first
 // real rehearsal session never pays the on-demand synthesize-and-cache
 // latency described in docs/BE_PLAN.md §4. Safe to re-run — already-cached
-// (line, voice) pairs are skipped via the same S3 HeadObject check the live
-// /polly/lines/:lineId/audio endpoint uses.
+// (block, voice) pairs are skipped via the same S3 HeadObject check the live
+// /polly/blocks/:blockId/audio endpoint uses.
+//
+// A block, not a beat: one speech is one render. Warming per beat would both
+// cost more calls and cache audio nothing ever requests, since playback asks
+// for blocks — and it must key identically to getBlockAudio or the whole pass
+// is wasted (docs/beats-and-blocks-plan.md §6).
 //
 // Defaults to a dry run (prints scope + an estimated Polly cost, calls
 // nothing) since this can trigger hundreds of billed Polly calls — pass
@@ -25,8 +31,8 @@ import { PollyService } from "../features/polly/service.ts";
 // aws.amazon.com/polly/pricing.
 const GENERATIVE_RATE_USD_PER_MILLION_CHARS = 30;
 
-type LineRow = {
-  lineId: string;
+type BlockRow = {
+  blockId: string;
   text: string;
   characterName: string;
   playTitle: string;
@@ -65,10 +71,10 @@ function parseArgs(argv: string[]): CliArgs {
   };
 }
 
-async function fetchLines(
+async function fetchBlocks(
   play: string | undefined,
   character: string | undefined,
-): Promise<LineRow[]> {
+): Promise<BlockRow[]> {
   const conditions: string[] = [];
   const params: unknown[] = [];
   if (play) {
@@ -82,26 +88,30 @@ async function fetchLines(
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
 
   const result = await DbClient.getPool().query(
-    `SELECT l.id AS line_id, l.text, c.name AS character_name, c.polly_voice_id,
-            p.title AS play_title
+    `SELECT l.block_id,
+            string_agg(l.text, ' ' ORDER BY l.beat_number) AS text,
+            c.name AS character_name, c.polly_voice_id, p.title AS play_title,
+            min(l.act_order) AS act_order, min(l.scene_order) AS scene_order,
+            min(l.line_number) AS line_number
      FROM lines l
      JOIN line_speakers ls ON ls.line_id = l.id
      JOIN characters c ON c.id = ls.character_id
      JOIN plays p ON p.id = l.play_id
      ${where}
-     ORDER BY c.name, l.act_order, l.scene_order, l.line_number`,
+     GROUP BY l.block_id, c.name, c.polly_voice_id, p.title
+     ORDER BY c.name, act_order, scene_order, line_number`,
     params,
   );
   return result.rows.map((
     r: {
-      line_id: string;
+      block_id: string;
       text: string;
       character_name: string;
       polly_voice_id: string | null;
       play_title: string;
     },
   ) => ({
-    lineId: r.line_id,
+    blockId: r.block_id,
     text: r.text,
     characterName: r.character_name,
     playTitle: r.play_title,
@@ -109,8 +119,8 @@ async function fetchLines(
   }));
 }
 
-function groupByCharacter(lines: LineRow[]): Map<string, LineRow[]> {
-  const groups = new Map<string, LineRow[]>();
+function groupByCharacter(lines: BlockRow[]): Map<string, BlockRow[]> {
+  const groups = new Map<string, BlockRow[]>();
   for (const line of lines) {
     const group = groups.get(line.characterName);
     if (group) {
@@ -147,7 +157,7 @@ async function runWithConcurrency<T>(
 
 if (import.meta.main) {
   const args = parseArgs(Deno.args);
-  const lines = await fetchLines(args.play, args.character);
+  const lines = await fetchBlocks(args.play, args.character);
 
   if (lines.length === 0) {
     console.log("No matching lines found — check --play/--character.");
@@ -187,13 +197,13 @@ if (import.meta.main) {
     console.log(
       `\n${characterName} -> voice ${
         characterLines[0].voiceId
-      } (${characterLines.length} lines)`,
+      } (${characterLines.length} blocks)`,
     );
 
     await runWithConcurrency(characterLines, args.concurrency, async (line) => {
       try {
-        const { cached } = await PollyService.warmLine({
-          lineId: line.lineId,
+        const { cached } = await PollyService.warmBlock({
+          blockId: line.blockId,
           text: line.text,
           voiceId: line.voiceId,
           playTitle: line.playTitle,
@@ -204,7 +214,7 @@ if (import.meta.main) {
       } catch (err) {
         failedCount++;
         console.error(
-          `  FAILED line ${line.lineId}: ${
+          `  FAILED block ${line.blockId}: ${
             err instanceof Error ? err.message : String(err)
           }`,
         );

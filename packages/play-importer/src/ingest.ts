@@ -39,41 +39,63 @@ async function insertPlay(client: PoolClient, play: BuiltPlay["play"]): Promise<
 async function insertCharacters(client: PoolClient, characters: BuiltPlay["characters"]): Promise<void> {
   if (characters.length === 0) return;
   await client.query(
-    `INSERT INTO characters (id, play_id, name, description, is_synthetic)
-     SELECT * FROM unnest($1::uuid[], $2::uuid[], $3::text[], $4::text[], $5::bool[])`,
+    `INSERT INTO characters (id, play_id, name, description, is_synthetic, polly_voice_id)
+     SELECT * FROM unnest($1::uuid[], $2::uuid[], $3::text[], $4::text[], $5::bool[], $6::text[])`,
     [
       characters.map((c) => c.id),
       characters.map((c) => c.play_id),
       characters.map((c) => c.name),
       characters.map((c) => c.description),
       characters.map((c) => c.is_synthetic),
+      characters.map((c) => c.polly_voice_id),
     ]
   );
 }
 
+const LINE_COLUMNS = [
+  "id",
+  "play_id",
+  "act",
+  "act_order",
+  "scene",
+  "scene_order",
+  "scene_description",
+  "speech_number",
+  "line_number",
+  "block_id",
+  "beat_number",
+  "text",
+  "source_lines",
+  "shares_first_source_line",
+  "is_verse",
+  "stage_direction",
+] as const;
+
+/**
+ * Multi-row VALUES rather than the `SELECT * FROM unnest(...)` the other
+ * inserts use, because of `source_lines`.
+ *
+ * unnest needs one array per column, so an array-valued column would need an
+ * array *of* arrays — and CockroachDB doesn't implement multi-dimensional
+ * arrays (crdb#32552), so `$n::text[][]` is a parse error, not a runtime one.
+ * Passing each row's `string[]` as its own parameter sidesteps it entirely and
+ * lets the driver encode the array, rather than us hand-building Postgres array
+ * literals and owning the quote-escaping.
+ *
+ * 500-row chunks keep this at 8,000 parameters per statement, well inside the
+ * 65,535 wire-protocol limit.
+ */
 async function insertLines(client: PoolClient, lines: BuiltPlay["lines"]): Promise<void> {
+  const width = LINE_COLUMNS.length;
   for (const chunk of chunks(lines, CHUNK_SIZE)) {
+    const rows = chunk
+      .map((_, i) => `(${LINE_COLUMNS.map((_, c) => `$${i * width + c + 1}`).join(", ")})`)
+      .join(", ");
+    const params = chunk.flatMap((l) => LINE_COLUMNS.map((column) => l[column]));
+
     await client.query(
-      `INSERT INTO lines
-         (id, play_id, act, act_order, scene, scene_order, scene_description,
-          speech_number, line_number, text, stage_direction)
-       SELECT * FROM unnest(
-         $1::uuid[], $2::uuid[], $3::text[], $4::int[], $5::text[], $6::int[],
-         $7::text[], $8::int[], $9::int[], $10::text[], $11::text[]
-       )`,
-      [
-        chunk.map((l) => l.id),
-        chunk.map((l) => l.play_id),
-        chunk.map((l) => l.act),
-        chunk.map((l) => l.act_order),
-        chunk.map((l) => l.scene),
-        chunk.map((l) => l.scene_order),
-        chunk.map((l) => l.scene_description),
-        chunk.map((l) => l.speech_number),
-        chunk.map((l) => l.line_number),
-        chunk.map((l) => l.text),
-        chunk.map((l) => l.stage_direction),
-      ]
+      `INSERT INTO lines (${LINE_COLUMNS.join(", ")}) VALUES ${rows}`,
+      params
     );
   }
 }
@@ -137,7 +159,7 @@ export async function ingestPlay(built: BuiltPlay): Promise<void> {
 
   console.log(
     `ingested play "${built.play.title}": ${built.characters.length} characters, ` +
-      `${built.lines.length} lines, ${built.lineSpeakers.length} line-speaker links, ` +
+      `${built.lines.length} beats, ${built.lineSpeakers.length} line-speaker links, ` +
       `${built.stageDirections.length} stage directions`
   );
 }

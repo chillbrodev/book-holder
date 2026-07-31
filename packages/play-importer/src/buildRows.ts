@@ -1,10 +1,16 @@
 import { randomUUID } from "node:crypto";
+import { assignVerseFlags } from "./blocks.js";
+import { beatId, blockId } from "./ids.js";
+import { joinVerseLines, splitIntoBeats } from "./segment.js";
+import { voiceFor } from "./voices.js";
 import type {
   BuiltPlay,
   CharacterRow,
   LineRow,
   LineSpeakerRow,
+  ParsedLine,
   ParsedPlay,
+  SpeechItem,
   StageDirectionRow,
 } from "./types.js";
 
@@ -26,6 +32,48 @@ function splitPersona(rawText: string): { nameGuess: string; description: string
 const CHORUS_KEY = "__CHORUS__";
 const ALL_KEY = "ALL";
 
+/** A run of consecutive lines within one speech, uninterrupted by any stage
+ * direction — the unit of display and of a single Polly render. */
+type SpeechBlock =
+  | { kind: "lines"; lines: ParsedLine[] }
+  | { kind: "action"; text: string };
+
+/**
+ * Cuts a speech into blocks at every stage direction, so a direction keeps its
+ * position instead of being swallowed by the surrounding speech (44 of these
+ * fall inside a speech in Merry Wives alone).
+ *
+ * Two things break a block:
+ *  - a <STAGEDIR> sibling of <LINE> ("Knocks" mid-speech), and
+ *  - a <LINE> carrying its own nested <STAGEDIR> when it isn't the first line
+ *    of the block. That direction prefixes its line's text, so cutting before
+ *    it is what keeps it in the right place — and it means only a block's
+ *    *first* line can carry one, which is why LineRow.stage_direction is a
+ *    single value with nothing to drop.
+ */
+function splitSpeechIntoBlocks(items: SpeechItem[]): SpeechBlock[] {
+  const blocks: SpeechBlock[] = [];
+  let current: ParsedLine[] = [];
+
+  const flush = () => {
+    if (current.length > 0) blocks.push({ kind: "lines", lines: current });
+    current = [];
+  };
+
+  for (const item of items) {
+    if (item.kind === "action") {
+      flush();
+      blocks.push({ kind: "action", text: item.text });
+      continue;
+    }
+    if (item.stageDirection && current.length > 0) flush();
+    current.push({ text: item.text, stageDirection: item.stageDirection });
+  }
+
+  flush();
+  return blocks;
+}
+
 interface CharacterIdentity {
   key: string;
   displayName: string;
@@ -41,7 +89,10 @@ function resolveSpeakerKey(rawSpeakerName: string): {
   displayName: string;
   isSynthetic: boolean;
 } {
-  const trimmed = rawSpeakerName.trim();
+  // "[PROSPERO]" (the Tempest epilogue, the corpus's only bracketed speaker)
+  // must resolve to the same character as "PROSPERO", or he ends up with two
+  // rows and the epilogue detaches from the part.
+  const trimmed = rawSpeakerName.trim().replace(/^[[(]\s*|\s*[\])]$/g, "").trim();
   if (trimmed === "") {
     return { key: CHORUS_KEY, displayName: "Chorus", isSynthetic: true };
   }
@@ -108,16 +159,29 @@ export function buildRows(parsed: ParsedPlay, sourceUrl: string | null): BuiltPl
 
   const characterIdByKey = new Map<string, string>();
   const characters: CharacterRow[] = [];
+  let unknownPlayVoices = false;
   for (const identity of identities.values()) {
     const id = randomUUID();
     characterIdByKey.set(identity.key, id);
+    const { voiceId, unknownPlay } = voiceFor(parsed.title, identity.displayName);
+    unknownPlayVoices ||= unknownPlay;
     characters.push({
       id,
       play_id: playId,
       name: identity.displayName,
       description: identity.description,
       is_synthetic: identity.isSynthetic,
+      polly_voice_id: voiceId,
     });
+  }
+  if (unknownPlayVoices) {
+    // Loud rather than silent: with no curated list every character would take
+    // the male voice, and that only shows up as a wrong-sounding rehearsal
+    // after a full paid warm run.
+    console.warn(
+      `WARNING: no voice list for "${parsed.title}" (see src/voices.ts) — ` +
+        `every character will fall back to POLLY_DEFAULT_VOICE_ID.`
+    );
   }
 
   // Pass 2: walk scenes again, now that every speaker resolves to a character id.
@@ -127,8 +191,12 @@ export function buildRows(parsed: ParsedPlay, sourceUrl: string | null): BuiltPl
 
   for (const scene of parsed.scenes) {
     let speechNumber = 0;
+    // Scene-local beat sequence — populates LineRow.line_number, and anchors
+    // stage directions via after_line_number.
     let lineNumber = 0;
     let stageDirSequence = 0;
+    // Scene-local block sequence — only used to break id ties, see ids.ts.
+    let blockIndex = 0;
 
     for (const item of scene.items) {
       if (item.kind === "stageDirection") {
@@ -154,46 +222,107 @@ export function buildRows(parsed: ParsedPlay, sourceUrl: string | null): BuiltPl
         return id;
       });
 
-      for (const speechItem of item.items) {
-        if (speechItem.kind === "action") {
-          // Mid-speech stage direction (e.g. "Knocks" between two lines of
-          // the same speaker) — same table as scene-level ones, anchored to
-          // the line it follows via after_line_number.
-          stageDirections.push({
-            id: randomUUID(),
-            play_id: playId,
-            act: scene.act,
-            act_order: scene.actOrder,
-            scene: scene.scene,
-            scene_order: scene.sceneOrder,
-            sequence: stageDirSequence++,
-            after_line_number: lineNumber,
-            text: speechItem.text,
-          });
-          continue;
-        }
-
-        lineNumber += 1;
-        const lineId = randomUUID();
-        lines.push({
-          id: lineId,
+      const pushStageDirection = (text: string) => {
+        stageDirections.push({
+          id: randomUUID(),
           play_id: playId,
           act: scene.act,
           act_order: scene.actOrder,
           scene: scene.scene,
           scene_order: scene.sceneOrder,
-          scene_description: scene.sceneDescription,
-          speech_number: speechNumber,
-          line_number: lineNumber,
-          text: speechItem.text,
-          stage_direction: speechItem.stageDirection,
+          sequence: stageDirSequence++,
+          after_line_number: lineNumber,
+          text,
         });
-        for (const characterId of speakerIds) {
-          lineSpeakers.push({ line_id: lineId, character_id: characterId });
+      };
+
+      for (const block of splitSpeechIntoBlocks(item.items)) {
+        if (block.kind === "action") {
+          // Mid-speech stage direction (e.g. "Knocks" between two lines of
+          // the same speaker) — same table as scene-level ones, anchored to
+          // the beat it follows via after_line_number.
+          pushStageDirection(block.text);
+          continue;
         }
+
+        const joined = joinVerseLines(block.lines.map((l) => l.text));
+        const beats = splitIntoBeats(joined.text);
+
+        if (beats.length === 0) {
+          // A <LINE> holding only a <STAGEDIR> and no spoken text. Keep the cue
+          // rather than dropping it with the empty block.
+          const direction = block.lines.find((l) => l.stageDirection)?.stageDirection;
+          if (direction) pushStageDirection(direction);
+          continue;
+        }
+
+        const keyParts = {
+          playTitle: parsed.title,
+          act: scene.act,
+          scene: scene.scene,
+          blockIndex: blockIndex++,
+          speakers: item.speakerNames,
+          text: joined.text,
+        };
+        const currentBlockId = blockId(keyParts);
+        let cursor = 0;
+        let previousLastLine = -1;
+
+        beats.forEach((beatText, index) => {
+          // Every beat is an exact substring of the joined text (segment.ts),
+          // so offsets map it back onto the verse lines it spans. Throwing here
+          // beats silently attributing a beat to the wrong lines.
+          const start = joined.text.indexOf(beatText, cursor);
+          if (start === -1) {
+            throw new Error(
+              `Beat not found in joined speech ${scene.act}/${scene.scene} #${speechNumber}: ${beatText}`
+            );
+          }
+          const end = start + beatText.length;
+          cursor = end;
+
+          const spannedIndices = block.lines
+            .map((_, i) => i)
+            .filter((i) => joined.lineRanges[i].start < end && joined.lineRanges[i].end > start);
+          const sourceLines = spannedIndices.map((i) => block.lines[i].text);
+          // Compared by line index, not by text — a song refrain can repeat an
+          // identical line inside one block, and equality would misread that as
+          // a straddled boundary.
+          const sharesFirst = spannedIndices[0] === previousLastLine;
+          previousLastLine = spannedIndices[spannedIndices.length - 1];
+
+          lineNumber += 1;
+          const lineId = beatId(keyParts, index + 1, beatText);
+          lines.push({
+            id: lineId,
+            play_id: playId,
+            act: scene.act,
+            act_order: scene.actOrder,
+            scene: scene.scene,
+            scene_order: scene.sceneOrder,
+            scene_description: scene.sceneDescription,
+            speech_number: speechNumber,
+            line_number: lineNumber,
+            block_id: currentBlockId,
+            beat_number: index + 1,
+            text: beatText,
+            source_lines: sourceLines,
+            shares_first_source_line: sharesFirst,
+            is_verse: false, // set by assignVerseFlags once the play is built
+
+            stage_direction: index === 0 ? block.lines[0].stageDirection : null,
+          });
+          for (const characterId of speakerIds) {
+            lineSpeakers.push({ line_id: lineId, character_id: characterId });
+          }
+        });
       }
     }
   }
+
+  // Needs the whole play: a block too short to classify inherits the play's
+  // dominant mode, which isn't known until every block exists.
+  assignVerseFlags(lines);
 
   return {
     play: { id: playId, title: parsed.title, source_url: sourceUrl },

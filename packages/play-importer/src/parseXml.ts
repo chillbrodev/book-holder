@@ -68,7 +68,12 @@ function parseSpeech(speechEl: XmlNode): { speakerNames: string[]; items: Speech
     if (!child || child.nodeType !== ELEMENT_NODE) continue;
     if (child.tagName === "LINE") {
       items.push({ kind: "line", ...parseLine(child) });
-    } else if (child.tagName === "STAGEDIR") {
+    } else if (child.tagName === "STAGEDIR" || child.tagName === "SUBHEAD") {
+      // <SUBHEAD>SONG.</SUBHEAD> marks a song starting mid-speech (10 of the 14
+      // corpus occurrences, including Merry Wives V.v). Treated as an action so
+      // it keeps its position *and* breaks the speech block — otherwise the
+      // song's verse merges into the spoken lines around it and Polly reads
+      // straight through the seam.
       items.push({ kind: "action", text: fullText(child) });
     }
   }
@@ -95,7 +100,7 @@ function parseSceneItems(container: XmlNode): SceneItem[] {
     if (!child || child.nodeType !== ELEMENT_NODE) continue;
     if (child.tagName === "SPEECH") {
       items.push({ kind: "speech", ...parseSpeech(child) });
-    } else if (child.tagName === "STAGEDIR") {
+    } else if (child.tagName === "STAGEDIR" || child.tagName === "SUBHEAD") {
       items.push({ kind: "stageDirection", text: fullText(child) });
     }
   }
@@ -129,6 +134,22 @@ function parseScenesOfAct(actEl: XmlNode, actLabel: string, actOrder: number): P
       sceneOrder: sceneOrder++,
       sceneDescription: description,
       items: parseSceneItems(sceneEl),
+    });
+  }
+
+  // EPILOGUE mirrors PROLOGUE — a sibling of SCENE inside the final ACT, in 6
+  // plays (Prospero's "Now my charms are all o'erthrown", Rosalind's, the
+  // Henry V chorus). Ordered after the scenes rather than before. Its <SUBTITLE>
+  // ("SPOKEN BY PROSPERO") is the closest thing it has to a scene description.
+  for (const epilogueEl of children(actEl, "EPILOGUE")) {
+    const subtitleEl = children(epilogueEl, "SUBTITLE")[0];
+    scenes.push({
+      act: actLabel,
+      actOrder,
+      scene: "EPILOGUE",
+      sceneOrder: sceneOrder++,
+      sceneDescription: subtitleEl ? fullText(subtitleEl) : null,
+      items: parseSceneItems(epilogueEl),
     });
   }
 

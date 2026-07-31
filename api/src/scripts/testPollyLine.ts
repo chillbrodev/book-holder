@@ -1,8 +1,8 @@
-// Quick single-line smoke test for the Polly cache path (S3 HeadObject ->
+// Quick single-block smoke test for the Polly cache path (S3 HeadObject ->
 // Polly synth -> S3 PutObject) — no database involved, so it isolates
-// credentials/API issues from DB/import concerns. Uses a synthetic lineId
-// ("test-line") rather than a real one, so re-running doesn't touch/collide
-// with cached audio for actual script lines.
+// credentials/API issues from DB/import concerns. Uses a synthetic blockId
+// ("test-block") rather than a real one, so re-running doesn't touch/collide
+// with cached audio for actual script blocks.
 //
 // Use warmPollyCache.ts for the real batch run once this succeeds.
 //
@@ -29,7 +29,7 @@ function parseArgs(
     voice: raw.voice ?? "Brian",
     // Deliberately not a real play/character — keeps this smoke test's
     // cache object under a clearly-scratch path (test/test/...) rather than
-    // mixed in among real cached lines.
+    // mixed in among real cached blocks.
     play: raw.play ?? "test",
     character: raw.character ?? "test",
   };
@@ -40,8 +40,8 @@ if (import.meta.main) {
   console.log(`Synthesizing via voice "${voice}": "${text}"`);
 
   try {
-    const { cached } = await PollyService.warmLine({
-      lineId: "test-line",
+    const { cached } = await PollyService.warmBlock({
+      blockId: "test-block",
       text,
       voiceId: voice,
       playTitle: play,

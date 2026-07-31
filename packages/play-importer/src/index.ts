@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { buildRows } from "./buildRows.js";
 import { ingestPlay } from "./ingest.js";
 import { parsePlayXml } from "./parseXml.js";
-import { renderCharacterSummary, renderScript } from "./render.js";
+import { renderBeats, renderBeatSummary, renderCharacterSummary, renderScript } from "./render.js";
 
 // fileURLToPath + dirname rather than import.meta.dirname — the latter needs
 // Node 20.11+/21.2+ specifically, not just >=20.
@@ -57,14 +57,16 @@ async function main() {
 
   writeFileSync(join(outDir, "script.txt"), renderScript(parsed), "utf8");
   writeFileSync(join(outDir, "characters.txt"), renderCharacterSummary(built), "utf8");
+  writeFileSync(join(outDir, "beats.txt"), renderBeats(built), "utf8");
   writeFileSync(join(outDir, "rows.json"), JSON.stringify(built, null, 2), "utf8");
 
   console.log(
     `parsed "${built.play.title}": ${built.characters.length} characters, ` +
-      `${built.lines.length} lines across ${new Set(built.lines.map((l) => `${l.act}/${l.scene}`)).size} scenes, ` +
+      `${built.lines.length} beats across ${new Set(built.lines.map((l) => `${l.act}/${l.scene}`)).size} scenes, ` +
       `${built.stageDirections.length} stage directions`
   );
-  console.log(`review artifacts written to ${outDir}/ (script.txt, characters.txt, rows.json)`);
+  console.log(renderBeatSummary(built).join("\n"));
+  console.log(`review artifacts written to ${outDir}/ (script.txt, beats.txt, characters.txt, rows.json)`);
 
   if (values["dry-run"]) {
     console.log("--dry-run: not touching the database. Review the files above first.");

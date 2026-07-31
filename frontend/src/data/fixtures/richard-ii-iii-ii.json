@@ -1,0 +1,2033 @@
+{
+  "play": {
+    "id": "0c176e74-5d78-4804-a90b-cdd4ab3b8906",
+    "title": "The Tragedy of King Richard the Second"
+  },
+  "act": "III",
+  "scene": "II",
+  "description": "The coast of Wales. A castle in view.",
+  "characters": [
+    {
+      "id": "9528d3a5-e04f-4ac0-a10a-1ada659fd858",
+      "name": "KING RICHARD II"
+    },
+    {
+      "id": "9c5f8000-36ac-43bc-bf60-1eca239e9351",
+      "name": "DUKE OF AUMERLE"
+    },
+    {
+      "id": "e2006cf1-6eee-4ce5-b6d8-50f2a7da3194",
+      "name": "BISHOP OF CARLISLE"
+    },
+    {
+      "id": "d7d1cb29-7db5-4aff-9d28-5e51a6efe279",
+      "name": "EARL OF SALISBURY"
+    },
+    {
+      "id": "193630b6-d6a3-422f-90a5-6cd710951739",
+      "name": "SIR STEPHEN SCROOP"
+    }
+  ],
+  "entries": [
+    {
+      "type": "stage",
+      "text": "Drums; flourish and colours. Enter KING RICHARD II, the BISHOP OF CARLISLE, DUKE OF AUMERLE, and Soldiers"
+    },
+    {
+      "type": "speech",
+      "lineId": "1912bbe7-3d07-43cf-869a-a2ab3a711eca",
+      "lineNumber": 1,
+      "blockId": "a10d25d6-99a5-4145-ac28-a9ff4f6903c7",
+      "beatNumber": 1,
+      "text": "Barkloughly castle call they this at hand?",
+      "sourceLines": [
+        "Barkloughly castle call they this at hand?"
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "5b2bbaec-b663-4638-a0fc-54cfa5ad1b50",
+      "lineNumber": 2,
+      "blockId": "2ebe52b2-9e99-435c-99b7-7a57a3a31993",
+      "beatNumber": 1,
+      "text": "Yea, my lord.",
+      "sourceLines": [
+        "Yea, my lord. How brooks your grace the air,"
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9c5f8000-36ac-43bc-bf60-1eca239e9351"
+      ],
+      "speakerNames": [
+        "DUKE OF AUMERLE"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "c150cfc5-0458-4414-b15c-afe5880e2f41",
+      "lineNumber": 3,
+      "blockId": "2ebe52b2-9e99-435c-99b7-7a57a3a31993",
+      "beatNumber": 2,
+      "text": "How brooks your grace the air, After your late tossing on the breaking seas?",
+      "sourceLines": [
+        "Yea, my lord. How brooks your grace the air,",
+        "After your late tossing on the breaking seas?"
+      ],
+      "sharesFirstSourceLine": true,
+      "isVerse": true,
+      "speakerIds": [
+        "9c5f8000-36ac-43bc-bf60-1eca239e9351"
+      ],
+      "speakerNames": [
+        "DUKE OF AUMERLE"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "1506fb96-1033-4ade-b159-bb478bb72441",
+      "lineNumber": 4,
+      "blockId": "31f046b1-1243-4317-8137-bf211d1941a5",
+      "beatNumber": 1,
+      "text": "Needs must I like it well: I weep for joy To stand upon my kingdom once again.",
+      "sourceLines": [
+        "Needs must I like it well: I weep for joy",
+        "To stand upon my kingdom once again."
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "a675e6d2-7a20-47f4-85ef-f392c26ddea3",
+      "lineNumber": 5,
+      "blockId": "31f046b1-1243-4317-8137-bf211d1941a5",
+      "beatNumber": 2,
+      "text": "Dear earth, I do salute thee with my hand, Though rebels wound thee with their horses' hoofs:",
+      "sourceLines": [
+        "Dear earth, I do salute thee with my hand,",
+        "Though rebels wound thee with their horses' hoofs:"
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "258fc5da-1679-443f-8516-1b7ba21e76c5",
+      "lineNumber": 6,
+      "blockId": "31f046b1-1243-4317-8137-bf211d1941a5",
+      "beatNumber": 3,
+      "text": "As a long-parted mother with her child Plays fondly with her tears and smiles in meeting, So, weeping, smiling, greet I thee, my earth, And do thee favours with my royal hands.",
+      "sourceLines": [
+        "As a long-parted mother with her child",
+        "Plays fondly with her tears and smiles in meeting,",
+        "So, weeping, smiling, greet I thee, my earth,",
+        "And do thee favours with my royal hands."
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "c3650650-e527-4ee2-a699-7cbf7e1e3fcb",
+      "lineNumber": 7,
+      "blockId": "31f046b1-1243-4317-8137-bf211d1941a5",
+      "beatNumber": 4,
+      "text": "Feed not thy sovereign's foe, my gentle earth, Nor with thy sweets comfort his ravenous sense;",
+      "sourceLines": [
+        "Feed not thy sovereign's foe, my gentle earth,",
+        "Nor with thy sweets comfort his ravenous sense;"
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "d84f6967-756b-4c24-949c-33717f8aa1f5",
+      "lineNumber": 8,
+      "blockId": "31f046b1-1243-4317-8137-bf211d1941a5",
+      "beatNumber": 5,
+      "text": "But let thy spiders, that suck up thy venom, And heavy-gaited toads lie in their way, Doing annoyance to the treacherous feet Which with usurping steps do trample thee:",
+      "sourceLines": [
+        "But let thy spiders, that suck up thy venom,",
+        "And heavy-gaited toads lie in their way,",
+        "Doing annoyance to the treacherous feet",
+        "Which with usurping steps do trample thee:"
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "3ef85a69-acc6-48f5-8b8c-31a32954c5c9",
+      "lineNumber": 9,
+      "blockId": "31f046b1-1243-4317-8137-bf211d1941a5",
+      "beatNumber": 6,
+      "text": "Yield stinging nettles to mine enemies;",
+      "sourceLines": [
+        "Yield stinging nettles to mine enemies;"
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "0c20250d-773f-4996-ad45-56e904f891c7",
+      "lineNumber": 10,
+      "blockId": "31f046b1-1243-4317-8137-bf211d1941a5",
+      "beatNumber": 7,
+      "text": "And when they from thy bosom pluck a flower, Guard it, I pray thee, with a lurking adder Whose double tongue may with a mortal touch Throw death upon thy sovereign's enemies.",
+      "sourceLines": [
+        "And when they from thy bosom pluck a flower,",
+        "Guard it, I pray thee, with a lurking adder",
+        "Whose double tongue may with a mortal touch",
+        "Throw death upon thy sovereign's enemies."
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "93392116-fd03-4d31-a199-733d1e927432",
+      "lineNumber": 11,
+      "blockId": "31f046b1-1243-4317-8137-bf211d1941a5",
+      "beatNumber": 8,
+      "text": "Mock not my senseless conjuration, lords: This earth shall have a feeling and these stones Prove armed soldiers, ere her native king Shall falter under foul rebellion's arms.",
+      "sourceLines": [
+        "Mock not my senseless conjuration, lords:",
+        "This earth shall have a feeling and these stones",
+        "Prove armed soldiers, ere her native king",
+        "Shall falter under foul rebellion's arms."
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "36bd41ca-2dd4-42fc-8dc7-e40a44ef2417",
+      "lineNumber": 12,
+      "blockId": "ec7735bc-183e-4109-93ef-a14386b62a3a",
+      "beatNumber": 1,
+      "text": "Fear not, my lord: that Power that made you king Hath power to keep you king in spite of all.",
+      "sourceLines": [
+        "Fear not, my lord: that Power that made you king",
+        "Hath power to keep you king in spite of all."
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "e2006cf1-6eee-4ce5-b6d8-50f2a7da3194"
+      ],
+      "speakerNames": [
+        "BISHOP OF CARLISLE"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "cb8d6e56-93de-4a25-8915-783c9f5b7941",
+      "lineNumber": 13,
+      "blockId": "ec7735bc-183e-4109-93ef-a14386b62a3a",
+      "beatNumber": 2,
+      "text": "The means that heaven yields must be embraced, And not neglected; else, if heaven would, And we will not, heaven's offer we refuse, The proffer'd means of succor and redress.",
+      "sourceLines": [
+        "The means that heaven yields must be embraced,",
+        "And not neglected; else, if heaven would,",
+        "And we will not, heaven's offer we refuse,",
+        "The proffer'd means of succor and redress."
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "e2006cf1-6eee-4ce5-b6d8-50f2a7da3194"
+      ],
+      "speakerNames": [
+        "BISHOP OF CARLISLE"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "b1e7ed6d-7057-4834-bf70-46504a013351",
+      "lineNumber": 14,
+      "blockId": "6380364e-c315-42c6-b4f8-cc1b4ce63aca",
+      "beatNumber": 1,
+      "text": "He means, my lord, that we are too remiss; Whilst Bolingbroke, through our security, Grows strong and great in substance and in power.",
+      "sourceLines": [
+        "He means, my lord, that we are too remiss;",
+        "Whilst Bolingbroke, through our security,",
+        "Grows strong and great in substance and in power."
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9c5f8000-36ac-43bc-bf60-1eca239e9351"
+      ],
+      "speakerNames": [
+        "DUKE OF AUMERLE"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "66792aff-ee2e-4a5f-add8-b2e1d2ce4d9e",
+      "lineNumber": 15,
+      "blockId": "5f97f205-b337-405e-a9cd-0a15f97580f3",
+      "beatNumber": 1,
+      "text": "Discomfortable cousin!",
+      "sourceLines": [
+        "Discomfortable cousin! know'st thou not"
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "fc0a4fd9-7a0e-4859-835f-b0805ceacc8f",
+      "lineNumber": 16,
+      "blockId": "5f97f205-b337-405e-a9cd-0a15f97580f3",
+      "beatNumber": 2,
+      "text": "know'st thou not That when the searching eye of heaven is hid, Behind the globe, that lights the lower world, Then thieves and robbers range abroad unseen In murders and in outrage, boldly here;",
+      "sourceLines": [
+        "Discomfortable cousin! know'st thou not",
+        "That when the searching eye of heaven is hid,",
+        "Behind the globe, that lights the lower world,",
+        "Then thieves and robbers range abroad unseen",
+        "In murders and in outrage, boldly here;"
+      ],
+      "sharesFirstSourceLine": true,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "52621480-3e0f-472c-91cc-eec19266f571",
+      "lineNumber": 17,
+      "blockId": "5f97f205-b337-405e-a9cd-0a15f97580f3",
+      "beatNumber": 3,
+      "text": "But when from under this terrestrial ball He fires the proud tops of the eastern pines And darts his light through every guilty hole, Then murders, treasons and detested sins, The cloak of night being pluck'd from off their backs, Stand bare and naked, trembling at themselves?",
+      "sourceLines": [
+        "But when from under this terrestrial ball",
+        "He fires the proud tops of the eastern pines",
+        "And darts his light through every guilty hole,",
+        "Then murders, treasons and detested sins,",
+        "The cloak of night being pluck'd from off their backs,",
+        "Stand bare and naked, trembling at themselves?"
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "49219e41-6b91-4eb3-9d61-898525f07270",
+      "lineNumber": 18,
+      "blockId": "5f97f205-b337-405e-a9cd-0a15f97580f3",
+      "beatNumber": 4,
+      "text": "So when this thief, this traitor, Bolingbroke, Who all this while hath revell'd in the night Whilst we were wandering with the antipodes, Shall see us rising in our throne, the east, His treasons will sit blushing in his face, Not able to endure the sight of day, But self-affrighted tremble at his sin.",
+      "sourceLines": [
+        "So when this thief, this traitor, Bolingbroke,",
+        "Who all this while hath revell'd in the night",
+        "Whilst we were wandering with the antipodes,",
+        "Shall see us rising in our throne, the east,",
+        "His treasons will sit blushing in his face,",
+        "Not able to endure the sight of day,",
+        "But self-affrighted tremble at his sin."
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "65417657-e77d-4b6d-96b6-fd9b90fb16e3",
+      "lineNumber": 19,
+      "blockId": "5f97f205-b337-405e-a9cd-0a15f97580f3",
+      "beatNumber": 5,
+      "text": "Not all the water in the rough rude sea Can wash the balm off from an anointed king; The breath of worldly men cannot depose The deputy elected by the Lord:",
+      "sourceLines": [
+        "Not all the water in the rough rude sea",
+        "Can wash the balm off from an anointed king;",
+        "The breath of worldly men cannot depose",
+        "The deputy elected by the Lord:"
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "8005d09f-1bc8-41ac-97fe-b34a2b7c8108",
+      "lineNumber": 20,
+      "blockId": "5f97f205-b337-405e-a9cd-0a15f97580f3",
+      "beatNumber": 6,
+      "text": "For every man that Bolingbroke hath press'd To lift shrewd steel against our golden crown, God for his Richard hath in heavenly pay A glorious angel:",
+      "sourceLines": [
+        "For every man that Bolingbroke hath press'd",
+        "To lift shrewd steel against our golden crown,",
+        "God for his Richard hath in heavenly pay",
+        "A glorious angel: then, if angels fight,"
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "stage",
+      "text": "Enter EARL OF SALISBURY"
+    },
+    {
+      "type": "speech",
+      "lineId": "d034548c-f5de-4b8b-b6ca-e31a70faa9ab",
+      "lineNumber": 21,
+      "blockId": "5f97f205-b337-405e-a9cd-0a15f97580f3",
+      "beatNumber": 7,
+      "text": "then, if angels fight, Weak men must fall, for heaven still guards the right.",
+      "sourceLines": [
+        "A glorious angel: then, if angels fight,",
+        "Weak men must fall, for heaven still guards the right."
+      ],
+      "sharesFirstSourceLine": true,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "068e6752-7383-4428-844b-8034c0d2ad97",
+      "lineNumber": 22,
+      "blockId": "78a954e0-d754-4109-9fea-3faeff2921cb",
+      "beatNumber": 1,
+      "text": "Welcome, my lord how far off lies your power?",
+      "sourceLines": [
+        "Welcome, my lord how far off lies your power?"
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "a527afb2-b6ee-4a26-9b48-d57c0863b9ea",
+      "lineNumber": 23,
+      "blockId": "3efb3721-7f35-421e-a661-8bc15e491c35",
+      "beatNumber": 1,
+      "text": "Nor near nor farther off, my gracious lord, Than this weak arm: discomfort guides my tongue And bids me speak of nothing but despair.",
+      "sourceLines": [
+        "Nor near nor farther off, my gracious lord,",
+        "Than this weak arm: discomfort guides my tongue",
+        "And bids me speak of nothing but despair."
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "d7d1cb29-7db5-4aff-9d28-5e51a6efe279"
+      ],
+      "speakerNames": [
+        "EARL OF SALISBURY"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "e266cea6-47b7-4197-a426-96f987a4b5c0",
+      "lineNumber": 24,
+      "blockId": "3efb3721-7f35-421e-a661-8bc15e491c35",
+      "beatNumber": 2,
+      "text": "One day too late, I fear me, noble lord, Hath clouded all thy happy days on earth: O, call back yesterday, bid time return, And thou shalt have twelve thousand fighting men!",
+      "sourceLines": [
+        "One day too late, I fear me, noble lord,",
+        "Hath clouded all thy happy days on earth:",
+        "O, call back yesterday, bid time return,",
+        "And thou shalt have twelve thousand fighting men!"
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "d7d1cb29-7db5-4aff-9d28-5e51a6efe279"
+      ],
+      "speakerNames": [
+        "EARL OF SALISBURY"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "de57e382-6eda-4f36-8f7d-89c2e772210e",
+      "lineNumber": 25,
+      "blockId": "3efb3721-7f35-421e-a661-8bc15e491c35",
+      "beatNumber": 3,
+      "text": "To-day, to-day, unhappy day, too late, O'erthrows thy joys, friends, fortune and thy state: For all the Welshmen, hearing thou wert dead.",
+      "sourceLines": [
+        "To-day, to-day, unhappy day, too late,",
+        "O'erthrows thy joys, friends, fortune and thy state:",
+        "For all the Welshmen, hearing thou wert dead."
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "d7d1cb29-7db5-4aff-9d28-5e51a6efe279"
+      ],
+      "speakerNames": [
+        "EARL OF SALISBURY"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "1b649641-2756-45ae-93e7-c4cc8f04e3d1",
+      "lineNumber": 26,
+      "blockId": "3efb3721-7f35-421e-a661-8bc15e491c35",
+      "beatNumber": 4,
+      "text": "Are gone to Bolingbroke, dispersed and fled.",
+      "sourceLines": [
+        "Are gone to Bolingbroke, dispersed and fled."
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "d7d1cb29-7db5-4aff-9d28-5e51a6efe279"
+      ],
+      "speakerNames": [
+        "EARL OF SALISBURY"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "693b1ba6-e867-4616-b2b0-97f32c8b6555",
+      "lineNumber": 27,
+      "blockId": "706db157-a44e-42ad-860a-4b15e7380120",
+      "beatNumber": 1,
+      "text": "Comfort, my liege; why looks your grace so pale?",
+      "sourceLines": [
+        "Comfort, my liege; why looks your grace so pale?"
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9c5f8000-36ac-43bc-bf60-1eca239e9351"
+      ],
+      "speakerNames": [
+        "DUKE OF AUMERLE"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "5f3d7e43-b2fc-440b-bf4e-909df23c3b77",
+      "lineNumber": 28,
+      "blockId": "fe6ce8d5-2e1b-44cd-9966-deea558cdce4",
+      "beatNumber": 1,
+      "text": "But now the blood of twenty thousand men Did triumph in my face, and they are fled; And, till so much blood thither come again, Have I not reason to look pale and dead?",
+      "sourceLines": [
+        "But now the blood of twenty thousand men",
+        "Did triumph in my face, and they are fled;",
+        "And, till so much blood thither come again,",
+        "Have I not reason to look pale and dead?"
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "bd504ff8-7133-4f62-accf-687f2ab39378",
+      "lineNumber": 29,
+      "blockId": "fe6ce8d5-2e1b-44cd-9966-deea558cdce4",
+      "beatNumber": 2,
+      "text": "All souls that will be safe fly from my side, For time hath set a blot upon my pride.",
+      "sourceLines": [
+        "All souls that will be safe fly from my side,",
+        "For time hath set a blot upon my pride."
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "ce373ad2-1d37-4392-863b-334ac53810a0",
+      "lineNumber": 30,
+      "blockId": "1240cf24-7ab5-42e9-81f1-1bab6cb4679d",
+      "beatNumber": 1,
+      "text": "Comfort, my liege; remember who you are.",
+      "sourceLines": [
+        "Comfort, my liege; remember who you are."
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9c5f8000-36ac-43bc-bf60-1eca239e9351"
+      ],
+      "speakerNames": [
+        "DUKE OF AUMERLE"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "b2eaff30-3611-4bb2-95c6-5d55df1aaa43",
+      "lineNumber": 31,
+      "blockId": "fcce6757-7727-477b-a176-aad53d5dfb2d",
+      "beatNumber": 1,
+      "text": "I had forgot myself; am I not king?",
+      "sourceLines": [
+        "I had forgot myself; am I not king?"
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "ab522db9-bd7a-44bb-80f5-c1b8dff1dc37",
+      "lineNumber": 32,
+      "blockId": "fcce6757-7727-477b-a176-aad53d5dfb2d",
+      "beatNumber": 2,
+      "text": "Awake, thou coward majesty! thou sleepest.",
+      "sourceLines": [
+        "Awake, thou coward majesty! thou sleepest."
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "d9933622-59ab-44c5-b626-88f2f4603ff0",
+      "lineNumber": 33,
+      "blockId": "fcce6757-7727-477b-a176-aad53d5dfb2d",
+      "beatNumber": 3,
+      "text": "Is not the king's name twenty thousand names?",
+      "sourceLines": [
+        "Is not the king's name twenty thousand names?"
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "9889f8d5-6f2f-49e7-b64c-9cba04041e03",
+      "lineNumber": 34,
+      "blockId": "fcce6757-7727-477b-a176-aad53d5dfb2d",
+      "beatNumber": 4,
+      "text": "Arm, arm, my name! a puny subject strikes At thy great glory.",
+      "sourceLines": [
+        "Arm, arm, my name! a puny subject strikes",
+        "At thy great glory. Look not to the ground,"
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "155aa5ec-5ca5-4ed2-8691-b95f266aad42",
+      "lineNumber": 35,
+      "blockId": "fcce6757-7727-477b-a176-aad53d5dfb2d",
+      "beatNumber": 5,
+      "text": "Look not to the ground, Ye favourites of a king: are we not high?",
+      "sourceLines": [
+        "At thy great glory. Look not to the ground,",
+        "Ye favourites of a king: are we not high?"
+      ],
+      "sharesFirstSourceLine": true,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "bb64f92e-a2ca-4a80-9215-26c9fd8cf0b3",
+      "lineNumber": 36,
+      "blockId": "fcce6757-7727-477b-a176-aad53d5dfb2d",
+      "beatNumber": 6,
+      "text": "High be our thoughts: I know my uncle York Hath power enough to serve our turn.",
+      "sourceLines": [
+        "High be our thoughts: I know my uncle York",
+        "Hath power enough to serve our turn. But who comes here?"
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "stage",
+      "text": "Enter SIR STEPHEN SCROOP"
+    },
+    {
+      "type": "speech",
+      "lineId": "6f9d5056-0f79-4d88-9d6e-3d8edfa7affe",
+      "lineNumber": 37,
+      "blockId": "fcce6757-7727-477b-a176-aad53d5dfb2d",
+      "beatNumber": 7,
+      "text": "But who comes here?",
+      "sourceLines": [
+        "Hath power enough to serve our turn. But who comes here?"
+      ],
+      "sharesFirstSourceLine": true,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "6af1bd02-15a7-4f08-bb38-57fbbf258888",
+      "lineNumber": 38,
+      "blockId": "30ff4cdb-3490-43a6-acf4-fd93b2967b48",
+      "beatNumber": 1,
+      "text": "More health and happiness betide my liege Than can my care-tuned tongue deliver him!",
+      "sourceLines": [
+        "More health and happiness betide my liege",
+        "Than can my care-tuned tongue deliver him!"
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "193630b6-d6a3-422f-90a5-6cd710951739"
+      ],
+      "speakerNames": [
+        "SIR STEPHEN SCROOP"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "eea6d8a9-b15e-45bc-a9e3-9c11a8d76141",
+      "lineNumber": 39,
+      "blockId": "ed7204e6-7003-4bad-9460-5cd3a6e7af1a",
+      "beatNumber": 1,
+      "text": "Mine ear is open and my heart prepared; The worst is worldly loss thou canst unfold.",
+      "sourceLines": [
+        "Mine ear is open and my heart prepared;",
+        "The worst is worldly loss thou canst unfold."
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "69adca0f-3057-48d6-b124-fc1bafd674f6",
+      "lineNumber": 40,
+      "blockId": "ed7204e6-7003-4bad-9460-5cd3a6e7af1a",
+      "beatNumber": 2,
+      "text": "Say, is my kingdom lost?",
+      "sourceLines": [
+        "Say, is my kingdom lost? why, 'twas my care"
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "48339783-13b3-4f29-8d37-4a029c1bfb17",
+      "lineNumber": 41,
+      "blockId": "ed7204e6-7003-4bad-9460-5cd3a6e7af1a",
+      "beatNumber": 3,
+      "text": "why, 'twas my care And what loss is it to be rid of care?",
+      "sourceLines": [
+        "Say, is my kingdom lost? why, 'twas my care",
+        "And what loss is it to be rid of care?"
+      ],
+      "sharesFirstSourceLine": true,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "797fc041-074e-4f3e-8a93-f42df7c1493f",
+      "lineNumber": 42,
+      "blockId": "ed7204e6-7003-4bad-9460-5cd3a6e7af1a",
+      "beatNumber": 4,
+      "text": "Strives Bolingbroke to be as great as we?",
+      "sourceLines": [
+        "Strives Bolingbroke to be as great as we?"
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "2b3b828a-5261-4949-964f-7c1114de66bc",
+      "lineNumber": 43,
+      "blockId": "ed7204e6-7003-4bad-9460-5cd3a6e7af1a",
+      "beatNumber": 5,
+      "text": "Greater he shall not be; if he serve God, We'll serve Him too and be his fellow so: Revolt our subjects?",
+      "sourceLines": [
+        "Greater he shall not be; if he serve God,",
+        "We'll serve Him too and be his fellow so:",
+        "Revolt our subjects? that we cannot mend;"
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "0907fd16-cd4b-4b9a-a47f-ff72034f0368",
+      "lineNumber": 44,
+      "blockId": "ed7204e6-7003-4bad-9460-5cd3a6e7af1a",
+      "beatNumber": 6,
+      "text": "that we cannot mend; They break their faith to God as well as us: Cry woe, destruction, ruin and decay: The worst is death, and death will have his day.",
+      "sourceLines": [
+        "Revolt our subjects? that we cannot mend;",
+        "They break their faith to God as well as us:",
+        "Cry woe, destruction, ruin and decay:",
+        "The worst is death, and death will have his day."
+      ],
+      "sharesFirstSourceLine": true,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "f6ad1bf3-c8e5-4cdc-aaa6-b0f327b76b0b",
+      "lineNumber": 45,
+      "blockId": "cd715123-d6b2-478a-a7df-142fe11e2c97",
+      "beatNumber": 1,
+      "text": "Glad am I that your highness is so arm'd To bear the tidings of calamity.",
+      "sourceLines": [
+        "Glad am I that your highness is so arm'd",
+        "To bear the tidings of calamity."
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "193630b6-d6a3-422f-90a5-6cd710951739"
+      ],
+      "speakerNames": [
+        "SIR STEPHEN SCROOP"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "e5773ef6-00e4-40d4-a8af-236419504e25",
+      "lineNumber": 46,
+      "blockId": "cd715123-d6b2-478a-a7df-142fe11e2c97",
+      "beatNumber": 2,
+      "text": "Like an unseasonable stormy day, Which makes the silver rivers drown their shores, As if the world were all dissolved to tears, So high above his limits swells the rage Of Bolingbroke, covering your fearful land With hard bright steel and hearts harder than steel.",
+      "sourceLines": [
+        "Like an unseasonable stormy day,",
+        "Which makes the silver rivers drown their shores,",
+        "As if the world were all dissolved to tears,",
+        "So high above his limits swells the rage",
+        "Of Bolingbroke, covering your fearful land",
+        "With hard bright steel and hearts harder than steel."
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "193630b6-d6a3-422f-90a5-6cd710951739"
+      ],
+      "speakerNames": [
+        "SIR STEPHEN SCROOP"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "bc67ec7e-3306-4b32-a5d6-143c4f2ff450",
+      "lineNumber": 47,
+      "blockId": "cd715123-d6b2-478a-a7df-142fe11e2c97",
+      "beatNumber": 3,
+      "text": "White-beards have arm'd their thin and hairless scalps Against thy majesty; boys, with women's voices, Strive to speak big and clap their female joints In stiff unwieldy arms against thy crown:",
+      "sourceLines": [
+        "White-beards have arm'd their thin and hairless scalps",
+        "Against thy majesty; boys, with women's voices,",
+        "Strive to speak big and clap their female joints",
+        "In stiff unwieldy arms against thy crown:"
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "193630b6-d6a3-422f-90a5-6cd710951739"
+      ],
+      "speakerNames": [
+        "SIR STEPHEN SCROOP"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "ce640b00-782d-438d-a5dc-5fe0b9cf1d3b",
+      "lineNumber": 48,
+      "blockId": "cd715123-d6b2-478a-a7df-142fe11e2c97",
+      "beatNumber": 4,
+      "text": "The very beadsmen learn to bend their bows Of double-fatal yew against thy state; Yea, distaff-women manage rusty bills Against thy seat:",
+      "sourceLines": [
+        "The very beadsmen learn to bend their bows",
+        "Of double-fatal yew against thy state;",
+        "Yea, distaff-women manage rusty bills",
+        "Against thy seat: both young and old rebel,"
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "193630b6-d6a3-422f-90a5-6cd710951739"
+      ],
+      "speakerNames": [
+        "SIR STEPHEN SCROOP"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "c1d068f8-885f-4a7a-8d5a-9e7d31ef9cba",
+      "lineNumber": 49,
+      "blockId": "cd715123-d6b2-478a-a7df-142fe11e2c97",
+      "beatNumber": 5,
+      "text": "both young and old rebel, And all goes worse than I have power to tell.",
+      "sourceLines": [
+        "Against thy seat: both young and old rebel,",
+        "And all goes worse than I have power to tell."
+      ],
+      "sharesFirstSourceLine": true,
+      "isVerse": true,
+      "speakerIds": [
+        "193630b6-d6a3-422f-90a5-6cd710951739"
+      ],
+      "speakerNames": [
+        "SIR STEPHEN SCROOP"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "45e74590-1e19-492b-8627-133996d1f88d",
+      "lineNumber": 50,
+      "blockId": "edf6ddb2-15d4-44a2-a191-290be788042d",
+      "beatNumber": 1,
+      "text": "Too well, too well thou tell'st a tale so ill.",
+      "sourceLines": [
+        "Too well, too well thou tell'st a tale so ill."
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "6779941a-5572-4ebb-a991-d1ceeb7ea4ec",
+      "lineNumber": 51,
+      "blockId": "edf6ddb2-15d4-44a2-a191-290be788042d",
+      "beatNumber": 2,
+      "text": "Where is the Earl of Wiltshire?",
+      "sourceLines": [
+        "Where is the Earl of Wiltshire? where is Bagot?"
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "e326f966-9c67-43e9-aa95-f0d983f0bda9",
+      "lineNumber": 52,
+      "blockId": "edf6ddb2-15d4-44a2-a191-290be788042d",
+      "beatNumber": 3,
+      "text": "where is Bagot?",
+      "sourceLines": [
+        "Where is the Earl of Wiltshire? where is Bagot?"
+      ],
+      "sharesFirstSourceLine": true,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "f9ee7708-609a-49e3-aa90-922586ff27b4",
+      "lineNumber": 53,
+      "blockId": "edf6ddb2-15d4-44a2-a191-290be788042d",
+      "beatNumber": 4,
+      "text": "What is become of Bushy?",
+      "sourceLines": [
+        "What is become of Bushy? where is Green?"
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "160774ce-d5b2-4d51-8c0d-5f15b71a8109",
+      "lineNumber": 54,
+      "blockId": "edf6ddb2-15d4-44a2-a191-290be788042d",
+      "beatNumber": 5,
+      "text": "where is Green?",
+      "sourceLines": [
+        "What is become of Bushy? where is Green?"
+      ],
+      "sharesFirstSourceLine": true,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "972b05d1-332b-4915-abea-5b525055a13c",
+      "lineNumber": 55,
+      "blockId": "edf6ddb2-15d4-44a2-a191-290be788042d",
+      "beatNumber": 6,
+      "text": "That they have let the dangerous enemy Measure our confines with such peaceful steps?",
+      "sourceLines": [
+        "That they have let the dangerous enemy",
+        "Measure our confines with such peaceful steps?"
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "5dcb916d-2ea0-4c02-b2f8-f3e99e795e5a",
+      "lineNumber": 56,
+      "blockId": "edf6ddb2-15d4-44a2-a191-290be788042d",
+      "beatNumber": 7,
+      "text": "If we prevail, their heads shall pay for it: I warrant they have made peace with Bolingbroke.",
+      "sourceLines": [
+        "If we prevail, their heads shall pay for it:",
+        "I warrant they have made peace with Bolingbroke."
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "2c0f8e06-4a84-43af-a64c-043fdd288150",
+      "lineNumber": 57,
+      "blockId": "a34406fc-3357-40d6-ad34-b0ca8c4708f3",
+      "beatNumber": 1,
+      "text": "Peace have they made with him indeed, my lord.",
+      "sourceLines": [
+        "Peace have they made with him indeed, my lord."
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "193630b6-d6a3-422f-90a5-6cd710951739"
+      ],
+      "speakerNames": [
+        "SIR STEPHEN SCROOP"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "35a34d16-32af-4942-a15a-617b0afc9fd3",
+      "lineNumber": 58,
+      "blockId": "ca4c1923-7a4c-4ba8-b19f-2cb505baf836",
+      "beatNumber": 1,
+      "text": "O villains, vipers, damn'd without redemption!",
+      "sourceLines": [
+        "O villains, vipers, damn'd without redemption!"
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "3ba79faf-105f-46ff-8c8b-47e4b1e9e94b",
+      "lineNumber": 59,
+      "blockId": "ca4c1923-7a4c-4ba8-b19f-2cb505baf836",
+      "beatNumber": 2,
+      "text": "Dogs, easily won to fawn on any man! Snakes, in my heart-blood warm'd, that sting my heart!",
+      "sourceLines": [
+        "Dogs, easily won to fawn on any man!",
+        "Snakes, in my heart-blood warm'd, that sting my heart!"
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "c466218b-9133-460f-9402-92c392c6a9c4",
+      "lineNumber": 60,
+      "blockId": "ca4c1923-7a4c-4ba8-b19f-2cb505baf836",
+      "beatNumber": 3,
+      "text": "Three Judases, each one thrice worse than Judas!",
+      "sourceLines": [
+        "Three Judases, each one thrice worse than Judas!"
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "b5a3263c-3d8c-4d88-8400-348459941927",
+      "lineNumber": 61,
+      "blockId": "ca4c1923-7a4c-4ba8-b19f-2cb505baf836",
+      "beatNumber": 4,
+      "text": "Would they make peace?",
+      "sourceLines": [
+        "Would they make peace? terrible hell make war"
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "8d0be626-ff8b-4d75-9ede-73f66d0690a7",
+      "lineNumber": 62,
+      "blockId": "ca4c1923-7a4c-4ba8-b19f-2cb505baf836",
+      "beatNumber": 5,
+      "text": "terrible hell make war Upon their spotted souls for this offence!",
+      "sourceLines": [
+        "Would they make peace? terrible hell make war",
+        "Upon their spotted souls for this offence!"
+      ],
+      "sharesFirstSourceLine": true,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "c41fdece-9b37-4ae3-8741-95d99c9584f6",
+      "lineNumber": 63,
+      "blockId": "2b014d08-c1e4-48f7-a773-e1b1aa1618eb",
+      "beatNumber": 1,
+      "text": "Sweet love, I see, changing his property, Turns to the sourest and most deadly hate: Again uncurse their souls; their peace is made With heads, and not with hands;",
+      "sourceLines": [
+        "Sweet love, I see, changing his property,",
+        "Turns to the sourest and most deadly hate:",
+        "Again uncurse their souls; their peace is made",
+        "With heads, and not with hands; those whom you curse"
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "193630b6-d6a3-422f-90a5-6cd710951739"
+      ],
+      "speakerNames": [
+        "SIR STEPHEN SCROOP"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "f32305e0-09ee-4bd0-b96c-1417302f107c",
+      "lineNumber": 64,
+      "blockId": "2b014d08-c1e4-48f7-a773-e1b1aa1618eb",
+      "beatNumber": 2,
+      "text": "those whom you curse Have felt the worst of death's destroying wound And lie full low, graved in the hollow ground.",
+      "sourceLines": [
+        "With heads, and not with hands; those whom you curse",
+        "Have felt the worst of death's destroying wound",
+        "And lie full low, graved in the hollow ground."
+      ],
+      "sharesFirstSourceLine": true,
+      "isVerse": true,
+      "speakerIds": [
+        "193630b6-d6a3-422f-90a5-6cd710951739"
+      ],
+      "speakerNames": [
+        "SIR STEPHEN SCROOP"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "ff8b0ba2-1b8e-4e0c-8a40-f20b6c2f2324",
+      "lineNumber": 65,
+      "blockId": "12fb1be7-ac5e-4412-a29a-a42f130ab8f6",
+      "beatNumber": 1,
+      "text": "Is Bushy, Green, and the Earl of Wiltshire dead?",
+      "sourceLines": [
+        "Is Bushy, Green, and the Earl of Wiltshire dead?"
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9c5f8000-36ac-43bc-bf60-1eca239e9351"
+      ],
+      "speakerNames": [
+        "DUKE OF AUMERLE"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "7cfd0db6-dc6e-492e-8ec7-1444cc894d38",
+      "lineNumber": 66,
+      "blockId": "eb93aad4-7106-4cc3-8314-28013e3415ec",
+      "beatNumber": 1,
+      "text": "Ay, all of them at Bristol lost their heads.",
+      "sourceLines": [
+        "Ay, all of them at Bristol lost their heads."
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "193630b6-d6a3-422f-90a5-6cd710951739"
+      ],
+      "speakerNames": [
+        "SIR STEPHEN SCROOP"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "402bbc41-ef48-4b3f-9755-00b0881e306b",
+      "lineNumber": 67,
+      "blockId": "181fceb7-6fd5-42a8-8dbc-1e87e2abadae",
+      "beatNumber": 1,
+      "text": "Where is the duke my father with his power?",
+      "sourceLines": [
+        "Where is the duke my father with his power?"
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9c5f8000-36ac-43bc-bf60-1eca239e9351"
+      ],
+      "speakerNames": [
+        "DUKE OF AUMERLE"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "a8bff57b-704c-4822-845b-b14fe6e751cf",
+      "lineNumber": 68,
+      "blockId": "15ffbd46-2aa2-4b13-a260-aae00d40c58f",
+      "beatNumber": 1,
+      "text": "No matter where; of comfort no man speak: Let's talk of graves, of worms, and epitaphs;",
+      "sourceLines": [
+        "No matter where; of comfort no man speak:",
+        "Let's talk of graves, of worms, and epitaphs;"
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "61a60349-1e45-4399-980a-75c4c673357b",
+      "lineNumber": 69,
+      "blockId": "15ffbd46-2aa2-4b13-a260-aae00d40c58f",
+      "beatNumber": 2,
+      "text": "Make dust our paper and with rainy eyes Write sorrow on the bosom of the earth, Let's choose executors and talk of wills:",
+      "sourceLines": [
+        "Make dust our paper and with rainy eyes",
+        "Write sorrow on the bosom of the earth,",
+        "Let's choose executors and talk of wills:"
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "b245b0c6-4849-4117-9830-d1def5ac37e8",
+      "lineNumber": 70,
+      "blockId": "15ffbd46-2aa2-4b13-a260-aae00d40c58f",
+      "beatNumber": 3,
+      "text": "And yet not so, for what can we bequeath Save our deposed bodies to the ground?",
+      "sourceLines": [
+        "And yet not so, for what can we bequeath",
+        "Save our deposed bodies to the ground?"
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "138eb373-8808-41dc-abce-9b381ceaaf89",
+      "lineNumber": 71,
+      "blockId": "15ffbd46-2aa2-4b13-a260-aae00d40c58f",
+      "beatNumber": 4,
+      "text": "Our lands, our lives and all are Bolingbroke's, And nothing can we call our own but death And that small model of the barren earth Which serves as paste and cover to our bones.",
+      "sourceLines": [
+        "Our lands, our lives and all are Bolingbroke's,",
+        "And nothing can we call our own but death",
+        "And that small model of the barren earth",
+        "Which serves as paste and cover to our bones."
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "5cb632c4-b5e6-4816-979c-3e260cc49190",
+      "lineNumber": 72,
+      "blockId": "15ffbd46-2aa2-4b13-a260-aae00d40c58f",
+      "beatNumber": 5,
+      "text": "For God's sake, let us sit upon the ground And tell sad stories of the death of kings; How some have been deposed; some slain in war, Some haunted by the ghosts they have deposed;",
+      "sourceLines": [
+        "For God's sake, let us sit upon the ground",
+        "And tell sad stories of the death of kings;",
+        "How some have been deposed; some slain in war,",
+        "Some haunted by the ghosts they have deposed;"
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "ad93021a-f81c-4c6b-88cc-5b9755eecbcb",
+      "lineNumber": 73,
+      "blockId": "15ffbd46-2aa2-4b13-a260-aae00d40c58f",
+      "beatNumber": 6,
+      "text": "Some poison'd by their wives: some sleeping kill'd; All murder'd:",
+      "sourceLines": [
+        "Some poison'd by their wives: some sleeping kill'd;",
+        "All murder'd: for within the hollow crown"
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "33a1c1d4-8364-4f87-8c87-d5d49c0036e7",
+      "lineNumber": 74,
+      "blockId": "15ffbd46-2aa2-4b13-a260-aae00d40c58f",
+      "beatNumber": 7,
+      "text": "for within the hollow crown That rounds the mortal temples of a king Keeps Death his court and there the antic sits, Scoffing his state and grinning at his pomp, Allowing him a breath, a little scene, To monarchize, be fear'd and kill with looks, Infusing him with self and vain conceit, As if this flesh which walls about our life, Were brass impregnable, and humour'd thus Comes at the last and with a little pin Bores through his castle wall, and farewell king!",
+      "sourceLines": [
+        "All murder'd: for within the hollow crown",
+        "That rounds the mortal temples of a king",
+        "Keeps Death his court and there the antic sits,",
+        "Scoffing his state and grinning at his pomp,",
+        "Allowing him a breath, a little scene,",
+        "To monarchize, be fear'd and kill with looks,",
+        "Infusing him with self and vain conceit,",
+        "As if this flesh which walls about our life,",
+        "Were brass impregnable, and humour'd thus",
+        "Comes at the last and with a little pin",
+        "Bores through his castle wall, and farewell king!"
+      ],
+      "sharesFirstSourceLine": true,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "34f692c0-f2d8-4ee7-97dd-3ed8945c6011",
+      "lineNumber": 75,
+      "blockId": "15ffbd46-2aa2-4b13-a260-aae00d40c58f",
+      "beatNumber": 8,
+      "text": "Cover your heads and mock not flesh and blood With solemn reverence: throw away respect, Tradition, form and ceremonious duty, For you have but mistook me all this while:",
+      "sourceLines": [
+        "Cover your heads and mock not flesh and blood",
+        "With solemn reverence: throw away respect,",
+        "Tradition, form and ceremonious duty,",
+        "For you have but mistook me all this while:"
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "595bc8db-0301-493d-90a1-d8d3ff5c03c6",
+      "lineNumber": 76,
+      "blockId": "15ffbd46-2aa2-4b13-a260-aae00d40c58f",
+      "beatNumber": 9,
+      "text": "I live with bread like you, feel want, Taste grief, need friends: subjected thus, How can you say to me, I am a king?",
+      "sourceLines": [
+        "I live with bread like you, feel want,",
+        "Taste grief, need friends: subjected thus,",
+        "How can you say to me, I am a king?"
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "a72d48f7-5b99-4331-bece-f1aa5462a16e",
+      "lineNumber": 77,
+      "blockId": "55fe4de6-da91-4a8a-84c6-a00c52077d6b",
+      "beatNumber": 1,
+      "text": "My lord, wise men ne'er sit and wail their woes, But presently prevent the ways to wail.",
+      "sourceLines": [
+        "My lord, wise men ne'er sit and wail their woes,",
+        "But presently prevent the ways to wail."
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "e2006cf1-6eee-4ce5-b6d8-50f2a7da3194"
+      ],
+      "speakerNames": [
+        "BISHOP OF CARLISLE"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "241c9563-5211-4898-a60c-216b335abde5",
+      "lineNumber": 78,
+      "blockId": "55fe4de6-da91-4a8a-84c6-a00c52077d6b",
+      "beatNumber": 2,
+      "text": "To fear the foe, since fear oppresseth strength, Gives in your weakness strength unto your foe, And so your follies fight against yourself.",
+      "sourceLines": [
+        "To fear the foe, since fear oppresseth strength,",
+        "Gives in your weakness strength unto your foe,",
+        "And so your follies fight against yourself."
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "e2006cf1-6eee-4ce5-b6d8-50f2a7da3194"
+      ],
+      "speakerNames": [
+        "BISHOP OF CARLISLE"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "1a1bc483-fd70-4c9d-9110-04dec78244e1",
+      "lineNumber": 79,
+      "blockId": "55fe4de6-da91-4a8a-84c6-a00c52077d6b",
+      "beatNumber": 3,
+      "text": "Fear and be slain; no worse can come to fight: And fight and die is death destroying death; Where fearing dying pays death servile breath.",
+      "sourceLines": [
+        "Fear and be slain; no worse can come to fight:",
+        "And fight and die is death destroying death;",
+        "Where fearing dying pays death servile breath."
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "e2006cf1-6eee-4ce5-b6d8-50f2a7da3194"
+      ],
+      "speakerNames": [
+        "BISHOP OF CARLISLE"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "f783796f-4bcf-45cb-9944-1ef27061474c",
+      "lineNumber": 80,
+      "blockId": "1537c893-d0c0-4818-99dd-67c0b755b844",
+      "beatNumber": 1,
+      "text": "My father hath a power; inquire of him And learn to make a body of a limb.",
+      "sourceLines": [
+        "My father hath a power; inquire of him",
+        "And learn to make a body of a limb."
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9c5f8000-36ac-43bc-bf60-1eca239e9351"
+      ],
+      "speakerNames": [
+        "DUKE OF AUMERLE"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "71c21b49-809b-4be6-adbf-060715d8d737",
+      "lineNumber": 81,
+      "blockId": "2d0f3d81-2073-4666-8164-69239925602a",
+      "beatNumber": 1,
+      "text": "Thou chidest me well: proud Bolingbroke, I come To change blows with thee for our day of doom.",
+      "sourceLines": [
+        "Thou chidest me well: proud Bolingbroke, I come",
+        "To change blows with thee for our day of doom."
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "bda9bcfa-6f99-4000-ac16-b25ff59f2d90",
+      "lineNumber": 82,
+      "blockId": "2d0f3d81-2073-4666-8164-69239925602a",
+      "beatNumber": 2,
+      "text": "This ague fit of fear is over-blown; An easy task it is to win our own.",
+      "sourceLines": [
+        "This ague fit of fear is over-blown;",
+        "An easy task it is to win our own."
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "77794edf-a47e-44c1-99a0-235fba602001",
+      "lineNumber": 83,
+      "blockId": "2d0f3d81-2073-4666-8164-69239925602a",
+      "beatNumber": 3,
+      "text": "Say, Scroop, where lies our uncle with his power?",
+      "sourceLines": [
+        "Say, Scroop, where lies our uncle with his power?"
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "761d99b3-c68d-4d4e-85a9-e3189cb31e94",
+      "lineNumber": 84,
+      "blockId": "2d0f3d81-2073-4666-8164-69239925602a",
+      "beatNumber": 4,
+      "text": "Speak sweetly, man, although thy looks be sour.",
+      "sourceLines": [
+        "Speak sweetly, man, although thy looks be sour."
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "0b8ceda7-2f98-4533-9633-2f88826585d1",
+      "lineNumber": 85,
+      "blockId": "f9c52d6c-7de4-4059-a8ed-c8bd13f65cfa",
+      "beatNumber": 1,
+      "text": "Men judge by the complexion of the sky The state and inclination of the day: So may you by my dull and heavy eye, My tongue hath but a heavier tale to say.",
+      "sourceLines": [
+        "Men judge by the complexion of the sky",
+        "The state and inclination of the day:",
+        "So may you by my dull and heavy eye,",
+        "My tongue hath but a heavier tale to say."
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "193630b6-d6a3-422f-90a5-6cd710951739"
+      ],
+      "speakerNames": [
+        "SIR STEPHEN SCROOP"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "b4cd687d-4c4b-44a5-ae73-1ac709448489",
+      "lineNumber": 86,
+      "blockId": "f9c52d6c-7de4-4059-a8ed-c8bd13f65cfa",
+      "beatNumber": 2,
+      "text": "I play the torturer, by small and small To lengthen out the worst that must be spoken:",
+      "sourceLines": [
+        "I play the torturer, by small and small",
+        "To lengthen out the worst that must be spoken:"
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "193630b6-d6a3-422f-90a5-6cd710951739"
+      ],
+      "speakerNames": [
+        "SIR STEPHEN SCROOP"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "5d9cdd46-3142-43d1-ac20-4664eff14127",
+      "lineNumber": 87,
+      "blockId": "f9c52d6c-7de4-4059-a8ed-c8bd13f65cfa",
+      "beatNumber": 3,
+      "text": "Your uncle York is join'd with Bolingbroke, And all your northern castles yielded up, And all your southern gentlemen in arms Upon his party.",
+      "sourceLines": [
+        "Your uncle York is join'd with Bolingbroke,",
+        "And all your northern castles yielded up,",
+        "And all your southern gentlemen in arms",
+        "Upon his party."
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "193630b6-d6a3-422f-90a5-6cd710951739"
+      ],
+      "speakerNames": [
+        "SIR STEPHEN SCROOP"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "365a04d8-ce84-4580-a8a6-e80421bcbe6b",
+      "lineNumber": 88,
+      "blockId": "6b8580ac-c870-48a2-9d70-17c2662ea69a",
+      "beatNumber": 1,
+      "text": "Thou hast said enough.",
+      "sourceLines": [
+        "Thou hast said enough."
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "stage",
+      "text": "To DUKE OF AUMERLE"
+    },
+    {
+      "type": "speech",
+      "lineId": "26c167e1-a065-4ebb-8364-6d714ec54359",
+      "lineNumber": 89,
+      "blockId": "6b8580ac-c870-48a2-9d70-17c2662ea69a",
+      "beatNumber": 2,
+      "text": "Beshrew thee, cousin, which didst lead me forth",
+      "sourceLines": [
+        "Beshrew thee, cousin, which didst lead me forth"
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "5c0421e3-40dd-4f39-821f-b21379233db5",
+      "lineNumber": 90,
+      "blockId": "eb8cb58f-ffdc-4618-9def-aebfd289d8f4",
+      "beatNumber": 1,
+      "text": "Of that sweet way I was in to despair! What say you now?",
+      "sourceLines": [
+        "Of that sweet way I was in to despair!",
+        "What say you now? what comfort have we now?"
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "ae49d378-061e-4e32-a948-faf6421ecca4",
+      "lineNumber": 91,
+      "blockId": "eb8cb58f-ffdc-4618-9def-aebfd289d8f4",
+      "beatNumber": 2,
+      "text": "what comfort have we now?",
+      "sourceLines": [
+        "What say you now? what comfort have we now?"
+      ],
+      "sharesFirstSourceLine": true,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "40918dea-e754-49ce-bea1-e4200782c429",
+      "lineNumber": 92,
+      "blockId": "eb8cb58f-ffdc-4618-9def-aebfd289d8f4",
+      "beatNumber": 3,
+      "text": "By heaven, I'll hate him everlastingly That bids me be of comfort any more.",
+      "sourceLines": [
+        "By heaven, I'll hate him everlastingly",
+        "That bids me be of comfort any more."
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "8297df33-ba08-4e0b-aae7-c37eb930f177",
+      "lineNumber": 93,
+      "blockId": "eb8cb58f-ffdc-4618-9def-aebfd289d8f4",
+      "beatNumber": 4,
+      "text": "Go to Flint castle: there I'll pine away; A king, woe's slave, shall kingly woe obey.",
+      "sourceLines": [
+        "Go to Flint castle: there I'll pine away;",
+        "A king, woe's slave, shall kingly woe obey."
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "018df493-ba88-4f70-84fc-70aa3ade94ce",
+      "lineNumber": 94,
+      "blockId": "eb8cb58f-ffdc-4618-9def-aebfd289d8f4",
+      "beatNumber": 5,
+      "text": "That power I have, discharge; and let them go To ear the land that hath some hope to grow, For I have none: let no man speak again To alter this, for counsel is but vain.",
+      "sourceLines": [
+        "That power I have, discharge; and let them go",
+        "To ear the land that hath some hope to grow,",
+        "For I have none: let no man speak again",
+        "To alter this, for counsel is but vain."
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "b306bf0a-bdd6-48d0-8477-4d090d7b8527",
+      "lineNumber": 95,
+      "blockId": "9c89d088-f4f0-454b-bb7a-a1489ae9e298",
+      "beatNumber": 1,
+      "text": "My liege, one word.",
+      "sourceLines": [
+        "My liege, one word."
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9c5f8000-36ac-43bc-bf60-1eca239e9351"
+      ],
+      "speakerNames": [
+        "DUKE OF AUMERLE"
+      ]
+    },
+    {
+      "type": "speech",
+      "lineId": "1c79217c-f700-4983-8d96-8ecb8e981665",
+      "lineNumber": 96,
+      "blockId": "fbe22756-42cb-48cd-b277-e38389136936",
+      "beatNumber": 1,
+      "text": "He does me double wrong That wounds me with the flatteries of his tongue.",
+      "sourceLines": [
+        "He does me double wrong",
+        "That wounds me with the flatteries of his tongue."
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    },
+    {
+      "type": "stage",
+      "text": "Exeunt"
+    },
+    {
+      "type": "speech",
+      "lineId": "bce09579-2b94-4445-a529-83ef62749ee0",
+      "lineNumber": 97,
+      "blockId": "fbe22756-42cb-48cd-b277-e38389136936",
+      "beatNumber": 2,
+      "text": "Discharge my followers: let them hence away, From Richard's night to Bolingbroke's fair day.",
+      "sourceLines": [
+        "Discharge my followers: let them hence away,",
+        "From Richard's night to Bolingbroke's fair day."
+      ],
+      "sharesFirstSourceLine": false,
+      "isVerse": true,
+      "speakerIds": [
+        "9528d3a5-e04f-4ac0-a10a-1ada659fd858"
+      ],
+      "speakerNames": [
+        "KING RICHARD II"
+      ]
+    }
+  ]
+}

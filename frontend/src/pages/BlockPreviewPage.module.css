@@ -1,0 +1,50 @@
+.page {
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 20px 16px 80px;
+}
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bh-bg);
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--bh-ash-mid);
+}
+
+.title {
+  font-family: var(--bh-font-sans);
+  font-size: 20px;
+  margin: 0;
+}
+
+.description,
+.stats {
+  font-family: var(--bh-font-sans);
+  font-size: 13px;
+  color: var(--bh-text-faint);
+  margin: 4px 0 0;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.scene {
+  margin-top: 16px;
+}
+
+.blockRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.blockRow > *:first-child {
+  flex: 1;
+  min-width: 0;
+}
