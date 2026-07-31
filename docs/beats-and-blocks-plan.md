@@ -365,19 +365,12 @@ natural unit; bad voices, but it proves the sequencing.
 
 ## 10. Open questions
 
-- **The fuzzy-match threshold.** Does a dropped "the" count? Shakespeare makes
-  near-misses the norm, so this will shape how the app *feels* more than any
-  plumbing above. Related: style guide §11 — `confidence_score` is continuous,
-  so a near-miss and a full blank currently read identically. Doesn't block the
-  parser; does block coaching feeling right.
-- Whether trivially short beats (`"Ha!"`, `"Go."` — 237 of them in Merry Wives,
-  all complete short *speeches*) get rolled up in the Prompt Book list. A
-  surfacing decision, deliberately not a parser one.
-- How a flubbed beat is marked visually after a run.
-- Whether she can request Polly on her own lines.
-- Whether embeddings ship at all — the model and dimension are settled (§8) so
-  the schema is right either way, but `ORCHESTRATION_PLAN.md:60` still has the
-  feature itself as cut-first scope.
+Moved to `OPEN_ITEMS.md`, which is the running record across the whole project
+rather than just this change. The ones that came out of this work: the
+fuzzy-match threshold (§1a there, and the biggest of them), whether trivially
+short beats are rolled up in the Prompt Book, how a flubbed beat is marked
+inside verse lineation, whether she can hear her own lines, and whether
+embeddings ship at all.
 
 ## 11. Explicitly out of scope
 
