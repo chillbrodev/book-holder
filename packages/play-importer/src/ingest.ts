@@ -28,6 +28,37 @@ function chunks<T>(items: T[], size: number): T[][] {
   return out;
 }
 
+/**
+ * Refuses to import a play that is already in the database.
+ *
+ * Nothing here ever updated in place — a second run just inserted a whole
+ * second copy under a new play_id, and the only symptoms were a duplicate on
+ * the Shelf and a Polly bill that quietly doubled, because the warm script
+ * walks every block it can see. Migration 004 masked this by emptying the
+ * table first.
+ *
+ * Checked inside the caller's transaction so the check and the insert can't be
+ * interleaved by a concurrent run.
+ */
+async function assertNotAlreadyImported(client: PoolClient, title: string): Promise<void> {
+  const existing = await client.query(
+    "SELECT id, created_at FROM plays WHERE title = $1 ORDER BY created_at",
+    [title]
+  );
+  if (existing.rows.length === 0) return;
+
+  const ids = existing.rows
+    .map((r: { id: string; created_at: Date }) => `  ${r.id}  imported ${r.created_at.toISOString()}`)
+    .join("\n");
+  throw new Error(
+    `"${title}" is already imported — refusing to insert a second copy.\n${ids}\n\n` +
+      `Delete the existing rows first (child tables before parents: mistake_log,\n` +
+      `line_mastery, line_speakers, lines, stage_directions, roles_in_progress,\n` +
+      `characters, plays), or re-run with --dry-run to regenerate the review\n` +
+      `artifacts without touching the database.`
+  );
+}
+
 async function insertPlay(client: PoolClient, play: BuiltPlay["play"]): Promise<void> {
   await client.query("INSERT INTO plays (id, title, source_url) VALUES ($1, $2, $3)", [
     play.id,
@@ -143,6 +174,7 @@ export async function ingestPlay(built: BuiltPlay): Promise<void> {
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
+      await assertNotAlreadyImported(client, built.play.title);
       await insertPlay(client, built.play);
       await insertCharacters(client, built.characters);
       await insertLines(client, built.lines);
