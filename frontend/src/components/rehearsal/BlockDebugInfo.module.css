@@ -1,0 +1,33 @@
+/* Deliberately quiet: this sits under every speech during a real rehearsal in
+   dev, so it has to stay readable without competing with the line above it. */
+.debug {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-top: 6px;
+  /* Monospace literal, not a token — the design system defines sans and
+     display only, and ids read better with fixed advance widths. */
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--bh-text-faint);
+  opacity: 0.75;
+}
+
+.field {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.label {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.7;
+}
+
+/* Ids are long and must stay selectable/copyable — wrap anywhere rather than
+   forcing the block to scroll sideways on a phone. */
+.value {
+  overflow-wrap: anywhere;
+}

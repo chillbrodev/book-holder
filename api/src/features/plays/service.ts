@@ -95,6 +95,14 @@ type RawLineRow = {
 const BEAT_COLUMNS = `l.id, l.line_number, l.block_id, l.beat_number, l.text,
         l.source_lines, l.shares_first_source_line, l.is_verse`;
 
+/** The per-speaker aggregates, kept beside BEAT_COLUMNS for the same reason:
+ * all three beat queries feed one mapLineRow, so a column added to only some
+ * of them lands as `undefined` at the mapping boundary rather than as a
+ * compile error. Aggregates, so these belong in SELECT only — never in the
+ * GROUP BY that BEAT_COLUMNS also serves. */
+const SPEAKER_COLUMNS = `array_agg(c.id ORDER BY c.name) AS speaker_ids,
+        array_agg(c.name ORDER BY c.name) AS speaker_names`;
+
 function mapLineRow(r: RawLineRow): DialogueEntryRow {
   return {
     type: "speech",
@@ -226,8 +234,7 @@ export const PlaysService = {
     const [lines, directions] = await Promise.all([
       pool.query(
         `SELECT ${BEAT_COLUMNS},
-                array_agg(c.id ORDER BY c.name) AS speaker_ids,
-                array_agg(c.name ORDER BY c.name) AS speaker_names
+                ${SPEAKER_COLUMNS}
          FROM lines l
          JOIN line_speakers ls ON ls.line_id = l.id
          JOIN characters c ON c.id = ls.character_id
@@ -276,8 +283,7 @@ export const PlaysService = {
   async getLine(lineId: string): Promise<DialogueEntryRow> {
     const result = await DbClient.getPool().query(
       `SELECT ${BEAT_COLUMNS},
-              array_agg(c.id ORDER BY c.name) AS speaker_ids,
-              array_agg(c.name ORDER BY c.name) AS speaker_names
+              ${SPEAKER_COLUMNS}
        FROM lines l
        JOIN line_speakers ls ON ls.line_id = l.id
        JOIN characters c ON c.id = ls.character_id
@@ -299,8 +305,7 @@ export const PlaysService = {
   async getBlockForLine(lineId: string): Promise<DialogueEntryRow[]> {
     const result = await DbClient.getPool().query(
       `SELECT ${BEAT_COLUMNS},
-              array_agg(c.id ORDER BY c.name) AS speaker_ids,
-              array_agg(c.name ORDER BY c.name) AS speaker_names
+              ${SPEAKER_COLUMNS}
        FROM lines l
        JOIN line_speakers ls ON ls.line_id = l.id
        JOIN characters c ON c.id = ls.character_id

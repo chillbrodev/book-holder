@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { blockDisplayLines } from '../../data/client'
 import type { DialogueBlock } from '../../types/views'
 import { cx } from '../../utils/cx'
+import { BlockDebugInfo } from './BlockDebugInfo'
 import styles from './DialogueLine.module.css'
 
 export interface DialogueLineProps {
@@ -61,6 +62,9 @@ export function DialogueLine({
         {header}
         {/* Empty when the "Other lines" toggle is off — speaker name alone. */}
         {overrideText !== '' && body}
+        {/* Stays put even with the text toggled off: it identifies the block,
+            which is exactly what's being checked when the text is hidden. */}
+        <BlockDebugInfo block={block} />
       </div>
     )
   }
@@ -70,6 +74,7 @@ export function DialogueLine({
       {header}
       {body}
       {promptedBeat && <div className={styles.promptedBeat}>{promptedBeat}</div>}
+      <BlockDebugInfo block={block} />
       {children}
     </div>
   )
