@@ -126,8 +126,12 @@ roles, S3 bucket, the service itself) and is a local, occasional, human-run thin
 **Verifying a deploy is actually live:** `GET /health` returns `{version: "<short sha>"}`.
 Match it against `git rev-parse --short HEAD`. A 200 alone proves nothing — during a
 rollout both revisions answer, so a status check passes instantly and tells you nothing.
-The workflow now waits for both the version match *and* `aws ecs wait services-stable`,
-so a green run means the old revision has drained.
+
+A green workflow run means the new version is *answering*, not that the old one has
+drained. Both revisions serve behind the same endpoint for a minute or two afterwards,
+so a request right after a green run can still hit the old code. If that matters — and
+on the `/polly` cache-miss path it does — watch the rollout in the ECS console rather
+than trusting the green check.
 
 **`DENO_ENV` is hardcoded `production` in the deploy path**, in both the workflow and
 `ecs-deploy.sh`. It is *not* sourced from `infra/aws/.env.production` — the local dev

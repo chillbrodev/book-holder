@@ -173,25 +173,12 @@ jobs:
           echo "::error::$WANT did not reach the service within 10 minutes."
           exit 1
 
-      # The step above proves the new revision is *answering*. It does not
-      # prove the old one has stopped: during a rollout both revisions are
-      # registered behind the same endpoint, so traffic round-robins between
-      # them and a single matching /health response can arrive while the
-      # previous task is still taking roughly half the requests.
+      # Note this proves the new revision is *answering*, not that the old one
+      # has stopped. Both are registered behind the same endpoint during a
+      # rollout, so traffic round-robins and a request right after this step
+      # can still land on the previous task for a minute or two.
       #
-      # That gap is not academic. A deploy went green here while the old
-      # revision was still serving, and a verification request immediately
-      # afterwards hit the old code — which, on a cache-miss path, re-cached
-      # audio under the pre-deploy key format.
-      #
-      # `services-stable` waits for runningCount == desiredCount with only the
-      # PRIMARY deployment left, which is the actual "this commit, and nothing
-      # else, is serving" condition.
-      - name: Wait for the previous revision to drain
-        run: |
-          set -euo pipefail
-          aws ecs wait services-stable \
-            --region "$AWS_REGION" \
-            --cluster default \
-            --services "$SERVICE_NAME"
-          echo "Rollout complete — only the new revision is serving."
+      # Deliberately not waited on here: `aws ecs wait services-stable` needs
+      # ecs:DescribeServices, which this role does not have and which isn't
+      # worth widening the policy for. Watch the rollout in the ECS console if
+      # you need to know the old revision is gone.
