@@ -1,7 +1,7 @@
 /**
  * Per-character Polly voice, assigned at import.
  *
- * British English generative voices, Amy for women and Brian for men, per
+ * British English neural voices, Amy for women and Brian for men, per
  * docs/BE_PLAN.md §44. This lives in the importer rather than in a migration
  * because migrations run once: an assignment made by UPDATE survives exactly
  * until the next re-import mints new character rows, which is how the original

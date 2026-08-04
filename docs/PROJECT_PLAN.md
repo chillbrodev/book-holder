@@ -85,7 +85,7 @@ CockroachDB   Bedrock        Polly + Transcribe   S3
 - **Database:** CockroachDB Serverless (free tier comfortably covers single-user hackathon scale)
 - **LLM:** Amazon Nova Micro/Lite for per-line comparison (cheap, high volume); a stronger model only for
   less-frequent session-summary/coaching-note generation
-- **Voice:** Amazon Polly generative voices, one voice ID per character (`characters.polly_voice_id`, not an
+- **Voice:** Amazon Polly neural voices, one voice ID per character (`characters.polly_voice_id`, not an
   env var — see `BE_PLAN.md` §0), cached per line after first synthesis
 - **Listening:** Amazon Transcribe, processing her recorded line after she finishes speaking (not live streaming —
   cut for time/risk; live STT is a stretch goal, not MVP)
@@ -240,11 +240,14 @@ At ~13 sessions/month, ~40 lines each (~520 line-transcriptions/month):
 - **Bedrock Nova Micro** (per-line comparison, ~520 calls/mo): well under **$0.05/mo**.
 - **Bedrock** stronger model for session coaching notes (~13 calls/mo, low-frequency by design): well under
   **$0.05/mo**.
-- **Polly** (**generative**, not neural — see `BE_PLAN.md` §0/§4 — $30/1M chars vs neural's $16/1M, and only a
-  100K-char/mo free tier vs neural's 1M): cached per line, so synthesizing the *entire* Merry Wives of
-  Windsor script once — confirmed via `deno task warm-polly-cache`'s dry run: ~107,900 characters — is
-  ~$3.24 at full rate, ~$0.24 net of the smaller generative free tier (first 12 months, first use that
-  month). **One-time**, not recurring — every subsequent playback of the same line/voice pair costs nothing.
+- **Polly** (**neural**, not generative — $16/1M chars against a 1M-char/mo free tier. Generative is the more
+  expressive engine and was used first, but it is LLM-based and non-deterministic: it occasionally renders
+  audio that keeps talking past the end of the text, in invented sentences. Three blocks of Merry Wives were
+  cached that way. Neural returns byte-identical audio for identical input, so it cannot drift — see
+  `POLLY_ENGINE`): cached per block, so synthesizing the *entire* Merry Wives of Windsor script once —
+  confirmed via `deno task warm-polly-cache`'s dry run: ~109,400 characters — is ~$1.75 at full rate, and
+  free within the tier. **One-time**, not recurring — every subsequent playback of the same block/voice pair
+  costs nothing.
 - **Titan embeddings** (mistake-log vector search, week-3 stretch): negligible, well under $0.01/mo.
 - **AI services subtotal: ~$3–5/mo.**
 - CockroachDB Serverless free tier: comfortably covers this scale, $0.

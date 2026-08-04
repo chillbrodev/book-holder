@@ -78,7 +78,7 @@ is a solo, out-of-pocket, time-boxed build and there's no benefit to learning ne
 | Backend hosting | AWS ECS Express Mode (Fargate-based, auto-provisioned ALB) | AWS's recommended App Runner replacement (App Runner is in maintenance mode as of 2026-04-30); HTTPS termination for mic capture's secure-context requirement — see `docs/PROJECT_PLAN.md` §9 for the real cost breakdown |
 | Database | CockroachDB Serverless | Memory layer: sessions, line mastery, mistake embeddings, all transactional |
 | LLM | Amazon Bedrock — Nova Micro/Lite (per-line comparison), a stronger model (session summaries) | Cost-scaled to call frequency |
-| Voice | Amazon Polly (generative voices, one per character via `characters.polly_voice_id`, cached per line) | |
+| Voice | Amazon Polly (neural voices, one per character via `characters.polly_voice_id`, cached per line) | |
 | Listening | Amazon Transcribe (post-utterance, not streaming) | Live STT cut for time/risk — stretch goal |
 | Recordings | Amazon S3 | Session playback |
 

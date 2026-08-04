@@ -25,8 +25,9 @@ and deployed — credentials come from the AWS SDK's default provider chain (env
 when deployed), not branched in code. `ecs-deploy.sh` now also provisions the Polly cache S3 bucket and a
 task role scoped to `polly:SynthesizeSpeech` + bucket read/write/head/list.
 
-Cache key is `{play}/{character}/{lineId}__{voiceId}.mp3` (slugified play title and character name), not a
-flat `{lineId}/{voiceId}.mp3` — grouped for browsability in the S3 console; see `PollyService`'s `cacheKey`/
+Cache key is `{play}/{character}/{blockId}__{voiceId}__{engine}.mp3` (slugified play title and character
+name), not a flat `{lineId}/{voiceId}.mp3` — grouped for browsability in the S3 console; see `PollyService`'s
+`cacheKey`/
 `slugify`. `s3:ListBucket` on the bucket itself (not just object-level actions) is required for this to work
 correctly — without it, S3 masks "object doesn't exist" as a generic `403` instead of `404` for a scoped IAM
 principal, which breaks cache-miss detection. Confirmed by hitting this directly; both `create-dev-user.sh`
@@ -41,7 +42,7 @@ available in `us-west-2` (our deploy default). Voice is per-character, stored in
 (`infra/cockroachdb/migrations/003_polly_voice_id.sql`), not an env var — `characters` is already play-scoped
 in the schema, so this lets two plays' same-named characters carry different voices and lets a voice change
 via `UPDATE` rather than an env edit + redeploy. Merry Wives of Windsor is currently assigned British English
-generative voices (**Amy**/female, **Brian**/male) per character gender, sourced from
+neural voices (**Amy**/female, **Brian**/male) per character gender, sourced from
 stageagent.com's cast list; unassigned characters fall back to `POLLY_DEFAULT_VOICE_ID` (default `Brian`).
 `getLineAudio` now takes `characterId`, not a character name, and joins through `line_speakers` to confirm
 the requested character actually speaks the requested line before resolving a voice (§1a).

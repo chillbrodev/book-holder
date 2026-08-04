@@ -53,7 +53,7 @@ export interface CharacterRow {
   name: string;
   description: string | null;
   is_synthetic: boolean;
-  /** British generative voice, Amy/female and Brian/male (see voices.ts).
+  /** British neural voice, Amy/female and Brian/male (see voices.ts).
    * NULL where the text asserts no gender ("All"), leaving PollyService to
    * fall back to POLLY_DEFAULT_VOICE_ID. */
   polly_voice_id: string | null;

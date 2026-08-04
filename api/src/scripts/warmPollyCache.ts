@@ -26,10 +26,12 @@ import { DbClient } from "../clients/cockroach-db/dbClient.ts";
 import { ConfigClient } from "../clients/config-client/configClient.ts";
 import { PollyService } from "../features/polly/service.ts";
 
-// Generative engine (pollyClient.ts), not neural — $30/1M chars vs $16/1M,
-// and only a 100K-char/mo free tier vs neural's 1M — see
-// aws.amazon.com/polly/pricing.
-const GENERATIVE_RATE_USD_PER_MILLION_CHARS = 30;
+// Neural engine (pollyClient.ts) — $16/1M chars, with a 1M-char/mo free tier.
+// Was generative at $30/1M and a 100K-char tier; see POLLY_ENGINE for why that
+// changed. Keep this in step with the engine, or the dry run's estimate is
+// wrong in whichever direction costs the most to discover.
+// See aws.amazon.com/polly/pricing.
+const NEURAL_RATE_USD_PER_MILLION_CHARS = 16;
 
 type BlockRow = {
   blockId: string;
@@ -167,7 +169,7 @@ if (import.meta.main) {
   const groups = groupByCharacter(lines);
   const totalChars = lines.reduce((sum, l) => sum + l.text.length, 0);
   const estimatedCostUsd = (totalChars / 1_000_000) *
-    GENERATIVE_RATE_USD_PER_MILLION_CHARS;
+    NEURAL_RATE_USD_PER_MILLION_CHARS;
 
   console.log(
     `${groups.size} character(s), ${lines.length} line(s), ~${totalChars} characters of text.`,
@@ -176,8 +178,8 @@ if (import.meta.main) {
     `Estimated Polly cost if none of this is cached yet: ~$${
       estimatedCostUsd.toFixed(2)
     } ` +
-      `(generative, $${GENERATIVE_RATE_USD_PER_MILLION_CHARS}/1M chars — only a 100K-char/mo free tier, ` +
-      `smaller than neural's; already-cached lines cost nothing to re-run against).`,
+      `(neural, $${NEURAL_RATE_USD_PER_MILLION_CHARS}/1M chars, against a ` +
+      `1M-char/mo free tier; already-cached lines cost nothing to re-run against).`,
   );
 
   if (!args.yes) {

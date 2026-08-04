@@ -1,7 +1,11 @@
 import { DbClient } from "../../clients/cockroach-db/dbClient.ts";
 import { ConfigClient } from "../../clients/config-client/configClient.ts";
-import { PollyClient } from "../../clients/polly-client/pollyClient.ts";
+import {
+  POLLY_ENGINE,
+  PollyClient,
+} from "../../clients/polly-client/pollyClient.ts";
 import { S3Client } from "../../clients/s3-client/s3Client.ts";
+import { mp3DurationSeconds } from "./audioDuration.ts";
 import { PollyError } from "./errors.ts";
 
 export type LineAudio = {
@@ -23,11 +27,18 @@ export function slugify(text: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-/** {play}/{character}/{blockId}__{voiceId}.mp3 — grouped for browsability in
- * the S3 console (was a flat {lineId}/{voiceId}.mp3, which is unreadable at
- * a glance). voiceId stays in the filename, not just implied by character,
- * so changing a character's voice doesn't silently serve stale audio under
- * the same path.
+/** {play}/{character}/{blockId}__{voiceId}__{engine}.mp3 — grouped for
+ * browsability in the S3 console (was a flat {lineId}/{voiceId}.mp3, which is
+ * unreadable at a glance). voiceId stays in the filename, not just implied by
+ * character, so changing a character's voice doesn't silently serve stale
+ * audio under the same path.
+ *
+ * The engine is in the key for exactly that reason, learned the hard way: it
+ * wasn't, and audio rendered by the generative engine — including three
+ * renders with sentences Shakespeare didn't write — stayed live under a key
+ * that said nothing about how it was produced. Switching engines could not
+ * dislodge it, because a cache hit is `objectExists` and nothing else. Now a
+ * change of engine is a change of key.
  *
  * Keyed on the *block*, not the beat: a speech is synthesized once, whole.
  * Rendering it beat by beat gives each fragment sentence-final intonation and
@@ -41,8 +52,27 @@ function cacheKey(
 ): string {
   return `${slugify(playTitle)}/${
     slugify(characterName)
-  }/${blockId}__${voiceId}.mp3`;
+  }/${blockId}__${voiceId}__${POLLY_ENGINE}.mp3`;
 }
+
+/** Characters of text spoken per second, across the 720 blocks of the corpus
+ * longer than 40 characters: p05 10.3, median 13.9, p95 17.3. */
+const CHARS_PER_SECOND = 14;
+
+/** Leading and trailing silence, which dominates the very shortest blocks
+ * ("Ay.") and would otherwise make them look many times over-length. */
+const RENDER_OVERHEAD_SECONDS = 0.8;
+
+/** How far past the estimate a render may run before it is treated as garbage
+ * rather than as unhurried delivery.
+ *
+ * Calibrated, not guessed. Across 1064 cached renders the ratio of actual to
+ * estimated duration has its 99th percentile at 1.47; the three renders
+ * independently confirmed to contain invented speech sat at 2.17, 2.55 and
+ * 4.51. 1.75 is the empty gap between the two populations. Deliberately loose:
+ * a false positive costs a block its audio, and slow is not the same as
+ * wrong. */
+const MAX_DURATION_RATIO = 1.75;
 
 async function synthesizeAndCache(
   key: string,
@@ -64,11 +94,55 @@ async function synthesizeAndCache(
     );
   }
 
+  assertPlausibleLength(audio, text, blockId);
+
   await S3Client.putObject(
     ConfigClient.Polly.cacheBucket,
     key,
     audio,
     "audio/mpeg",
+  );
+}
+
+/**
+ * Refuses to cache a render that runs far longer than its text can account
+ * for.
+ *
+ * The failure this catches is a speech engine that keeps talking past the end
+ * of the input — audio that is a valid MP3 in the right voice under the right
+ * key, and simply contains words nobody wrote. Nothing downstream can detect
+ * that: a cache hit is a HeadObject, so once such a render is stored it is
+ * served forever, and block ids are content-derived, so even re-importing the
+ * play lands on the same key. The only moment it can be caught is here,
+ * before the PutObject.
+ *
+ * Throws rather than retrying. The neural engine is deterministic — an
+ * identical request returns identical bytes — so a retry would re-fetch the
+ * same bad audio at the same cost. Better to leave the block with no audio,
+ * which degrades to a text-only prompt the caller already handles, and to say
+ * loudly why.
+ */
+function assertPlausibleLength(
+  audio: Uint8Array,
+  text: string,
+  blockId: string,
+): void {
+  const duration = mp3DurationSeconds(audio);
+  // Unreadable header — not evidence of bad audio, so it isn't grounds to
+  // discard an otherwise fine render. See mp3DurationSeconds.
+  if (duration === undefined) return;
+
+  const expected = RENDER_OVERHEAD_SECONDS + text.length / CHARS_PER_SECOND;
+  const limit = expected * MAX_DURATION_RATIO;
+  if (duration <= limit) return;
+
+  throw new PollyError(
+    "IMPLAUSIBLE_AUDIO",
+    `Polly returned ${duration.toFixed(1)}s of audio for ${text.length} ` +
+      `characters of text (expected ~${expected.toFixed(1)}s, limit ` +
+      `${limit.toFixed(1)}s). Discarded rather than cached — audio this far ` +
+      `over length has previously contained speech that is not in the text.`,
+    { context: { blockId, duration, expected, limit, text } },
   );
 }
 
