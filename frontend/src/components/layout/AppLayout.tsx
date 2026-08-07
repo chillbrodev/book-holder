@@ -18,10 +18,21 @@ export function AppLayout() {
         </NavLink>
         <div className={styles.headerRight}>
           <nav className={styles.nav}>
-            <NavLink to="/shelf" className={({ isActive }) => cx(styles.navLink, isActive && styles.navLinkActive)}>
+            {/* data-interactive marks the items that carry an underline. It is on
+                the element rather than in a second class so that "is this
+                clickable" and "does it reserve an underline" can't drift apart. */}
+            <NavLink
+              to="/shelf"
+              data-interactive
+              className={({ isActive }) => cx(styles.headerItem, isActive && styles.navLinkActive)}
+            >
               The Shelf
             </NavLink>
-            <NavLink to="/prompt-book" className={({ isActive }) => cx(styles.navLink, isActive && styles.navLinkActive)}>
+            <NavLink
+              to="/prompt-book"
+              data-interactive
+              className={({ isActive }) => cx(styles.headerItem, isActive && styles.navLinkActive)}
+            >
               Prompt Book
             </NavLink>
           </nav>
@@ -31,13 +42,20 @@ export function AppLayout() {
             <div className={styles.account}>
               {user ? (
                 <>
-                  <span className={styles.accountName}>Hi, {user.name}</span>
-                  <button type="button" className={styles.accountLink} onClick={() => void logout()}>
+                  {/* No data-interactive: it isn't a control, so it reserves no
+                      underline — and now needs no padding to stay level. */}
+                  <span className={styles.headerItem}>Hi, {user.name}</span>
+                  <button type="button" data-interactive className={styles.headerItem} onClick={() => void logout()}>
                     Log out
                   </button>
                 </>
               ) : (
-                <button type="button" className={styles.accountLink} onClick={() => setShowAuthModal(true)}>
+                <button
+                  type="button"
+                  data-interactive
+                  className={styles.headerItem}
+                  onClick={() => setShowAuthModal(true)}
+                >
                   Save Progress
                 </button>
               )}
