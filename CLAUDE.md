@@ -10,7 +10,7 @@ but nothing is hardcoded to it — adding a play is an import, not a schema chan
 |---|---|---|
 | `api/` | Hono API | **Deno** |
 | `frontend/` | React 19 + Vite | Node / npm |
-| `packages/play-importer/` | Parses MIT Shakespeare XML into DB rows | Node / tsx |
+| `packages/play-importer/` | Parses Moby Shakespeare XML into DB rows | Node / tsx |
 | `infra/cockroachdb/` | Schema + migrations | tsx |
 | `infra/aws/` | Deploy + bootstrap scripts | bash |
 | `docs/` | Design docs — read before changing a subsystem |
