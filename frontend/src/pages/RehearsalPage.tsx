@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { getPlay, getSceneDialogue, getSelectedRole, getSingleLineDialogue, setLastScene } from '../data/client'
 import { getBlockAudio } from '../data/pollyClient'
+import { saveSession } from '../data/sessionClient'
 import { useAsync } from '../hooks/useAsync'
+import { useAuth } from '../auth/useAuth'
 import { useMicCapture } from '../hooks/useMicCapture'
 import { DialogueLine } from '../components/rehearsal/DialogueLine'
 import { StageDirection } from '../components/rehearsal/StageDirection'
@@ -25,6 +27,8 @@ export function RehearsalPage() {
   const lineId = searchParams.get('line')
   const backTo = searchParams.get('back')
   const navigate = useNavigate()
+  // Only a signed-in user has anywhere to save a session to (sessionClient.ts).
+  const { user } = useAuth()
 
   const { data: dialogue, loading, error } = useAsync(
     () => (lineId ? getSingleLineDialogue(playId, lineId) : getSceneDialogue(playId, act, scene)),
@@ -81,8 +85,30 @@ export function RehearsalPage() {
   const activeUserBlockId =
     activeEntry?.type === 'speech' && activeEntry.isUserLine ? activeEntry.blockId : undefined
 
-  const { micState, tapMic, retry, beatIndex, beatsCompleted, beatCount, stalled, transcript, setMuted } =
+  const { micState, tapMic, retry, beatIndex, beatsCompleted, beatCount, stalled, transcript, heard, setMuted } =
     useMicCapture(activeUserBlockId, role?.id)
+
+  // Every beat she's attempted this scene, keyed by lineId so a block re-entered
+  // (a retry, or a re-render delivering the same `complete`) overwrites rather
+  // than duplicates. A ref, not state: nothing renders from it, and appending to
+  // state here would re-run the effects that drive playback and the mic.
+  const attemptsRef = useRef(new Map<string, string>())
+  // When this scene started, for session_history.duration_seconds.
+  const startedAtRef = useRef(Date.now())
+
+  useEffect(() => {
+    attemptsRef.current = new Map()
+    startedAtRef.current = Date.now()
+  }, [playId, act, scene, lineId])
+
+  // The per-beat split arrives with the capture's `complete` event. This is the
+  // point where what she said stops being ephemeral — until now it was computed,
+  // sent to the browser, and dropped on the next block.
+  useEffect(() => {
+    for (const beat of heard) {
+      attemptsRef.current.set(beat.lineId, beat.heard)
+    }
+  }, [heard])
 
   useEffect(() => {
     setBeatsRevealed(0)
@@ -136,7 +162,43 @@ export function RehearsalPage() {
     }
   }
 
+  /**
+   * Writes the rehearsal, then moves to the wrap-up.
+   *
+   * Fire-and-forget on purpose — the navigation does not wait on the write, and a
+   * failed write does not trap her on the rehearsal screen. She has finished the
+   * scene either way, and the wrap-up is where she's going; a save that failed is
+   * worth telling her about there, not worth blocking her here.
+   *
+   * Skipped entirely for a single-beat drill (`?line=`), which is a practice run
+   * rather than a rehearsal of a scene, and for guests, who have no user row to
+   * hang a session on.
+   */
+  function submitSession() {
+    if (lineId || !user || !play) return
+    const attempts = [...attemptsRef.current].map(([id, heardText]) => ({
+      lineId: id,
+      heard: heardText,
+    }))
+    // Nothing to record: she never reached one of her own lines, or the mic never
+    // worked. An empty session is not worth a row.
+    if (attempts.length === 0) return
+
+    void saveSession({
+      playId: play.id,
+      act,
+      scene,
+      durationSeconds: Math.round((Date.now() - startedAtRef.current) / 1000),
+      attempts,
+    }).catch((err) => {
+      // Deliberately not surfaced as a blocking error — see above. Logged so a
+      // failure is diagnosable rather than silent.
+      console.error('Could not save this rehearsal:', err)
+    })
+  }
+
   function finishRehearsal() {
+    submitSession()
     if (lineId) {
       setDone(true)
       return

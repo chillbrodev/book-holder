@@ -7,6 +7,7 @@ import authRoutes from "../auth/routes.ts";
 import captureRoutes from "../capture/routes.ts";
 import pollyRoutes from "../polly/routes.ts";
 import playsRoutes from "../plays/routes.ts";
+import sessionRoutes from "../sessions/routes.ts";
 import type { AppEnv } from "../../types.ts";
 
 export const app = new Hono<AppEnv>();
@@ -40,6 +41,7 @@ app.route("/auth", authRoutes);
 app.route("/capture", captureRoutes);
 app.route("/polly", pollyRoutes);
 app.route("/plays", playsRoutes);
+app.route("/sessions", sessionRoutes);
 
 app.onError((err, c) => {
   if (isBaseError(err)) {

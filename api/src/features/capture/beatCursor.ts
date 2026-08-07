@@ -13,10 +13,12 @@
 //
 // What this deliberately does NOT do is decide whether a beat was said
 // *correctly*. That threshold is the biggest open product question in the app
-// (docs/OPEN_ITEMS.md §1a) and it belongs with the comparison prompt, not with
-// the transport. The word tolerance below exists only to keep the cursor from
-// derailing on a transcription wobble; it is not the scoring threshold, and
-// tuning it is not a way to tune how strict the coach feels.
+// (docs/OPEN_ITEMS.md §1a) and it belongs with scoring, not with the transport.
+// The word tolerance in words.ts exists only to keep the cursor from derailing on
+// a transcription wobble; it is not the scoring threshold, and tuning it is not a
+// way to tune how strict the coach feels.
+
+import { toWords, wordsMatch } from "./words.ts";
 
 /** How many expected words the alignment may skip over to find a match for the
  * next spoken word — i.e. how many words in a row she can drop before the
@@ -26,12 +28,6 @@
  * word ("the", "and") more likely to match spuriously somewhere ahead and drag
  * the cursor forward past text she never said. */
 const MAX_SKIPPED_EXPECTED_WORDS = 4;
-
-/** Words at least this long may match with one character of edit distance.
- * Shorter words are compared exactly — at three characters an edit-distance of
- * one makes "a"/"I", "the"/"thee" and "no"/"so" interchangeable, which is a
- * worse failure than missing a genuine mishearing. */
-const MIN_LENGTH_FOR_FUZZY_MATCH = 4;
 
 /** Consecutive spoken words that must line up with consecutive expected words
  * before the cursor is allowed to jump past the local window (see
@@ -60,67 +56,6 @@ export type BeatProgress = {
    * "she's mid-thought" affordances; not a score. */
   progressThroughBeat: number;
 };
-
-/**
- * Comparison form of a word: lowercase, apostrophes removed, punctuation gone.
- *
- * Apostrophes are dropped rather than kept because Shakespeare's elisions are
- * exactly where the source text and a transcript disagree without anybody being
- * wrong — the Moby text writes "'scaped" and "reveng'd" where Transcribe will
- * write "scaped" and "revenged". Removing the apostrophe makes the first pair
- * identical and the second one character apart, which the fuzzy tolerance
- * covers.
- */
-function normalizeWord(word: string): string {
-  return word
-    .toLowerCase()
-    .replace(/[‘’']/g, "")
-    .replace(/[^a-z0-9]/g, "");
-}
-
-function toWords(text: string): string[] {
-  return text
-    .split(/\s+/)
-    .map(normalizeWord)
-    .filter((word) => word.length > 0);
-}
-
-/** Levenshtein distance, abandoned as soon as it exceeds `limit`.
- *
- * The early exit is not just an optimization: it means the cost is bounded by
- * the limit rather than by word length, which matters because this runs over
- * every spoken word against a small window of expected words on every partial
- * result, and partials arrive several times a second. */
-function withinEditDistance(a: string, b: string, limit: number): boolean {
-  if (Math.abs(a.length - b.length) > limit) return false;
-
-  let previous = Array.from({ length: b.length + 1 }, (_, i) => i);
-  for (let i = 1; i <= a.length; i++) {
-    const current = [i];
-    let rowMinimum = i;
-    for (let j = 1; j <= b.length; j++) {
-      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-      current[j] = Math.min(
-        previous[j] + 1,
-        current[j - 1] + 1,
-        previous[j - 1] + cost,
-      );
-      rowMinimum = Math.min(rowMinimum, current[j]);
-    }
-    // Every subsequent row is >= this row's minimum, so once the whole row is
-    // past the limit the final distance cannot come back under it.
-    if (rowMinimum > limit) return false;
-    previous = current;
-  }
-  return previous[b.length] <= limit;
-}
-
-function wordsMatch(spoken: string, expected: string): boolean {
-  if (spoken === expected) return true;
-  const fuzzyAllowed = spoken.length >= MIN_LENGTH_FOR_FUZZY_MATCH &&
-    expected.length >= MIN_LENGTH_FOR_FUZZY_MATCH;
-  return fuzzyAllowed && withinEditDistance(spoken, expected, 1);
-}
 
 /**
  * Aligns a transcript against a block's beats and reports how far through it she
