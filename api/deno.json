@@ -18,6 +18,7 @@
     "@std/fmt": "jsr:@std/fmt@1",
     "pg": "npm:pg@^8.13.0",
     "@aws-sdk/client-polly": "npm:@aws-sdk/client-polly@^3",
+    "@aws-sdk/client-transcribe-streaming": "npm:@aws-sdk/client-transcribe-streaming@^3",
     "@aws-sdk/client-s3": "npm:@aws-sdk/client-s3@^3",
     "@aws-sdk/s3-request-presigner": "npm:@aws-sdk/s3-request-presigner@^3"
   }

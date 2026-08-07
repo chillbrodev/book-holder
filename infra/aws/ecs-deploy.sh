@@ -205,9 +205,15 @@ else
 fi
 
 # Inline policy, not a managed one — scoped to exactly what the running
-# container needs at runtime (Polly synthesis + read/write/head on its own
-# cache bucket). put-role-policy always overwrites, so this stays correct if
-# the bucket name ever changes via POLLY_CACHE_BUCKET_NAME.
+# container needs at runtime (Polly synthesis, Transcribe streaming, and
+# read/write/head on its own cache bucket). put-role-policy always overwrites,
+# so this stays correct if the bucket name ever changes via
+# POLLY_CACHE_BUCKET_NAME.
+#
+# transcribe:StartStreamTranscription takes "*" because Transcribe streaming
+# has no resource to scope to — a stream is not a named, persisted resource the
+# way a batch transcription job is, so IAM offers no ARN to narrow this with.
+# Same reasoning as polly:SynthesizeSpeech above.
 #
 # Bucket-level s3:ListBucket is included alongside the object-level actions
 # on purpose, not for browsing the bucket — without it, S3 masks "object
@@ -221,6 +227,7 @@ aws iam put-role-policy --role-name "$TASK_ROLE_NAME" --policy-name "PollyAndCac
   "Version": "2012-10-17",
   "Statement": [
     {"Sid": "PollySynthesize", "Effect": "Allow", "Action": "polly:SynthesizeSpeech", "Resource": "*"},
+    {"Sid": "TranscribeStreaming", "Effect": "Allow", "Action": "transcribe:StartStreamTranscription", "Resource": "*"},
     {"Sid": "PollyCacheBucketObjects", "Effect": "Allow", "Action": ["s3:GetObject", "s3:PutObject", "s3:HeadObject"], "Resource": "arn:aws:s3:::$POLLY_CACHE_BUCKET_NAME/*"},
     {"Sid": "PollyCacheBucketList", "Effect": "Allow", "Action": "s3:ListBucket", "Resource": "arn:aws:s3:::$POLLY_CACHE_BUCKET_NAME"}
   ]

@@ -3,10 +3,11 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { getPlay, getSceneDialogue, getSelectedRole, getSingleLineDialogue, setLastScene } from '../data/client'
 import { getBlockAudio } from '../data/pollyClient'
 import { useAsync } from '../hooks/useAsync'
-import { useMicSimulation } from '../hooks/useMicSimulation'
+import { useMicCapture } from '../hooks/useMicCapture'
 import { DialogueLine } from '../components/rehearsal/DialogueLine'
 import { StageDirection } from '../components/rehearsal/StageDirection'
 import { MicStateIndicator } from '../components/rehearsal/MicStateIndicator'
+import { CaptureDebugInfo } from '../components/rehearsal/CaptureDebugInfo'
 import { Button } from '../components/core/Button'
 import { Icon } from '../components/core/Icon'
 import { ToggleButton } from '../components/core/ToggleButton'
@@ -36,9 +37,14 @@ export function RehearsalPage() {
   const [showYourLines, setShowYourLines] = useState(false)
   const [showOtherLines, setShowOtherLines] = useState(true)
   const [readingPaused, setReadingPaused] = useState(false)
-  // How many beats of the active block she's called for. 0 = nothing revealed;
-  // each "Line?" hands over one more thought, never the whole speech.
+  // How many beats she's called for, counted *from wherever the mic thinks she
+  // is* — not from the top of the speech. 0 = nothing revealed; each "Line?"
+  // hands over one more thought, never the whole speech.
   const [beatsRevealed, setBeatsRevealed] = useState(0)
+  // Which beat the reveal starts from, pinned at the moment she asks. Without
+  // pinning it, the revealed text would slide forward under her as the mic
+  // cursor moves — she asked to see *this* thought, not a rolling window.
+  const [revealAnchor, setRevealAnchor] = useState<number | null>(null)
   const [done, setDone] = useState(false)
   // Persisted across sessions, not just this scene — someone who turns it
   // off wants it off everywhere, not re-prompted every rehearsal.
@@ -66,10 +72,17 @@ export function RehearsalPage() {
   // continuous delivery beats exist to avoid scoring away.
   const activeLineKey = activeEntry?.type === 'speech' ? activeEntry.blockId : `entry-${cursor}`
 
-  const { micState, tapMic, retry, simulateCantHear } = useMicSimulation(activeLineKey)
+  // The mic opens only for her own blocks. Polly voices everybody else, and the
+  // two never contend — so passing undefined here is what keeps a live mic (and
+  // a billing Transcribe stream) off every other character's speech.
+  const activeUserBlockId =
+    activeEntry?.type === 'speech' && activeEntry.isUserLine ? activeEntry.blockId : undefined
+
+  const { micState, tapMic, retry, beatIndex, transcript } = useMicCapture(activeUserBlockId, role?.id)
 
   useEffect(() => {
     setBeatsRevealed(0)
+    setRevealAnchor(null)
   }, [activeLineKey])
 
   const activeLineRef = useRef<HTMLDivElement>(null)
@@ -311,7 +324,13 @@ export function RehearsalPage() {
           // Her own block. Shown outright only if "Your lines" is on; otherwise
           // held back, and each "Line?" hands over one more beat — one thought
           // at a time, so a sixteen-beat speech isn't given away in one tap.
-          const nextBeat = entry.beats[beatsRevealed]
+          // "Line?" hands over the beat she's actually stuck on. The mic keeps a
+          // beat cursor across the block (docs/OPEN_ITEMS.md §1b), so this starts
+          // where she dried up rather than at the top of a speech she'd already
+          // half-delivered.
+          const revealFrom = revealAnchor ?? beatIndex
+          const revealedBeats = entry.beats.slice(revealFrom, revealFrom + beatsRevealed)
+          const nextBeat = entry.beats[revealFrom + beatsRevealed]
           return (
             <div key={entry.blockId} ref={ref} className={styles.lineAnchor}>
               <DialogueLine
@@ -323,15 +342,19 @@ export function RehearsalPage() {
                       ? "Line's held back — call for it below if you need it."
                       : ''
                 }
-                promptedBeat={
-                  showYourLines ? undefined : entry.beats.slice(0, beatsRevealed).map((b) => b.text).join(' ')
-                }
+                promptedBeat={showYourLines ? undefined : revealedBeats.map((b) => b.text).join(' ')}
                 active
                 micError={micState === 'cantHear'}
               >
                 <div className={styles.micRow}>
                   <MicStateIndicator state={micState} onTap={handleMicTap} />
                 </div>
+                <CaptureDebugInfo
+                  micState={micState}
+                  beatIndex={beatIndex}
+                  beatCount={entry.beats.length}
+                  transcript={transcript}
+                />
                 <div className={styles.actions}>
                   {micState === 'cantHear' && (
                     <Button variant="secondary" onClick={retry}>
@@ -339,16 +362,17 @@ export function RehearsalPage() {
                     </Button>
                   )}
                   {!showYourLines && micState !== 'captured' && nextBeat && (
-                    <Button variant="ghost" onClick={() => setBeatsRevealed((n) => n + 1)}>
+                    <Button
+                      variant="ghost"
+                      onClick={() => {
+                        setRevealAnchor((anchor) => anchor ?? beatIndex)
+                        setBeatsRevealed((n) => n + 1)
+                      }}
+                    >
                       {beatsRevealed === 0 ? 'Line?' : 'Next bit?'}
                     </Button>
                   )}
                   {beatsRevealed > 0 && !showYourLines && <Button variant="secondary">Read line aloud</Button>}
-                  {micState === 'listening' && (
-                    <button type="button" className={styles.debugLink} onClick={simulateCantHear}>
-                      Simulate: can't hear you
-                    </button>
-                  )}
                 </div>
               </DialogueLine>
             </div>

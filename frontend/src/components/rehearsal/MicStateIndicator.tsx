@@ -1,4 +1,4 @@
-import type { MicState } from '../../hooks/useMicSimulation'
+import type { MicState } from '../../hooks/useMicCapture'
 import { Icon } from '../core/Icon'
 import { cx } from '../../utils/cx'
 import styles from './MicStateIndicator.module.css'

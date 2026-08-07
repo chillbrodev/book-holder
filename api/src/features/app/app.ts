@@ -4,6 +4,7 @@ import { HTTPException } from "hono/http-exception";
 import { ConfigClient } from "../../clients/config-client/configClient.ts";
 import { baseErrorToResponse, isBaseError } from "../../errors/base-error.ts";
 import authRoutes from "../auth/routes.ts";
+import captureRoutes from "../capture/routes.ts";
 import pollyRoutes from "../polly/routes.ts";
 import playsRoutes from "../plays/routes.ts";
 import type { AppEnv } from "../../types.ts";
@@ -36,6 +37,7 @@ app.get(
 );
 
 app.route("/auth", authRoutes);
+app.route("/capture", captureRoutes);
 app.route("/polly", pollyRoutes);
 app.route("/plays", playsRoutes);
 

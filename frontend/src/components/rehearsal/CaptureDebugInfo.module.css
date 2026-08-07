@@ -1,0 +1,36 @@
+/* Same quiet register as BlockDebugInfo — this sits under the live speech during
+   a real rehearsal in dev and must not compete with the line above it. */
+.debug {
+  margin-top: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--bh-text-faint);
+  opacity: 0.75;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+
+.label {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.7;
+}
+
+/* A transcript grows word by word and must never widen the card — wrap rather
+   than scroll, and keep it selectable so a bad transcript can be pasted into a
+   bug report. */
+.transcript {
+  overflow-wrap: anywhere;
+  font-style: italic;
+}
+
+/* Partials get rewritten on the next event, so they read as provisional rather
+   than as something already decided. */
+.partial {
+  opacity: 0.6;
+}
