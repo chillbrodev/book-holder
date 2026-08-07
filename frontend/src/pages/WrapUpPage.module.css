@@ -34,3 +34,61 @@
 .actionButton {
   flex: 1;
 }
+
+.onward {
+  margin-top: 30px;
+  padding-top: 4px;
+  border-top: 1px solid var(--bh-border-hairline);
+}
+
+.neighbourRow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 4px 0;
+}
+
+/* Fixed width so the two rows' buttons line up under each other rather than
+   starting at different x positions because one label is longer. */
+.neighbourLabel {
+  flex: 0 0 130px;
+  font-family: var(--bh-font-sans);
+  font-size: 13px;
+  color: var(--bh-text-muted);
+}
+
+/* space-between keeps "previous" left and "next" right, so the direction of
+   travel is positional and not only a chevron. */
+.neighbourButtons {
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.neighbour {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-family: var(--bh-font-sans);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--bh-ink);
+  background: transparent;
+  border: 1px solid var(--bh-border-hairline);
+  border-radius: var(--bh-radius-md);
+  padding: 7px 12px;
+}
+
+.neighbour:hover {
+  border-color: var(--bh-gold-dark);
+  color: var(--bh-gold-dark);
+}
+
+/* Holds the slot open when there is no scene in that direction, so the remaining
+   button doesn't slide across to fill the gap. */
+.neighbourEmpty {
+  display: inline-block;
+}
