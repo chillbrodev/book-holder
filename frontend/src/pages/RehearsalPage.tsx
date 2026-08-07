@@ -45,6 +45,9 @@ export function RehearsalPage() {
   // pinning it, the revealed text would slide forward under her as the mic
   // cursor moves — she asked to see *this* thought, not a rolling window.
   const [revealAnchor, setRevealAnchor] = useState<number | null>(null)
+  // Which block is currently being read aloud to her, if any — so the button can
+  // say so and can't be triggered twice over itself.
+  const [readingAloudBlockId, setReadingAloudBlockId] = useState<string | null>(null)
   const [done, setDone] = useState(false)
   // Persisted across sessions, not just this scene — someone who turns it
   // off wants it off everywhere, not re-prompted every rehearsal.
@@ -78,7 +81,8 @@ export function RehearsalPage() {
   const activeUserBlockId =
     activeEntry?.type === 'speech' && activeEntry.isUserLine ? activeEntry.blockId : undefined
 
-  const { micState, tapMic, retry, beatIndex, transcript } = useMicCapture(activeUserBlockId, role?.id)
+  const { micState, tapMic, retry, beatIndex, beatsCompleted, beatCount, stalled, transcript, setMuted } =
+    useMicCapture(activeUserBlockId, role?.id)
 
   useEffect(() => {
     setBeatsRevealed(0)
@@ -200,12 +204,50 @@ export function RehearsalPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- advance() closes over cursor/dialogue, re-derived every render
   }, [cursor, dialogue, done, readingPaused])
 
-  function handleMicTap() {
-    if (micState === 'captured') {
-      setTimeout(() => advance(), CAPTURED_ADVANCE_DELAY_MS)
-      return
+  // Her speech is captured, so move on. Previously this needed a second tap,
+  // which was pure friction: the app already knew the block was done, and asking
+  // her to confirm it made the end of every line a small piece of admin. The
+  // delay is just long enough to see the confirmation land.
+  useEffect(() => {
+    // `activeUserBlockId` is in the condition as well as the state: without it, a
+    // `captured` left over from a previous line could advance the scene while
+    // somebody else is speaking.
+    if (!activeUserBlockId || micState !== 'captured' || done || readingPaused) return
+    const timer = setTimeout(() => advance(), CAPTURED_ADVANCE_DELAY_MS)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- advance() closes over cursor/dialogue, re-derived every render
+  }, [activeUserBlockId, micState, done, readingPaused])
+
+  /**
+   * Plays her own line back to her.
+   *
+   * Answers OPEN_ITEMS §3's open question — whether she can ask to hear her own
+   * lines — in the affirmative, but only on request. The scene reading still
+   * skips her lines, because voicing them unasked would rehearse the speech
+   * *for* her. Called for after "Line?", when she's already admitted she doesn't
+   * have it and reading it hasn't been enough.
+   *
+   * Mutes the mic for the duration. Polly out of the same laptop the mic is on
+   * gets transcribed as her words otherwise — barge-in (docs/capture-plan.md §8),
+   * and self-inflicted here rather than incidental. Her own block is in the warm
+   * cache like every other, so this is a signed-URL lookup, not a paid synthesis.
+   */
+  async function readLineAloud(blockId: string, speakerId: string) {
+    if (readingAloudBlockId) return
+    setReadingAloudBlockId(blockId)
+    setMuted(true)
+    try {
+      const { audioUrl } = await getBlockAudio(blockId, speakerId)
+      const audio = new Audio(audioUrl)
+      await new Promise<void>((resolve) => {
+        audio.addEventListener('ended', () => resolve())
+        audio.addEventListener('error', () => resolve())
+        void audio.play().catch(() => resolve())
+      })
+    } finally {
+      setMuted(false)
+      setReadingAloudBlockId(null)
     }
-    tapMic()
   }
 
   const backHref = backTo ?? `/play/${playId}`
@@ -347,7 +389,13 @@ export function RehearsalPage() {
                 micError={micState === 'cantHear'}
               >
                 <div className={styles.micRow}>
-                  <MicStateIndicator state={micState} onTap={handleMicTap} />
+                  <MicStateIndicator
+                    state={micState}
+                    onTap={tapMic}
+                    beatsCompleted={beatsCompleted}
+                    beatCount={beatCount}
+                    stalled={stalled}
+                  />
                 </div>
                 <CaptureDebugInfo
                   micState={micState}
@@ -361,6 +409,16 @@ export function RehearsalPage() {
                       Try again
                     </Button>
                   )}
+                  {/* The way out when the app can't tell she's finished — a real
+                      button, because the tappable mic dial reads as a status
+                      light and nobody finds it. Promoted to primary once she's
+                      gone quiet mid-thought, when it's the likeliest thing she
+                      wants. */}
+                  {micState === 'listening' && (
+                    <Button variant={stalled ? 'primary' : 'secondary'} onClick={tapMic}>
+                      I've said it
+                    </Button>
+                  )}
                   {!showYourLines && micState !== 'captured' && nextBeat && (
                     <Button
                       variant="ghost"
@@ -372,7 +430,15 @@ export function RehearsalPage() {
                       {beatsRevealed === 0 ? 'Line?' : 'Next bit?'}
                     </Button>
                   )}
-                  {beatsRevealed > 0 && !showYourLines && <Button variant="secondary">Read line aloud</Button>}
+                  {beatsRevealed > 0 && !showYourLines && entry.speakerId && (
+                    <Button
+                      variant="secondary"
+                      onClick={() => void readLineAloud(entry.blockId, entry.speakerId!)}
+                      disabled={readingAloudBlockId !== null}
+                    >
+                      {readingAloudBlockId === entry.blockId ? 'Reading…' : 'Read line aloud'}
+                    </Button>
+                  )}
                 </div>
               </DialogueLine>
             </div>

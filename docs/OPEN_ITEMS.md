@@ -152,9 +152,15 @@ None of these block anything.
   revealed beat below the block; a flubbed-beat marker won't be able to. Likely
   answer is an inline span with a background, which flows across line breaks
   naturally, but it needs beat text pre-split at verse-line boundaries.
-- **Whether she can ask to hear her own lines.** `RehearsalPage.tsx:153` skips
-  Polly entirely for `isUserLine`, which is right for a run-through and may be
-  wrong for learning a speech cold.
+- ~~**Whether she can ask to hear her own lines.**~~ — **yes, on request only.**
+  The scene reading still skips her lines, because voicing them unasked rehearses
+  the speech *for* her; "Read line aloud" appears only after she's called for the
+  line, when reading it has already not been enough. Her blocks are in the warm
+  cache like everyone else's (verified: `cached: true`), so it costs a signed-URL
+  lookup, not a synthesis. The button had been rendering with no `onClick` since
+  it was built. It mutes the mic while it plays — Polly out of the same laptop the
+  mic is on is barge-in (`capture-plan.md` §8), self-inflicted rather than
+  incidental.
 - **Whether trivially short beats get rolled up in the Prompt Book.** 237 beats
   in Merry Wives are under 20 chars — all of them complete short *speeches*
   like `"Go."`. A mastery row for `"Ha!"` is noise in a "needs another look"

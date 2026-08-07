@@ -67,6 +67,13 @@
   font-weight: 600;
 }
 
+/* Sits inside .label, so it inherits the size and needs only to step back in
+   weight and colour — the state is the message, the count is reassurance. */
+.progress {
+  font-weight: 400;
+  color: var(--bh-text-faint);
+}
+
 .hint {
   font-family: var(--bh-font-sans);
   font-size: 12px;
