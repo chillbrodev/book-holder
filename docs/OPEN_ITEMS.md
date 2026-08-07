@@ -96,6 +96,34 @@ split is easy to get backwards.
 
 ---
 
+### 1e. Session recordings — deliberately deferred
+
+**Tabled as a nice-to-have, August 7 2026.** Not cost: measured, her whole part is
+**1.8 MB** as Opus, and a year at 20 runs a month is 422 MB — under a penny a month
+of S3. Deferred because it isn't the agentic loop, which is what this project is
+being judged on.
+
+Worth writing down what it *would* have been good for, because the reasoning nearly
+went the other way:
+
+- **Hearing how she sounds**, which is central to how actors actually work and
+  isn't something the coaching text can substitute for.
+- **Ground truth for the transcript.** When the app says a beat was missed, nothing
+  today can tell whether she fumbled it or Transcribe mangled it. That ambiguity is
+  exactly what blocks §1a, and it is how a custom-vocabulary fix would be
+  validated. So a recording is evidence, not just a feature.
+
+If it is picked up, three things need deciding and none of them are cost: it wants
+its **own bucket** rather than the Polly cache (cache is purgeable and
+regenerable; her voice is personal and unrecoverable), a **delete path**, which
+does not exist anywhere today — `recordings` has no deletion mechanism and neither
+IAM role holds `s3:DeleteObject` outside the cache bucket — and a **retention
+window**, since "forever" is the wrong default for personal audio. The capture side
+is the easy part: a second `MediaRecorder` tap off the `MediaStream` that already
+exists (`capture-plan.md` §3).
+
+---
+
 ## 2. Embeddings and vectors
 
 **Settled** (`beats-and-blocks-plan.md` §8), so the schema is right whether or
