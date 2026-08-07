@@ -280,11 +280,11 @@ No fallback source is needed; the importer builds against this corpus directly.
 - Shakespearean visual identity (parchment/ink palette, serif display type) over a plain-language, accessible UI
 
 *Built so far, of the above:* the picker flow end-to-end on real imported data, accounts, Polly playback off
-the warmed block cache, and the visual identity. The wrap-up and Prompt Book screens render but still read
-`frontend/src/data/mock/*`, and `/preview/blocks` is a local-only segmentation-review page to delete once the
-rehearsal screen renders blocks for real. The rest of the list — capture, comparison, mastery writes,
-coaching notes, recordings — is ahead. `docs/OPEN_ITEMS.md` is the running record of what's knowingly
-unfinished and what's already settled about it.
+the warmed block cache, the visual identity, and — as of August 7 2026 — **capture**: mic → 16 kHz PCM →
+Transcribe → a beat cursor, verified end to end (`docs/capture-plan.md`). The wrap-up and Prompt Book screens
+render but still read `frontend/src/data/mock/*`. `/preview/blocks` has been deleted, its job done. The rest of
+the list — comparison, mastery writes, coaching notes, recordings — is ahead. `docs/OPEN_ITEMS.md` is the
+running record of what's knowingly unfinished and what's already settled about it.
 
 **Explicitly cut (not this hackathon):**
 - Other plays (architecture supports it, data doesn't need to yet)
