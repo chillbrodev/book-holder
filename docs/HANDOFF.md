@@ -1,7 +1,7 @@
 # Hand-off — August 7 2026
 
 *Written at the end of the session that built capture and the session write.
-Branch: `listen-to-her-lines-and-track-beats`, six commits ahead of `main`, not
+Branch: `listen-to-her-lines-and-track-beats`, seven commits ahead of `main`, not
 pushed, not merged.*
 
 This is a pointer document, not a duplicate. The reasoning lives in the commit
@@ -33,8 +33,8 @@ gap, not missing plumbing.
 
 ## 2. What got built this session
 
-Six commits, each with the reasoning in its message — read those rather than
-trusting this summary:
+Six commits of behaviour change (the seventh is this document), each with the
+reasoning in its message — read those rather than trusting this summary:
 
 1. **Capture** — mic → `AudioWorklet` → 16 kHz PCM → WebSocket → Transcribe → a
    beat cursor. Design and every measurement in `docs/capture-plan.md`.
@@ -192,8 +192,6 @@ this branch has not been pushed, so the deployed API predates all of it.
 
 ## 8. Loose ends
 
-- `docs/OPEN_ITEMS.md` has an **uncommitted** edit adding §1e (recordings, tabled
-  as a nice-to-have with the reasoning and the storage numbers). Commit it.
 - `packages/play-importer/output/` was cleared and is regenerable with
   `npm run import:play -- --play merry_wives_of_windsor --dry-run` — the importer
   fetches the XML from a public URL, so no local input is needed. Nothing currently
