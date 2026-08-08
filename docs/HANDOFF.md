@@ -1,8 +1,9 @@
 # Hand-off — August 7 2026
 
-*Written at the end of the session that built capture and the session write.
-Branch: `listen-to-her-lines-and-track-beats`, seven commits ahead of `main`, not
-pushed, not merged.*
+*Written at the end of the session that built capture and the session write, and
+updated when the wrap-up stopped showing fixtures. Branch:
+`listen-to-her-lines-and-track-beats`, ten commits ahead of `main`, not pushed,
+not merged.*
 
 This is a pointer document, not a duplicate. The reasoning lives in the commit
 messages and in `capture-plan.md` / `OPEN_ITEMS.md`; what's here is state, order of
@@ -22,19 +23,19 @@ solve next.
 | **decide** | the plan orders her weakest beats; nothing consumes the ordering |
 | **act** | real: Polly voices the other parts, Transcribe listens to hers |
 | **write** memory | real: `session_history` + `line_mastery` + `mistake_log`, one serializable transaction |
+| **show** what was written | real: the wrap-up reads `GET /sessions/summary` — no fixtures left on that screen |
 | **coaching note** | **not built.** Bedrock is not installed at all |
 
-The wrap-up screen still reads `frontend/src/data/mock/*`, so it shows fabricated
-duration, beats-run and flagged lines even though the rehearsal that preceded it
-wrote real ones.
-
-**So: both halves of the loop exist, and a demo can't show either.** That is the
-gap, not missing plumbing.
+**So: the write half of the loop is now demonstrable and the read half still
+isn't.** Finish a scene and the wrap-up shows the duration, beat count and
+fumbled beats that rehearsal actually produced. Start a scene and nothing tells
+her what to watch, because `GET /sessions/plan` still has no caller (§4c). That
+is the remaining gap, and it is one screen wide.
 
 ## 2. What got built this session
 
-Six commits of behaviour change (the seventh is this document), each with the
-reasoning in its message — read those rather than trusting this summary:
+Seven commits of behaviour change (the other three are this document), each with
+the reasoning in its message — read those rather than trusting this summary:
 
 1. **Capture** — mic → `AudioWorklet` → 16 kHz PCM → WebSocket → Transcribe → a
    beat cursor. Design and every measurement in `docs/capture-plan.md`.
@@ -45,6 +46,8 @@ reasoning in its message — read those rather than trusting this summary:
 5. **Header alignment.**
 6. **Scene navigation** on the wrap-up: next/previous both in play order and in her
    part.
+7. **The wrap-up tells the truth** — `GET /sessions/summary`, migration 005 for
+   `beats_run`, and the fixtures deleted. §4b's first half.
 
 ## 3. Verified vs not — read this before trusting anything
 
@@ -58,6 +61,13 @@ Measured against the real services, not reasoned from types:
   leaving nothing; guests get a clean 401; full HTTP round trip works.
 - Scene neighbours: correct across all 23 scenes of Merry Wives.
 - Header: all four items report identical `top` and `height`.
+- Session summary, against the live database: a four-beat session with one fumble
+  and one silence stored `beats_run` **4** (not 2) and duration **412s**, read
+  back identically by session id and by latest-for-scene, returned both flagged
+  beats in spoken order (`line_number` 17 then 23) with the silence preserved as
+  an empty string, and refused a second user holding the session id. The rows
+  were deleted afterwards — `session_history` is back to 0, so §4a still means
+  what it says.
 
 **Not verified, and don't claim otherwise:**
 
@@ -71,6 +81,15 @@ Measured against the real services, not reasoned from types:
   timeout against long quiet stretches while Polly talks is untested. The only
   capture question local work cannot answer.
 - **Whether a Transcribe custom vocabulary fixes numeral normalization** (§5).
+- **The wrap-up screen itself, in a browser.** `getSessionSummary` was verified at
+  the service layer against the real database, and the route and page typecheck —
+  but nobody has *seen* the rendered screen with real numbers in it, because
+  rendering one needs a saved session, which is §4a. The unsaved-run state
+  (guest, drill, failed write) has likewise only been reasoned about. Two things
+  to actually look at: whether the em dash for a null `beats_run` ever appears (it
+  shouldn't, for any session written from now on), and whether the flagged list
+  reads sensibly when she fumbled a lot of beats — it is uncapped, unlike the
+  plan's five.
 
 ## 4. What to do next, in order
 
@@ -81,19 +100,22 @@ in §3 about the write path was verified by probes, not by use. Confirm a real r
 lands a row before building on top of it, and note whether the 2.5s silence window
 feels right while you're there.
 
-### 4b. Make the wrap-up tell the truth, and give a coaching note
+This now pays for itself twice: the wrap-up reads that row, so the same five
+minutes is also the first look at the summary screen with real numbers in it.
 
-One pass, because they are the same screen and the same request — a coaching note
-above fabricated statistics would be incoherent.
+### 4b. ~~Make the wrap-up tell the truth~~, and give a coaching note
 
-- A session-summary read endpoint: real duration, beats run, and the beats actually
-  flagged, from `session_history` / `line_mastery` / `mistake_log`.
-- Then the **Bedrock coaching note** — the low-frequency call, summarising the
-  session against her history. This is the most visibly agentic artifact in the
-  product and none of it exists.
+**The first half is done.** `GET /sessions/summary` returns real duration, beats
+run and flagged beats; `WrapUpPage` renders them; the fixtures are deleted. What
+remains is the part that was always blocked:
+
+- The **Bedrock coaching note** — the low-frequency call, summarising the session
+  against her history. This is the most visibly agentic artifact in the product
+  and none of it exists. It has a screen to live on now, and real statistics to
+  sit above rather than fabricated ones.
 
 Note the coaching note does **not** depend on the §1a threshold, so it is not
-blocked by §5 below.
+blocked by §5's second item — only by its first.
 
 ### 4c. Surface the plan at scene start
 
@@ -158,6 +180,19 @@ observed.
 - **Don't trust checked-in fixtures.** The deleted preview page's fixtures had gone
   *semantically* stale — not just stale ids — and silently rendered the wrong play.
   A fixture beside the code it feeds has no mechanism telling it the rules changed.
+- **`beat_number` is not the scene's beat order.** It is the beat's index *within
+  its block*, so three of four consecutive beats in II.I are all "beat 1" and
+  `ORDER BY l.beat_number` returns them in essentially arbitrary order.
+  `line_number` is the scene-local beat sequence despite its name (CLAUDE.md says
+  so; it still reads like the wrong column at every call site). This was written
+  wrong in the summary query and only showed up in real output — nothing about it
+  fails a type check, and with one flagged beat it looks perfect.
+- **A read that races a write is a wrong page, not a slow one.** The rehearsal
+  fires the session save and navigates without awaiting it, on purpose. The
+  wrap-up then reads immediately and beats the transaction nearly every time,
+  which would have shown her *the previous run's* numbers under "here's how the
+  run went". `pendingSessionSave.ts` exists solely to close that gap; the
+  latest-for-scene fallback in `getSessionSummary` is for refreshes, not for this.
 - **CSS specificity bit once:** `.navLinkActive::after` at (0,1,1) lost to
   `.headerItem[data-interactive]::after` at (0,2,1), and the active underline
   vanished with no error anywhere. Found only by looking at the rendered page.
@@ -178,7 +213,11 @@ themselves — capture was tested by hand *before* the write existed, and no
 rehearsal has been run to the end of a scene since. So the first thing worth doing
 is a full scene run as `jonman` to confirm a real rehearsal lands a row. Until that
 happens there is also no accumulated recall distribution, which is what §5's
-threshold decision needs.
+threshold decision needs, and the wrap-up has nothing to show — reaching it now
+produces the "this run wasn't saved" state, which is correct rather than broken.
+
+**The database is migrated to `005`.** `session_history.beats_run` exists and is
+nullable; anything written from now on fills it.
 
 To reach a mic: Shelf → *The Merry Wives of Windsor* → pick a part → pick a scene.
 The mic opens only on her own lines. A dev-only line under the live speech shows mic
