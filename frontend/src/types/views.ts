@@ -72,15 +72,6 @@ export interface FlaggedLine {
   lastPracticedAt?: string
 }
 
-export interface WrapUpSummary {
-  playId: string
-  act: string
-  scene: string
-  durationSeconds: number
-  linesRun: number
-  flagged: FlaggedLine[]
-}
-
 export interface PromptBookSummary {
   playId: string
   playTitle: string

@@ -10,6 +10,17 @@
   margin: 6px 0 22px;
 }
 
+/* Shown in place of the stat cards when the run wasn't saved. Sits in the same
+   vertical slot they would have, so the actions below don't jump up the page. */
+.unsaved {
+  font-family: var(--bh-font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--bh-text-muted);
+  margin: 0 0 22px;
+  max-width: 46ch;
+}
+
 .stats {
   display: flex;
   gap: 14px;

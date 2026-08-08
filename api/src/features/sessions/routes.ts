@@ -36,6 +36,21 @@ sessions.get("/plan", async (c) => {
   return c.json(plan);
 });
 
+/** How the run she just finished actually went. The wrap-up's numbers come from
+ * here — before this they were fixtures, which is why the screen could show a
+ * duration for a rehearsal that was never saved. */
+sessions.get("/summary", async (c) => {
+  const user = c.get("user");
+  const summary = await SessionService.getSessionSummary({
+    userId: user.id,
+    playId: c.req.query("playId"),
+    act: c.req.query("act"),
+    scene: c.req.query("scene"),
+    sessionId: c.req.query("sessionId"),
+  });
+  return c.json(summary);
+});
+
 /** The whole rehearsal, written at the end in one transaction. */
 sessions.post("/", async (c) => {
   const user = c.get("user");

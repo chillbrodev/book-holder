@@ -47,6 +47,32 @@ export type SessionPlan = {
   emphasise: BeatMastery[];
 };
 
+/** One beat she got wrong in a particular run, with what she actually said.
+ *
+ * `mistakeCount` and `confidenceScore` come from `line_mastery`, so they are her
+ * standing record for the beat, not this run's — the wrap-up wants both: what
+ * went wrong just now, and whether it is a habit. */
+export type FlaggedBeat = BeatMastery & {
+  act: string;
+  scene: string;
+  /** Empty string when she said nothing at all. Stored, not skipped: silence is
+   * the single most useful thing to be able to show her. */
+  whatWasSaid: string;
+};
+
+export type SessionSummary = {
+  sessionId: string;
+  playId: string;
+  act: string;
+  scene: string;
+  durationSeconds: number;
+  /** Null for sessions written before `beats_run` existed (migration 005). Null
+   * means "not recorded", which is not the same as 0 and must not render as it. */
+  beatsRun: number | null;
+  startedAt: string;
+  flagged: FlaggedBeat[];
+};
+
 /** A sane ceiling on a claimed rehearsal length, since the duration comes from the
  * client. Four hours is far past any real session; the point is to keep a
  * malformed or hostile value out of the column, not to police long rehearsals. */
@@ -160,6 +186,107 @@ export const SessionService = {
   },
 
   /**
+   * What actually happened in one rehearsal, for the wrap-up screen.
+   *
+   * Scoped to `userId` in both queries — the session lookup and the flagged-beat
+   * lookup — rather than only the first. A session id is a UUID and hard to
+   * guess, but "hard to guess" is not an authorisation check, and the second
+   * query would otherwise happily read another user's mistakes given one.
+   *
+   * `sessionId` is optional because the client usually has no id to give: the
+   * rehearsal page fires the save and navigates without waiting for it, so the
+   * wrap-up may well ask before the write has landed. Falling back to "her most
+   * recent run of this scene" is what makes a page refresh work at all. The
+   * client resolves the race by awaiting the save it started (see
+   * `pendingSessionSave.ts`); this fallback is for every other way of arriving.
+   */
+  async getSessionSummary(
+    input: {
+      userId: string;
+      playId?: string;
+      act?: string;
+      scene?: string;
+      sessionId?: string;
+    },
+  ): Promise<SessionSummary> {
+    const { userId, playId, act, scene, sessionId } = input;
+    if (!playId?.trim() || !act?.trim() || !scene?.trim()) {
+      throw new SessionError(
+        "VALIDATION_ERROR",
+        "playId, act and scene are all required.",
+      );
+    }
+
+    // Ordered by started_at, not by insertion: "the run she just did" is the
+    // latest one, and a scene rehearsed twice must not show the earlier attempt.
+    const session = await DbClient.getPool().query(
+      `SELECT id, play_id, act, scene_range, duration_seconds, beats_run, started_at
+         FROM session_history
+        WHERE user_id = $1 AND play_id = $2 AND act = $3 AND scene_range = $4
+          AND ($5::uuid IS NULL OR id = $5::uuid)
+        ORDER BY started_at DESC
+        LIMIT 1`,
+      [userId, playId, act, scene, sessionId?.trim() || null],
+    );
+
+    if (session.rows.length === 0) {
+      // A real, expected outcome, not a failure: a guest's rehearsal, a
+      // single-beat drill, a run where the mic never completed a beat, or a save
+      // still in flight. The client shows an honest empty wrap-up for this.
+      throw new SessionError(
+        "SESSION_NOT_FOUND",
+        `No saved rehearsal of ${act}.${scene} for this user.`,
+      );
+    }
+
+    const row = session.rows[0];
+
+    // LEFT JOIN to line_mastery for the same reason getSessionPlan uses one: the
+    // mastery row is written in the same transaction as the mistake, so it should
+    // always be there — but a missing one must degrade to "no standing record"
+    // rather than dropping a beat she demonstrably got wrong out of the list.
+    //
+    // Ordered by line_number, not beat_number. `beat_number` is the beat's index
+    // *within its block*, so ordering by it interleaves blocks and puts several
+    // unrelated "beat 1"s together — two flagged beats from different speeches
+    // both come back as 1. `line_number` is the scene-local beat sequence despite
+    // its name (CLAUDE.md), so it is the order she actually spoke them in.
+    const flagged = await DbClient.getPool().query(
+      `SELECT l.id AS line_id, l.block_id, l.beat_number, l.text, l.act, l.scene,
+              ml.what_was_said,
+              m.confidence_score, m.mistake_count, m.last_practiced_at
+         FROM mistake_log ml
+         JOIN lines l ON l.id = ml.line_id
+         LEFT JOIN line_mastery m ON m.line_id = ml.line_id AND m.user_id = ml.user_id
+        WHERE ml.session_id = $1 AND ml.user_id = $2
+        ORDER BY l.line_number`,
+      [row.id, userId],
+    );
+
+    return {
+      sessionId: row.id,
+      playId: row.play_id,
+      act: row.act,
+      scene: row.scene_range,
+      durationSeconds: Number(row.duration_seconds ?? 0),
+      beatsRun: row.beats_run === null ? null : Number(row.beats_run),
+      startedAt: new Date(row.started_at).toISOString(),
+      flagged: flagged.rows.map((
+        beat: RawMasteryRow & {
+          act: string;
+          scene: string;
+          what_was_said: string;
+        },
+      ) => ({
+        ...mapMasteryRow(beat),
+        act: beat.act,
+        scene: beat.scene,
+        whatWasSaid: beat.what_was_said,
+      })),
+    };
+  },
+
+  /**
    * Writes the whole session in one serializable transaction.
    *
    * Everything lands together or nothing does, which matters more here than it
@@ -208,11 +335,19 @@ export const SessionService = {
           attempts.map((attempt) => attempt.lineId),
         );
 
+        // Counted before the insert rather than after the loop, so `beats_run`
+        // lands with the row instead of needing a second UPDATE. The predicate is
+        // deliberately the same one the loop below skips on, so the stored count
+        // and the returned `beatsScored` can never disagree.
+        const beatsRun = attempts.filter((attempt) =>
+          expected.has(attempt.lineId)
+        ).length;
+
         const session = await client.query(
-          `INSERT INTO session_history (user_id, play_id, act, scene_range, duration_seconds)
-           VALUES ($1, $2, $3, $4, $5)
+          `INSERT INTO session_history (user_id, play_id, act, scene_range, duration_seconds, beats_run)
+           VALUES ($1, $2, $3, $4, $5, $6)
            RETURNING id`,
-          [userId, playId, act, scene, Math.round(durationSeconds)],
+          [userId, playId, act, scene, Math.round(durationSeconds), beatsRun],
         );
         const sessionId: string = session.rows[0].id;
 

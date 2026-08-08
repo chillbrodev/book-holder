@@ -43,6 +43,48 @@ export interface SavedSession {
   beatsBlank: number
 }
 
+export interface FlaggedBeat extends BeatMastery {
+  act: string
+  scene: string
+  /** Empty when she said nothing at all — which is the case most worth showing. */
+  whatWasSaid: string
+}
+
+export interface SessionSummary {
+  sessionId: string
+  playId: string
+  act: string
+  scene: string
+  durationSeconds: number
+  /** Null on sessions written before the beats_run column existed. "Not
+   * recorded" — must not be rendered as 0. */
+  beatsRun: number | null
+  startedAt: string
+  flagged: FlaggedBeat[]
+}
+
+/**
+ * How one finished rehearsal went.
+ *
+ * `sessionId` is optional and worth passing when it's known: without it the API
+ * returns her latest run of this scene, which is right for a refresh but wrong
+ * for the moment just after a save that hasn't landed yet.
+ *
+ * Throws `SESSION_NOT_FOUND` (404) when there is no saved run — a guest, a
+ * single-beat drill, or a save that failed. That's an expected state, not an
+ * error, and the wrap-up renders it as one.
+ */
+export function getSessionSummary(
+  playId: string,
+  act: string,
+  scene: string,
+  sessionId?: string,
+): Promise<SessionSummary> {
+  const query = new URLSearchParams({ playId, act, scene })
+  if (sessionId) query.set('sessionId', sessionId)
+  return apiRequest(`/sessions/summary?${query}`)
+}
+
 export function getSessionPlan(
   playId: string,
   act: string,

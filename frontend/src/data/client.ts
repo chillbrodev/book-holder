@@ -3,15 +3,18 @@
  * see FE-Stub-Plan.md's original stub shapes, which this was deliberately
  * built to match so swapping in a real fetch required no caller changes.
  *
- * Still mock/localStorage-backed, on purpose (session_history/line_mastery
- * don't exist server-side yet): getSelectedRole/selectRole's persistence,
- * getWrapUpSummary, getPromptBookSummary.
+ * Still mock/localStorage-backed, on purpose: getSelectedRole/selectRole's
+ * persistence, and getPromptBookSummary.
+ *
+ * The wrap-up used to be here too. It now reads the real session from
+ * `sessionClient.getSessionSummary` — `session_history` and `line_mastery` do
+ * exist server-side, so a fixture was no longer a stand-in for something
+ * missing, it was just a wrong number.
  */
 import type { Play, Character } from '../types/domain'
-import type { PlaySummary, SceneSummary, DialogueBlock, DialogueItem, FlaggedLine, WrapUpSummary, PromptBookSummary } from '../types/views'
+import type { PlaySummary, SceneSummary, DialogueBlock, DialogueItem, FlaggedLine, PromptBookSummary } from '../types/views'
 import { apiRequest } from './apiClient'
-import { ACT_2_SCENE_1_LINES } from './mock/lines'
-import { MOCK_FLAGGED_LINES, WRAP_UP_FLAGGED_LINE_IDS, findLineById } from './mock/promptBook'
+import { MOCK_FLAGGED_LINES, findLineById } from './mock/promptBook'
 import { MOCK_USER_ID } from './mock/roles'
 
 const FOCUS_PLAY_ID = 'merry-wives-of-windsor'
@@ -243,22 +246,6 @@ export async function getSingleLineDialogue(playId: string, lineId: string): Pro
   const userCharacterId = getEffectiveCharacterId(playId)
   const raw = await apiRequest<RawDialogueEntry[]>(`/plays/${playId}/lines/${lineId}/block`)
   return toDialogueItems(raw, userCharacterId)
-}
-
-export function getWrapUpSummary(playId: string, act: string, scene: string): Promise<WrapUpSummary> {
-  const flagged = WRAP_UP_FLAGGED_LINE_IDS.map((lineId) => MOCK_FLAGGED_LINES.find((f) => f.lineId === lineId))
-    .filter((entry): entry is (typeof MOCK_FLAGGED_LINES)[number] => entry !== undefined)
-    .map(buildFlaggedLine)
-    .filter((entry): entry is FlaggedLine => entry !== undefined)
-
-  return Promise.resolve({
-    playId,
-    act,
-    scene,
-    durationSeconds: 360,
-    linesRun: ACT_2_SCENE_1_LINES.length,
-    flagged,
-  })
 }
 
 export function getPromptBookSummary(playId: string): Promise<PromptBookSummary> {

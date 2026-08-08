@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { getPlay, getSceneDialogue, getSelectedRole, getSingleLineDialogue, setLastScene } from '../data/client'
 import { getBlockAudio } from '../data/pollyClient'
 import { saveSession } from '../data/sessionClient'
+import { recordSessionSave } from '../data/pendingSessionSave'
 import { useAsync } from '../hooks/useAsync'
 import { useAuth } from '../auth/useAuth'
 import { useMicCapture } from '../hooks/useMicCapture'
@@ -184,15 +185,23 @@ export function RehearsalPage() {
     // worked. An empty session is not worth a row.
     if (attempts.length === 0) return
 
-    void saveSession({
+    const result = saveSession({
       playId: play.id,
       act,
       scene,
       durationSeconds: Math.round((Date.now() - startedAtRef.current) / 1000),
       attempts,
-    }).catch((err) => {
+    })
+
+    // Handed to the wrap-up so it can read back *this* run rather than racing the
+    // write and finding the previous one. Recorded before the catch below, so
+    // what's parked is the promise that still carries the session id.
+    recordSessionSave({ playId: play.id, act, scene, result })
+
+    void result.catch((err) => {
       // Deliberately not surfaced as a blocking error — see above. Logged so a
-      // failure is diagnosable rather than silent.
+      // failure is diagnosable rather than silent. The wrap-up awaits the same
+      // promise and is where she's actually told the run wasn't saved.
       console.error('Could not save this rehearsal:', err)
     })
   }
