@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
-# Creates (idempotently) a scoped IAM user for local dev — currently just
-# Polly synthesis + read/write/head on the Polly cache bucket, nothing else.
+# Creates (idempotently) a scoped IAM user for local dev — currently Polly
+# synthesis, Transcribe streaming, and read/write/head on the Polly cache
+# bucket, nothing else.
 # Deliberately separate from the ECS task role in ecs-deploy.sh: that's what
 # the *deployed* container uses (no static keys, task-role credentials
 # resolved automatically) — this is only for a developer's local .env, where
 # the AWS SDK needs *some* static credential source (see
 # clients/config-client/configClient.ts's ConfigClient.Aws comment).
 #
-# As local dev needs more AWS access later (Bedrock, Transcribe, S3
-# recordings), extend the inline policy below rather than creating another
-# user — one scoped dev identity, its permissions grown deliberately.
+# As local dev needs more AWS access later (Bedrock, S3 recordings), extend the
+# inline policy below rather than creating another user — one scoped dev
+# identity, its permissions grown deliberately.
 #
 # Requires: aws CLI configured (aws login), jq, authorized to manage IAM.
 #
@@ -46,19 +47,25 @@ fi
 # s3:DeleteObject is here but deliberately NOT in ecs-deploy.sh's task role —
 # the running app never deletes cache objects (see clients/s3-client.ts),
 # only local admin/migration scripts do.
+#
+# transcribe:StartStreamTranscription takes "*" because Transcribe streaming has
+# no resource to scope to — a stream isn't a named, persisted resource the way a
+# batch transcription job is, so IAM offers no ARN to narrow it with. Same
+# reasoning as polly:SynthesizeSpeech.
 aws iam put-user-policy --user-name "$USER_NAME" --policy-name "LocalDevAccess" \
   --policy-document "$(cat <<EOF
 {
   "Version": "2012-10-17",
   "Statement": [
     {"Sid": "PollySynthesize", "Effect": "Allow", "Action": "polly:SynthesizeSpeech", "Resource": "*"},
+    {"Sid": "TranscribeStreaming", "Effect": "Allow", "Action": "transcribe:StartStreamTranscription", "Resource": "*"},
     {"Sid": "PollyCacheBucketObjects", "Effect": "Allow", "Action": ["s3:GetObject", "s3:PutObject", "s3:HeadObject", "s3:DeleteObject"], "Resource": "arn:aws:s3:::$POLLY_CACHE_BUCKET_NAME/*"},
     {"Sid": "PollyCacheBucketList", "Effect": "Allow", "Action": "s3:ListBucket", "Resource": "arn:aws:s3:::$POLLY_CACHE_BUCKET_NAME"}
   ]
 }
 EOF
 )" >/dev/null
-echo "Inline policy 'LocalDevAccess' applied — Polly synthesis + cache bucket read/write/head/delete/list only."
+echo "Inline policy 'LocalDevAccess' applied — Polly synthesis, Transcribe streaming, cache bucket read/write/head/delete/list only."
 
 # --- Access key: only create if the user has none yet (AWS shows the secret
 # exactly once, at creation — can't be recovered from an existing key later,

@@ -18,13 +18,21 @@ component.
 rows that don't exist server-side yet, and their fabricated line ids drift further from real data with every
 change — move them as the transactional write lands, not before.
 
-**Simulated**: the mic. `useMicSimulation` is a timer-driven state machine
-(`connecting → listening → processing → captured`, plus `cantHear`), deliberately not a stubbed REST call,
-because the real thing is a streaming integration. It exists to get the *interaction* design right ahead of
-Transcribe.
+**Real, as of August 7 2026**: the mic. `useMicSimulation`'s timer-driven state machine is gone, replaced by
+`useMicCapture` — `getUserMedia` → `AudioWorklet` (`public/pcm-capture-processor.js`) → 16 kHz PCM →
+WebSocket → Amazon Transcribe, with a beat cursor coming back the other way. The five states it was designed
+around (`connecting → listening → processing → captured`, plus `cantHear`) survived unchanged, which is what
+the simulation was for. `processing` is now a real wait on the last partials settling rather than a fixed
+delay. See `docs/capture-plan.md`.
 
-**Local-only**: `/preview/blocks`, a segmentation-review page driven by importer fixtures. Delete it once the
-rehearsal screen is the better place to judge segmentation.
+The visible payoff is that **"Line?" now starts from the beat she's actually stuck on** rather than the top of
+the speech, pinned at the moment she asks so the text doesn't slide forward under her as the cursor moves.
+
+~~**Local-only**: `/preview/blocks`~~ — **deleted August 7 2026.** It had done its job: the rehearsal screen
+renders real blocks from the API, and `BlockDebugInfo`/`CaptureDebugInfo` cover the questions it answered on
+screen. Its fixtures had also gone stale in a way that made it actively misleading — see `OPEN_ITEMS.md` §3.
+`DialogueBlockView` went with it (nothing else used it), as did `fixtureClient.ts`, whose `blockVerseLines` was
+a duplicate of the one in `client.ts` that the live path actually uses.
 
 ---
 
@@ -110,9 +118,14 @@ Matches the week-by-week sequence in `ORCHESTRATION_PLAN.md`.
 - **Component testing**: React Testing Library. **No frontend tests exist.** Everything is hand-built, so
   there's no upstream a11y coverage to lean on — the rehearsal surface and the auth modal are where tests
   would earn the most.
-- **Cross-browser mic check**: manual checklist for `MediaRecorder`/mic-permission behavior — support and
+- **Cross-browser mic check**: manual checklist for `AudioWorklet`/mic-permission behavior — support and
   permission prompts vary meaningfully across Chrome/Safari/Firefox, worth a real device pass, not just one
-  browser.
+  browser. Two specifics to check rather than assume, both of which fail *quietly*: whether the browser
+  honours `new AudioContext({ sampleRate: 16000 })` (if it doesn't, the worklet's resampler is doing the work
+  — verify it, don't trust it), and whether the `AudioContext` starts suspended without a fresh user gesture
+  when the rehearsal auto-advances into her line. `MediaRecorder` is **not** what to test here; it can't
+  produce an encoding Transcribe streaming accepts (`docs/capture-plan.md` §3), and its place in this app is
+  the S3 session recording instead.
 - **Visual pass (optional)**: Figma, only if there's time for a dedicated design pass on the parchment/ink
   system — not required to hit MVP.
 

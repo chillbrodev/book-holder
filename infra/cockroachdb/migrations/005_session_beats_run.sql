@@ -1,0 +1,18 @@
+-- How many beats a rehearsal actually ran, recorded on the session itself.
+--
+-- This is not derivable after the fact, which is why it needs a column. The
+-- obvious substitutes are all wrong:
+--
+--   * `line_mastery` is keyed (user_id, line_id) and holds only the *latest*
+--     recall, so it cannot say which beats belonged to which session.
+--   * `mistake_log` is filtered to misses on purpose, so counting it gives the
+--     beats she got wrong, never the beats she ran.
+--   * Counting her beats in the scene answers a different question. Attempts are
+--     collected from the capture's `complete` events, so a beat the mic never
+--     finished is absent from the session even though it is present in the scene.
+--
+-- Nullable, with no default and no backfill: sessions written before this column
+-- existed genuinely do not know their beat count, and 0 would assert that they
+-- ran none. A reader that finds NULL should say it doesn't know. (There are no
+-- such rows today — session_history is empty — but the column outlives that.)
+ALTER TABLE session_history ADD COLUMN IF NOT EXISTS beats_run INT;

@@ -3,6 +3,7 @@ export type IconName =
   | 'lock'
   | 'check'
   | 'chevron-right'
+  | 'chevron-left'
   | 'mic'
   | 'alert-triangle'
   | 'bookmark'
@@ -48,6 +49,10 @@ function renderIconBody(name: IconName) {
       return <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
     case 'chevron-right':
       return <path d="M9 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+    // Mirror of chevron-right rather than a CSS rotation, so it needs no wrapper
+    // and lines up on the same optical centre.
+    case 'chevron-left':
+      return <path d="M15 6l-6 6 6 6" strokeLinecap="round" strokeLinejoin="round" />
     case 'mic':
       return (
         <>

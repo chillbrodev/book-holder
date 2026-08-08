@@ -2,11 +2,15 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { getPlay, getSceneDialogue, getSelectedRole, getSingleLineDialogue, setLastScene } from '../data/client'
 import { getBlockAudio } from '../data/pollyClient'
+import { saveSession } from '../data/sessionClient'
+import { recordSessionSave } from '../data/pendingSessionSave'
 import { useAsync } from '../hooks/useAsync'
-import { useMicSimulation } from '../hooks/useMicSimulation'
+import { useAuth } from '../auth/useAuth'
+import { useMicCapture } from '../hooks/useMicCapture'
 import { DialogueLine } from '../components/rehearsal/DialogueLine'
 import { StageDirection } from '../components/rehearsal/StageDirection'
 import { MicStateIndicator } from '../components/rehearsal/MicStateIndicator'
+import { CaptureDebugInfo } from '../components/rehearsal/CaptureDebugInfo'
 import { Button } from '../components/core/Button'
 import { Icon } from '../components/core/Icon'
 import { ToggleButton } from '../components/core/ToggleButton'
@@ -24,6 +28,8 @@ export function RehearsalPage() {
   const lineId = searchParams.get('line')
   const backTo = searchParams.get('back')
   const navigate = useNavigate()
+  // Only a signed-in user has anywhere to save a session to (sessionClient.ts).
+  const { user } = useAuth()
 
   const { data: dialogue, loading, error } = useAsync(
     () => (lineId ? getSingleLineDialogue(playId, lineId) : getSceneDialogue(playId, act, scene)),
@@ -36,9 +42,17 @@ export function RehearsalPage() {
   const [showYourLines, setShowYourLines] = useState(false)
   const [showOtherLines, setShowOtherLines] = useState(true)
   const [readingPaused, setReadingPaused] = useState(false)
-  // How many beats of the active block she's called for. 0 = nothing revealed;
-  // each "Line?" hands over one more thought, never the whole speech.
+  // How many beats she's called for, counted *from wherever the mic thinks she
+  // is* — not from the top of the speech. 0 = nothing revealed; each "Line?"
+  // hands over one more thought, never the whole speech.
   const [beatsRevealed, setBeatsRevealed] = useState(0)
+  // Which beat the reveal starts from, pinned at the moment she asks. Without
+  // pinning it, the revealed text would slide forward under her as the mic
+  // cursor moves — she asked to see *this* thought, not a rolling window.
+  const [revealAnchor, setRevealAnchor] = useState<number | null>(null)
+  // Which block is currently being read aloud to her, if any — so the button can
+  // say so and can't be triggered twice over itself.
+  const [readingAloudBlockId, setReadingAloudBlockId] = useState<string | null>(null)
   const [done, setDone] = useState(false)
   // Persisted across sessions, not just this scene — someone who turns it
   // off wants it off everywhere, not re-prompted every rehearsal.
@@ -66,10 +80,40 @@ export function RehearsalPage() {
   // continuous delivery beats exist to avoid scoring away.
   const activeLineKey = activeEntry?.type === 'speech' ? activeEntry.blockId : `entry-${cursor}`
 
-  const { micState, tapMic, retry, simulateCantHear } = useMicSimulation(activeLineKey)
+  // The mic opens only for her own blocks. Polly voices everybody else, and the
+  // two never contend — so passing undefined here is what keeps a live mic (and
+  // a billing Transcribe stream) off every other character's speech.
+  const activeUserBlockId =
+    activeEntry?.type === 'speech' && activeEntry.isUserLine ? activeEntry.blockId : undefined
+
+  const { micState, tapMic, retry, beatIndex, beatsCompleted, beatCount, stalled, transcript, heard, setMuted } =
+    useMicCapture(activeUserBlockId, role?.id)
+
+  // Every beat she's attempted this scene, keyed by lineId so a block re-entered
+  // (a retry, or a re-render delivering the same `complete`) overwrites rather
+  // than duplicates. A ref, not state: nothing renders from it, and appending to
+  // state here would re-run the effects that drive playback and the mic.
+  const attemptsRef = useRef(new Map<string, string>())
+  // When this scene started, for session_history.duration_seconds.
+  const startedAtRef = useRef(Date.now())
+
+  useEffect(() => {
+    attemptsRef.current = new Map()
+    startedAtRef.current = Date.now()
+  }, [playId, act, scene, lineId])
+
+  // The per-beat split arrives with the capture's `complete` event. This is the
+  // point where what she said stops being ephemeral — until now it was computed,
+  // sent to the browser, and dropped on the next block.
+  useEffect(() => {
+    for (const beat of heard) {
+      attemptsRef.current.set(beat.lineId, beat.heard)
+    }
+  }, [heard])
 
   useEffect(() => {
     setBeatsRevealed(0)
+    setRevealAnchor(null)
   }, [activeLineKey])
 
   const activeLineRef = useRef<HTMLDivElement>(null)
@@ -119,7 +163,51 @@ export function RehearsalPage() {
     }
   }
 
+  /**
+   * Writes the rehearsal, then moves to the wrap-up.
+   *
+   * Fire-and-forget on purpose — the navigation does not wait on the write, and a
+   * failed write does not trap her on the rehearsal screen. She has finished the
+   * scene either way, and the wrap-up is where she's going; a save that failed is
+   * worth telling her about there, not worth blocking her here.
+   *
+   * Skipped entirely for a single-beat drill (`?line=`), which is a practice run
+   * rather than a rehearsal of a scene, and for guests, who have no user row to
+   * hang a session on.
+   */
+  function submitSession() {
+    if (lineId || !user || !play) return
+    const attempts = [...attemptsRef.current].map(([id, heardText]) => ({
+      lineId: id,
+      heard: heardText,
+    }))
+    // Nothing to record: she never reached one of her own lines, or the mic never
+    // worked. An empty session is not worth a row.
+    if (attempts.length === 0) return
+
+    const result = saveSession({
+      playId: play.id,
+      act,
+      scene,
+      durationSeconds: Math.round((Date.now() - startedAtRef.current) / 1000),
+      attempts,
+    })
+
+    // Handed to the wrap-up so it can read back *this* run rather than racing the
+    // write and finding the previous one. Recorded before the catch below, so
+    // what's parked is the promise that still carries the session id.
+    recordSessionSave({ playId: play.id, act, scene, result })
+
+    void result.catch((err) => {
+      // Deliberately not surfaced as a blocking error — see above. Logged so a
+      // failure is diagnosable rather than silent. The wrap-up awaits the same
+      // promise and is where she's actually told the run wasn't saved.
+      console.error('Could not save this rehearsal:', err)
+    })
+  }
+
   function finishRehearsal() {
+    submitSession()
     if (lineId) {
       setDone(true)
       return
@@ -187,12 +275,50 @@ export function RehearsalPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- advance() closes over cursor/dialogue, re-derived every render
   }, [cursor, dialogue, done, readingPaused])
 
-  function handleMicTap() {
-    if (micState === 'captured') {
-      setTimeout(() => advance(), CAPTURED_ADVANCE_DELAY_MS)
-      return
+  // Her speech is captured, so move on. Previously this needed a second tap,
+  // which was pure friction: the app already knew the block was done, and asking
+  // her to confirm it made the end of every line a small piece of admin. The
+  // delay is just long enough to see the confirmation land.
+  useEffect(() => {
+    // `activeUserBlockId` is in the condition as well as the state: without it, a
+    // `captured` left over from a previous line could advance the scene while
+    // somebody else is speaking.
+    if (!activeUserBlockId || micState !== 'captured' || done || readingPaused) return
+    const timer = setTimeout(() => advance(), CAPTURED_ADVANCE_DELAY_MS)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- advance() closes over cursor/dialogue, re-derived every render
+  }, [activeUserBlockId, micState, done, readingPaused])
+
+  /**
+   * Plays her own line back to her.
+   *
+   * Answers OPEN_ITEMS §3's open question — whether she can ask to hear her own
+   * lines — in the affirmative, but only on request. The scene reading still
+   * skips her lines, because voicing them unasked would rehearse the speech
+   * *for* her. Called for after "Line?", when she's already admitted she doesn't
+   * have it and reading it hasn't been enough.
+   *
+   * Mutes the mic for the duration. Polly out of the same laptop the mic is on
+   * gets transcribed as her words otherwise — barge-in (docs/capture-plan.md §8),
+   * and self-inflicted here rather than incidental. Her own block is in the warm
+   * cache like every other, so this is a signed-URL lookup, not a paid synthesis.
+   */
+  async function readLineAloud(blockId: string, speakerId: string) {
+    if (readingAloudBlockId) return
+    setReadingAloudBlockId(blockId)
+    setMuted(true)
+    try {
+      const { audioUrl } = await getBlockAudio(blockId, speakerId)
+      const audio = new Audio(audioUrl)
+      await new Promise<void>((resolve) => {
+        audio.addEventListener('ended', () => resolve())
+        audio.addEventListener('error', () => resolve())
+        void audio.play().catch(() => resolve())
+      })
+    } finally {
+      setMuted(false)
+      setReadingAloudBlockId(null)
     }
-    tapMic()
   }
 
   const backHref = backTo ?? `/play/${playId}`
@@ -311,7 +437,13 @@ export function RehearsalPage() {
           // Her own block. Shown outright only if "Your lines" is on; otherwise
           // held back, and each "Line?" hands over one more beat — one thought
           // at a time, so a sixteen-beat speech isn't given away in one tap.
-          const nextBeat = entry.beats[beatsRevealed]
+          // "Line?" hands over the beat she's actually stuck on. The mic keeps a
+          // beat cursor across the block (docs/OPEN_ITEMS.md §1b), so this starts
+          // where she dried up rather than at the top of a speech she'd already
+          // half-delivered.
+          const revealFrom = revealAnchor ?? beatIndex
+          const revealedBeats = entry.beats.slice(revealFrom, revealFrom + beatsRevealed)
+          const nextBeat = entry.beats[revealFrom + beatsRevealed]
           return (
             <div key={entry.blockId} ref={ref} className={styles.lineAnchor}>
               <DialogueLine
@@ -323,31 +455,60 @@ export function RehearsalPage() {
                       ? "Line's held back — call for it below if you need it."
                       : ''
                 }
-                promptedBeat={
-                  showYourLines ? undefined : entry.beats.slice(0, beatsRevealed).map((b) => b.text).join(' ')
-                }
+                promptedBeat={showYourLines ? undefined : revealedBeats.map((b) => b.text).join(' ')}
                 active
                 micError={micState === 'cantHear'}
               >
                 <div className={styles.micRow}>
-                  <MicStateIndicator state={micState} onTap={handleMicTap} />
+                  <MicStateIndicator
+                    state={micState}
+                    onTap={tapMic}
+                    beatsCompleted={beatsCompleted}
+                    beatCount={beatCount}
+                    stalled={stalled}
+                  />
                 </div>
+                <CaptureDebugInfo
+                  micState={micState}
+                  beatIndex={beatIndex}
+                  beatCount={entry.beats.length}
+                  transcript={transcript}
+                />
                 <div className={styles.actions}>
                   {micState === 'cantHear' && (
                     <Button variant="secondary" onClick={retry}>
                       Try again
                     </Button>
                   )}
+                  {/* The way out when the app can't tell she's finished — a real
+                      button, because the tappable mic dial reads as a status
+                      light and nobody finds it. Promoted to primary once she's
+                      gone quiet mid-thought, when it's the likeliest thing she
+                      wants. */}
+                  {micState === 'listening' && (
+                    <Button variant={stalled ? 'primary' : 'secondary'} onClick={tapMic}>
+                      I've said it
+                    </Button>
+                  )}
                   {!showYourLines && micState !== 'captured' && nextBeat && (
-                    <Button variant="ghost" onClick={() => setBeatsRevealed((n) => n + 1)}>
+                    <Button
+                      variant="ghost"
+                      onClick={() => {
+                        setRevealAnchor((anchor) => anchor ?? beatIndex)
+                        setBeatsRevealed((n) => n + 1)
+                      }}
+                    >
                       {beatsRevealed === 0 ? 'Line?' : 'Next bit?'}
                     </Button>
                   )}
-                  {beatsRevealed > 0 && !showYourLines && <Button variant="secondary">Read line aloud</Button>}
-                  {micState === 'listening' && (
-                    <button type="button" className={styles.debugLink} onClick={simulateCantHear}>
-                      Simulate: can't hear you
-                    </button>
+                  {beatsRevealed > 0 && !showYourLines && entry.speakerId && (
+                    <Button
+                      variant="secondary"
+                      onClick={() => void readLineAloud(entry.blockId, entry.speakerId!)}
+                      disabled={readingAloudBlockId !== null}
+                    >
+                      {readingAloudBlockId === entry.blockId ? 'Reading…' : 'Read line aloud'}
+                    </Button>
                   )}
                 </div>
               </DialogueLine>

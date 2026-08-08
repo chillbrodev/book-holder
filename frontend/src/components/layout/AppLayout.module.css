@@ -42,44 +42,58 @@
   border-left: 1px solid var(--bh-border-hairline);
 }
 
-.accountName {
+/* Every item in the header — link, button, or plain text — is exactly one line of
+   type tall and nothing else, so `align-items: center` has identical boxes to
+   centre and they land on one baseline for free.
+
+   This is the fix for a misalignment that was measured, not guessed: the active
+   underline used to be a real `border-bottom` plus 8px of padding, which made the
+   nav links 32.5px tall while "Hi, <name>" — the one item with no underline to
+   host — stayed 22.5px and got centred 5px lower than everything beside it. The
+   `Log out` button came out 1px taller again. Compensating by giving the name
+   phantom padding would have worked and would have left the next item added here
+   to rediscover the same trap; taking the underline out of the layout box means
+   there is nothing to compensate for. */
+.headerItem {
+  position: relative;
   font-family: var(--bh-font-sans);
   font-size: 15px;
   font-weight: 500;
-  color: var(--bh-ink);
-}
-
-/* Same type treatment as .navLink (size/weight/color/baseline) so this reads
-   as part of the same nav family, not a separate bolder/gold CTA. */
-.accountLink {
-  cursor: pointer;
-  font-family: var(--bh-font-sans);
-  font-size: 15px;
-  font-weight: 500;
-  color: var(--bh-ink);
-  background: transparent;
-  border: none;
-  padding-bottom: 8px;
-  border-bottom: 2px solid transparent;
-}
-
-.accountLink:hover {
-  border-bottom-color: var(--bh-gold-dark);
-}
-
-.navLink {
-  cursor: pointer;
-  font-family: var(--bh-font-sans);
-  font-size: 15px;
-  font-weight: 500;
+  line-height: 22.5px;
   color: var(--bh-ink);
   text-decoration: none;
-  padding-bottom: 8px;
-  border-bottom: 2px solid transparent;
+  /* Buttons don't inherit type or shed their padding on their own, and a button
+     and an anchor sitting side by side must be indistinguishable here. */
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
 }
 
-.navLinkActive {
-  border-bottom-color: var(--bh-gold-dark);
+/* The underline lives outside the box, so activating it cannot move anything.
+   Reserved on every interactive item rather than only the active one, so hover
+   and active states don't reflow either. */
+.headerItem[data-interactive]::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -8px;
+  height: 2px;
+  background: transparent;
+}
+
+.headerItem[data-interactive] {
+  cursor: pointer;
+}
+
+/* Both selectors are written to match `.headerItem[data-interactive]::after`'s
+   specificity (0,2,1) or beat it. `.navLinkActive::after` alone is (0,1,1) and
+   silently loses to the transparent default above — which is exactly what
+   happened: the active underline vanished with no error anywhere. */
+.headerItem[data-interactive]:hover::after,
+.headerItem.navLinkActive::after {
+  background: var(--bh-gold-dark);
 }
 
 /* min-height:0 is load-bearing — without it a flex child refuses to shrink

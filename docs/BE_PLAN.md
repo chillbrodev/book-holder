@@ -289,11 +289,13 @@ Discovered from the real Merry Wives of Windsor XML during import, not hypotheti
   summaries — verify at build time, not from memory (pricing/IDs shift).
 - ~~Polly voice catalog~~ — resolved: **Neural** engine, British English (Amy/Brian), assigned per character
   at import into `characters.polly_voice_id`. See §0 above and `docs/polly-gen-issue.md`.
-- Transcribe API docs — confirm request/response shape, and settle **streaming vs post-utterance** first: the
-  capture design in `OPEN_ITEMS.md` §1b wants streaming partials to keep a beat cursor, which is what lets
-  "Line?" feed the *next beat* rather than the whole speech. The two price differently, and
-  `PROJECT_PLAN.md` §9 leans on the per-request 15-second minimum, so the cost line needs redoing once this
-  is decided.
+- ~~Transcribe API docs — settle **streaming vs post-utterance** first~~ — **settled: streaming**, and built.
+  Full write-up in `docs/capture-plan.md`. The two do *not* price differently (identical per-minute rates, and
+  the 15-second per-request minimum applies to both), so the decision came down to the product: "Line?" has to
+  feed the next beat while she is still mid-speech, which no post-utterance transcript can do at any price.
+  The cost line is redone in that doc §5 — the 15-second floor costs **3.06× the audio** for Mistress Ford,
+  because 89% of the corpus's 1,064 blocks are under 15 seconds (median 4.6s). `PROJECT_PLAN.md` §9's
+  reasoning was right; a full scene run is $0.02–$0.20.
 - ~~**ECS Express Mode docs**~~ — confirmed and built. Default networking is the account's default VPC and
   public subnets (no NAT Gateway), matching what we'd have chosen; ECR push and
   `create`/`update-express-gateway-service` are scripted. Deps are resolved at build time via

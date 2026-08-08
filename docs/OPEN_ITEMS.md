@@ -24,14 +24,43 @@ Too strict and every run is a wall of corrections; too loose and it never
 catches the thing she actually keeps dropping.
 
 Related and unresolved: style guide §11 — `confidence_score` is continuous, so
-a near-miss and a total blank currently read identically in the wrap-up.
+a near-miss and a total blank currently read identically in the wrap-up. Capture
+now distinguishes them at the source: a skipped beat comes back with an empty
+`heard` string, a fumbled one with the wrong words in it.
 
 Worth settling **before** Bedrock is wired, not after — it determines what the
 comparison prompt is even asking for.
 
+**Now measurable rather than hypothetical.** Capture is built, and the dev-only
+`CaptureDebugInfo` puts the live transcript under the speech. One finding already
+constrains the answer: the ASR floor on Shakespeare is 2.76% WER, so the threshold
+has to sit above that — but at least one error class is *deterministic* rather
+than random ("the Hundredth Psalm" transcribes as "the 100 Psalm" every time), and
+no threshold can both accept that and catch a real miss. That one has to be fixed
+upstream, not tuned around (`capture-plan.md` §8).
+
 ### 1b. Capture flow
 
-Settled in design, unbuilt:
+**Built and verified end to end, August 7 2026 — see `docs/capture-plan.md`**,
+which records the mechanics (16 kHz PCM off an `AudioWorklet`, a server-held
+WebSocket, one Transcribe stream per block) and every measurement behind them.
+Against one real 8-beat block: 8 of 8 beats split correctly, **2.76% word error
+rate**, partials ~1.4s behind the audio, and a deliberate 25-second silence
+survived for 1.0s of keepalive cost.
+
+The design below held up unchanged. Three things it didn't anticipate, all now
+handled: a **skipped beat** needs a resync or the cursor stalls on the abandoned
+thought and reports every later beat as wrong too; Transcribe **closes a stream
+after 15 seconds of silence** — which a rehearsal exceeds legitimately every time
+she stops to think or reads a revealed beat; and **a Transcribe segment is not a
+beat** — the 8-beat block came back as 6 segments, one spanning three beats,
+which is the empirical case for aligning by fuzzy match rather than splitting the
+transcript.
+
+What is *not* verified is a pass with a real voice — the audio above was Polly,
+which has no room noise, hesitation, or half-restarted lines.
+
+Settled in design, and now built:
 
 - Mic stays open across a whole **block**; she delivers it at natural pace.
   Beats are scoring boundaries, not interaction boundaries — nothing stops and
@@ -64,6 +93,34 @@ Not a separate parse — a coaching mode:
 lineation isn't audible and has no place in a transcript diff; it is still what
 she memorized, so it stays for display. Settled, recorded here because the
 split is easy to get backwards.
+
+---
+
+### 1e. Session recordings — deliberately deferred
+
+**Tabled as a nice-to-have, August 7 2026.** Not cost: measured, her whole part is
+**1.8 MB** as Opus, and a year at 20 runs a month is 422 MB — under a penny a month
+of S3. Deferred because it isn't the agentic loop, which is what this project is
+being judged on.
+
+Worth writing down what it *would* have been good for, because the reasoning nearly
+went the other way:
+
+- **Hearing how she sounds**, which is central to how actors actually work and
+  isn't something the coaching text can substitute for.
+- **Ground truth for the transcript.** When the app says a beat was missed, nothing
+  today can tell whether she fumbled it or Transcribe mangled it. That ambiguity is
+  exactly what blocks §1a, and it is how a custom-vocabulary fix would be
+  validated. So a recording is evidence, not just a feature.
+
+If it is picked up, three things need deciding and none of them are cost: it wants
+its **own bucket** rather than the Polly cache (cache is purgeable and
+regenerable; her voice is personal and unrecoverable), a **delete path**, which
+does not exist anywhere today — `recordings` has no deletion mechanism and neither
+IAM role holds `s3:DeleteObject` outside the cache bucket — and a **retention
+window**, since "forever" is the wrong default for personal audio. The capture side
+is the easy part: a second `MediaRecorder` tap off the `MediaStream` that already
+exists (`capture-plan.md` §3).
 
 ---
 
@@ -123,15 +180,41 @@ None of these block anything.
   revealed beat below the block; a flubbed-beat marker won't be able to. Likely
   answer is an inline span with a background, which flows across line breaks
   naturally, but it needs beat text pre-split at verse-line boundaries.
-- **Whether she can ask to hear her own lines.** `RehearsalPage.tsx:153` skips
-  Polly entirely for `isUserLine`, which is right for a run-through and may be
-  wrong for learning a speech cold.
+- ~~**Whether she can ask to hear her own lines.**~~ — **yes, on request only.**
+  The scene reading still skips her lines, because voicing them unasked rehearses
+  the speech *for* her; "Read line aloud" appears only after she's called for the
+  line, when reading it has already not been enough. Her blocks are in the warm
+  cache like everyone else's (verified: `cached: true`), so it costs a signed-URL
+  lookup, not a synthesis. The button had been rendering with no `onClick` since
+  it was built. It mutes the mic while it plays — Polly out of the same laptop the
+  mic is on is barge-in (`capture-plan.md` §8), self-inflicted rather than
+  incidental.
 - **Whether trivially short beats get rolled up in the Prompt Book.** 237 beats
   in Merry Wives are under 20 chars — all of them complete short *speeches*
   like `"Go."`. A mastery row for `"Ha!"` is noise in a "needs another look"
   list. Deliberately a surfacing decision, not a parser one.
-- **`/preview/blocks`** is a local-only page driven by importer fixtures. Delete
-  it once the rehearsal screen is the better place to judge segmentation.
+- ~~**`/preview/blocks`**~~ — **deleted August 7 2026**, along with
+  `DialogueBlockView` and `fixtureClient.ts`. The condition for deleting it was
+  met (the rehearsal screen renders real blocks), but the reason it went *now* is
+  worth recording, because it is a general warning about checked-in fixtures:
+
+  Its two JSON fixtures had drifted from the importer in a way nothing detected.
+  Not just the ids — those were pre-`ids.ts` v4 UUIDs, dead but harmless, since
+  nothing read them but React keys. The real rot was **semantic**: the fixture
+  predated the "a block is one speech, cut wherever a stage direction falls inside
+  it" rule, so 10 of its speeches were split across two runs that still shared one
+  `block_id`. `toDialogueItems` grouped *consecutive* beats by block id on the
+  stated assumption that "block ids are unique per speech-run" — no longer true —
+  and emitted **87 blocks keyed by 77 ids**. React reported duplicate keys and,
+  as it warns it may, omitted children: switching from Merry Wives to Richard II
+  updated the header, the stats and the stage directions but left the *speeches*
+  showing the previous play. A reviewer judging segmentation on that page would
+  have been reading the wrong play's text under the right play's title.
+
+  The lesson is not "regenerate fixtures more often" — it is that a fixture
+  checked in beside the code it feeds has no mechanism telling it the rules
+  changed. The importer's own `rows.json` is the reference, and the database is
+  now the reference for Merry Wives.
 
 ---
 

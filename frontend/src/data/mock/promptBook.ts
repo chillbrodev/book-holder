@@ -14,9 +14,6 @@ export const MOCK_FLAGGED_LINES = [
   { lineId: lineId(10), mistakeCount: 2, lastPracticedAt: '2026-07-17T00:00:00Z' },
 ]
 
-/** Which flagged lines belong to the Act II Scene 1 wrap-up specifically, in wrap-up order. */
-export const WRAP_UP_FLAGGED_LINE_IDS = [lineId(6), lineId(12)]
-
 export function findLineById(lineId: string) {
   return ACT_2_SCENE_1_LINES.find((line) => line.id === lineId)
 }

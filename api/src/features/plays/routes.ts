@@ -46,7 +46,8 @@ plays.get(
 // opens, so she practises the thought with its run-up rather than in isolation.
 plays.get(
   "/:playId/lines/:lineId/block",
-  async (c) => c.json(await PlaysService.getBlockForLine(c.req.param("lineId"))),
+  async (c) =>
+    c.json(await PlaysService.getBlockForLine(c.req.param("lineId"))),
 );
 
 export default plays;
