@@ -103,6 +103,10 @@ feels right while you're there.
 This now pays for itself twice: the wrap-up reads that row, so the same five
 minutes is also the first look at the summary screen with real numbers in it.
 
+**Step by step in `docs/verify-session-loop.md`** — including the two checks that
+are easy to skip and shouldn't be: a second run of the same scene (the read/write
+race, which fails plausibly) and the guest state.
+
 ### 4b. ~~Make the wrap-up tell the truth~~, and give a coaching note
 
 **The first half is done.** `GET /sessions/summary` returns real duration, beats
