@@ -301,6 +301,21 @@ and belongs with the comparison prompt, not with the transport. Capture's job is
 to deliver a faithful transcript with beat boundaries attached; what counts as a
 miss is decided downstream.
 
+**"Downstream" now means *on this socket*, not an hour later in a POST** — see
+`docs/coaching-plan.md`. Scoring happens when the block finishes, because the
+`complete` event already carries exactly the (expected, heard) pairs it needs and
+the expected text was loaded server-side by `getBlockBeats`. Two consequences for
+this document:
+
+- **The partials rule above gets sharper, not softer.** It used to be that a
+  partial mistakenly treated as final would produce a wrong score in a POST some
+  minutes later. Now it produces a wrong band under her block while she is still
+  in the scene. `IsPartial: false` remains the only evidence about what she said.
+- **The socket becomes auth-aware, but stays un-gated.** It reads the session
+  cookie if present: signed in, results are persisted; guest, results are shown
+  and discarded. Rehearsing as a guest still works fully, which is the property
+  §4's no-auth decision was protecting.
+
 ## 8. Still open after this doc
 
 - **Number normalization is the one real error class, and it is not a threshold
@@ -338,4 +353,11 @@ miss is decided downstream.
 - **Barge-in.** Nothing yet stops Polly's audio for the previous character
   bleeding into her mic and being transcribed as her words. Echo cancellation in
   `getUserMedia` constraints is the cheap first answer; headphones are the real
-  one.
+  one. Coaching adds a second case: a click-to-pause annotation
+  (`coaching-plan.md` §4) stops playback mid-line, and resuming must not re-feed
+  the mic audio she has already heard.
+- **The silence windows are guesses.** `SILENCE_MS` 2500 and
+  `AUTO_FINISH_SETTLE_MS` 900 in `useMicCapture.ts` were chosen, not measured.
+  Whether 2.5s clips a breath taken mid-thought is unknown and needs a person
+  rehearsing, not a probe — a stand-in voice never pauses to think.
+  *(Carried forward from `docs/HANDOFF.md` before that document was deleted.)*

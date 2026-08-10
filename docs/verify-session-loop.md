@@ -5,12 +5,21 @@ showing fixtures; steps 3, 5 and 6 have never been done.*
 
 Everything here needs a mic, a voice and a judgement call, which is why it is a
 document rather than a test file. The parts that could be automated already are:
-64 API tests, and the summary read verified against the live database (see
-`HANDOFF.md` §3).
+64 API tests, and the summary read verified against the live database — a
+four-beat session with one fumble and one silence stored `beats_run` 4 (not 2)
+and duration 412s, read back identically by session id and by latest-for-scene,
+with the silence preserved as an empty string and a second user refused. Those
+rows were deleted afterwards.
 
-`session_history` was at **0 rows** when this was written. Step 4 is what changes
-that, and it is also `HANDOFF.md` §4a — the first thing worth doing on this
-branch.
+`session_history` was at **0 rows** when this was written, and no real rehearsal
+has ever been saved — the write path is verified only by probes that cleaned up
+after themselves. Step 4 is what changes that, and it is still the first thing
+worth doing.
+
+**It now pays for itself twice.** Per-block coaching (`coaching-plan.md`) needs
+real (expected, heard) pairs to place the two threshold cuts in `OPEN_ITEMS.md`
+§1a, and every beat scored here produces one. Until a scene is actually run, both
+cuts are guesses.
 
 ---
 

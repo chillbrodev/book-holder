@@ -54,8 +54,20 @@ So: score per beat, render and display per block. Audio is synthesized for a who
 block at once — rendering beat by beat gives each fragment sentence-final intonation
 and a trailing pause, which is audible as stop-start delivery and baked into the bytes.
 
+**Coaching is scored per beat but *called* per block** (`docs/coaching-plan.md`). One
+Bedrock call covers a whole speech and returns a result per beat — the block gives the
+model the context that makes a paraphrase judgeable, but the beat is still the scored
+unit and still what `line_mastery` keys on. Don't read "one call per block" as "one
+score per block".
+
 `lines.line_number` is the scene-local *beat* sequence despite the name; renaming it
 would churn every query for no behavioural gain.
+
+**`lines.beat_number` is not that sequence** — it is the beat's index *within its
+block*, so three of four consecutive beats in II.i are all `beat_number` 1.
+`ORDER BY beat_number` across a scene returns essentially arbitrary order, compiles
+fine, and looks perfect until more than one beat comes back. Order by `line_number`.
+This was written wrong once and only surfaced in real output.
 
 Verse keeps its lineation on screen (`source_lines`); prose is wrapped, because its
 "lines" are only the source's fixed-width typesetting.
@@ -101,6 +113,32 @@ Things that are easy to get wrong here:
 > A cache miss bills a synthesis *and writes an S3 object*. Don't use it to smoke-test a
 > deploy. Use `/health` (see below).
 
+## Bedrock
+
+Comparison model is **`us.amazon.nova-micro-v1:0`**, and the `us.` prefix is load-bearing.
+Nova Micro has no in-region presence in `us-west-2`, so it is reachable only through the
+US geo inference profile; the bare `amazon.nova-micro-v1:0` fails from this region with an
+error that reads like a bad model id rather than a regional gap. This is the *opposite* of
+the rule for models with no profile, where the bare id is the only thing that works — so
+don't pattern-match one onto the other.
+
+Consequences that bite:
+
+- **A profile invocation needs two ARN shapes in IAM**: the inference-profile ARN *and* the
+  foundation-model ARN in every region the profile routes to. Granting only the profile
+  fails with an `AccessDenied` naming a region that appears nowhere in the deployment.
+  Both `infra/aws/create-dev-user.sh` and `infra/aws/ecs-deploy.sh` carry them; changing
+  the model means changing both files, not one config string.
+- **Nova does not support structured outputs.** The response shape comes from a forced
+  single-tool call. `BedrockClient.converseJson` falls back to scraping JSON out of prose
+  and reports it via `recoveredFromText` — if that comes back true, the toolChoice shape is
+  wrong, and widening the parser is the wrong fix.
+- **`BEDROCK_MODEL_ID_COMPARISON` has a working default in `configClient.ts`**, so it is
+  passed to the container only when set. The real deploy path reads it from a GitHub
+  repository variable; `ecs-deploy.sh` reads it from the environment.
+- **Bedrock pricing is separately set from first-party Anthropic pricing** and could not be
+  verified from the pricing page. Don't quote first-party rates as Bedrock rates.
+
 ## Database
 
 CockroachDB via `pg`. One thing bites repeatedly:
@@ -113,6 +151,19 @@ Aggregate columns shared across queries live in constants (`BEAT_COLUMNS`,
 `SPEAKER_COLUMNS` in `features/plays/service.ts`) because several queries feed one
 mapper — a column added to only some of them arrives as `undefined` at runtime rather
 than failing to compile.
+
+> **`BEGIN` … DDL … `ROLLBACK` does not undo the DDL.** CockroachDB runs schema changes
+> as asynchronous jobs, so a rolled-back transaction still leaves the tables and columns
+> behind — unlike Postgres, where this is the standard way to dry-run a migration. The
+> `ROLLBACK` returns successfully and `information_schema` inside the same session can
+> still read the objects, so it looks like it worked. Verified the hard way: 006 was
+> "validated" this way and persisted. **There is no safe dry run for a migration here.**
+> Read the SQL, then apply it for real with `npm run db:migrate`.
+
+**Dev and production share one database.** `infra/aws/.env.production` has its own
+`COCKROACHDB_URL`, but the host and database are identical to the root `.env`. Anything
+run against the local dev database is run against what production reads — including
+migrations, which is why they are additive and `IF NOT EXISTS`.
 
 ## Deploying
 

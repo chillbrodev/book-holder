@@ -102,11 +102,21 @@ calls these for real instead of its mock fixtures, and `RehearsalPage.tsx` calls
 for other characters' lines — so Polly is no longer a standalone building block, it's in the real rehearsal
 flow now, just without session/mastery writes yet.
 
-**Not started**: Bedrock (comparison + coaching) and Transcribe (listening) integration, session
-start/submission/end endpoints, the read-decide-act-write loop itself (the *write* half — reads are wired,
-per above). `WrapUpPage`/`PromptBookPage` also still render mock data, since they need mastery data that
-doesn't exist server-side yet. The open design questions in front of that work — the fuzzy-match threshold
-above all, which decides what the comparison prompt is even asking for — are in `docs/OPEN_ITEMS.md` §1.
+**Transcribe and the session write are built** (`docs/capture-plan.md`, `features/capture`,
+`features/sessions`): mic → 16 kHz PCM → server-held WebSocket → Transcribe → a beat cursor, and a
+serializable transaction writing `session_history`/`line_mastery`/`mistake_log`. `WrapUpPage` reads
+`GET /sessions/summary` and its fixtures are deleted; `PromptBookPage` still renders mock data.
+`GET /sessions/plan` is built and verified but **has no caller** (`OPEN_ITEMS.md` §1f).
+
+**Bedrock is wired but not yet called.** `@aws-sdk/client-bedrock-runtime`, `clients/bedrock-client`
+(Converse on `bedrock-runtime`), `ConfigClient.Bedrock.comparisonModelId`, and `bedrock:InvokeModel` in both
+IAM scripts all exist. What does not exist is the comparison itself — `features/sessions/score.ts` is doing
+that job deterministically, as `BE_PLAN.md` §8's documented fallback built as the real scorer.
+
+**Not started**: the per-block coaching call and the scene-summary call, both designed in
+`docs/coaching-plan.md`. The open design question in front of them — the fuzzy-match threshold, which
+decides what the comparison prompt is even asking for, and which is now **two** cuts rather than one — is
+`docs/OPEN_ITEMS.md` §1a.
 
 ## 1b. Runtime note: Deno + Hono, not Node/Express
 
@@ -174,9 +184,10 @@ Discovered from the real Merry Wives of Windsor XML during import, not hypotheti
 | Play/role/scene selection | Serve picker data from `plays`/`characters`/`lines`; "this character's lines" requires joining through `line_speakers` (§1a), not a direct FK |
 | Session start | **Read** `line_mastery` for the chosen scene → decide what to emphasize (e.g. resurface lines with low confidence or high mistake count) |
 | Block playback | Synthesize via Polly if not already cached for that block/voice/engine; serve cached audio otherwise. One speech, one render — never per beat |
-| Beat submission | Transcribe her delivery → Bedrock (Nova Micro/Lite) semantic comparison against the expected beat text — not exact match. The mic stays open across a whole *block*; beats are scoring boundaries, not interaction boundaries (`OPEN_ITEMS.md` §1b). Comparison runs against `beat.text`, not `source_lines` — she speaks continuously, so lineation isn't audible and has no place in a transcript diff |
-| Session end | **Write**, in one serializable transaction: `session_history` insert, `line_mastery` updates, `mistake_log` inserts |
-| Coaching note | Bedrock (stronger model) summarizes the session against history — infrequent call, not per-line |
+| Block submission | Transcribe her delivery → Bedrock (Nova Micro) semantic comparison against the expected beat texts — not exact match. **One call per block, returning a result per beat**: the mic stays open across a whole *block* and beats are scoring boundaries, not interaction boundaries (`OPEN_ITEMS.md` §1b), so the block is what the model can actually judge in context. Comparison runs against `beat.text`, not `source_lines` — she speaks continuously, so lineation isn't audible and has no place in a transcript diff |
+| Per-block coaching | Scored when the block finishes, on the capture socket, and shown under the block as *solid*/*close*/*dry* (`coaching-plan.md`). Written incrementally for a signed-in user; shown but not persisted for a guest |
+| Session end | **Write** the scene summary and close the session. Note this is no longer one big transaction at the end — the session row is created at rehearsal *start* and each block's results are written as it completes, because a loop of network calls inside an open serializable transaction is not a thing to build (`coaching-plan.md` §6) |
+| Coaching note | Bedrock (stronger model) summarizes the session against history — infrequent call, not per-line. **Generated once and stored** on `session_history`, not regenerated per view: regenerating bills a call on every refresh and produces different words for the same rehearsal |
 | Recording save/playback | Upload to S3 on session end; serve back via signed URL, never a direct client-to-S3 path |
 
 ## 3. The agentic loop, concretely
@@ -194,8 +205,26 @@ Discovered from the real Merry Wives of Windsor XML during import, not hypotheti
 
 ## 4. Cost-effectiveness
 
-- **Nova Micro/Lite** for the high-frequency per-beat comparison call; reserve the stronger Bedrock model
-  for the low-frequency session-summary/coaching-note call only.
+- **Nova Micro** for the high-frequency comparison call; reserve the stronger Bedrock model for the
+  low-frequency session-summary/coaching-note call only. Micro rather than Lite because the comparison is
+  text against text — there is no image in it — and Micro is the faster of the two.
+
+  **The model id is `us.amazon.nova-micro-v1:0`, and the `us.` prefix is required, not optional.** Nova Micro
+  has no in-region presence in `us-west-2` (AWS's model card lists us-west-2 as In-Region ✗ / Geo ✓), so it
+  is reachable from this deployment only through the US geo inference profile. Two knock-on effects worth
+  holding: IAM must grant `bedrock:InvokeModel` on the profile ARN **and** on the foundation-model ARN in
+  every region the profile routes to (us-east-1/us-east-2/us-west-2), and this is the opposite of the rule
+  for models that have no profile at all, where the bare id is the only thing that works.
+
+  **The call is per block, not per beat** (`coaching-plan.md` §2), which is a ~1.6× reduction on its own —
+  ~1,705 beats live in ~1,060 blocks — before prompt caching. Nova supports caching on `system` with a
+  5-minute TTL and a 1K-token minimum; the rubric is identical for every block in a scene and blocks land
+  well inside five minutes of each other, so the checkpoint hits in practice rather than in theory.
+
+  **Bedrock pricing for current models is still unverified.** AWS's pricing page renders no figures for Nova
+  or for any current-generation model when fetched, so §7's "verify pricing at build time" below is
+  genuinely outstanding rather than quietly satisfied. Do not substitute first-party Anthropic rates —
+  Bedrock is separately priced.
 - **Cache Polly synthesis per block** — synthesize once per (block, voice, engine), reuse on every replay.
   Cost control, latency win, and the only way the audio sounds like a speech rather than a series of
   fragments. Done: the whole play is warmed. `deno task warm-polly-cache` is billed and **defaults to a dry

@@ -23,10 +23,24 @@ so this will shape how the app *feels* more than any of the plumbing around it.
 Too strict and every run is a wall of corrections; too loose and it never
 catches the thing she actually keeps dropping.
 
-Related and unresolved: style guide §11 — `confidence_score` is continuous, so
-a near-miss and a total blank currently read identically in the wrap-up. Capture
-now distinguishes them at the source: a skipped beat comes back with an empty
-`heard` string, a fumbled one with the wrong words in it.
+**This item is now two questions, not one** (`coaching-plan.md` §3). Coaching
+renders three bands — *solid* / *close* / *dry* — so there are **two cuts** to
+place, and they are not the same kind of decision:
+
+- **solid → close** is the original question above: how much slack does a working
+  actor deserve on wording she has essentially got.
+- **close → dry** is nearer to "did she have this at all". Capture already
+  separates the extremes at the source — a skipped beat returns an empty `heard`,
+  a fumbled one returns wrong words — so this cut is mostly about where a
+  mangled-but-attempted beat stops counting as an attempt.
+
+Settling the first does not settle the second. `SAID_IT_THRESHOLD` in
+`features/sessions/score.ts` is one number today and its comment already says it
+is a placeholder; three bands mean it becomes two.
+
+Formerly related and now closed: style guide §11's "a near-miss and a full blank
+read identically in the wrap-up" — the bands answer that. What is open is where
+the cuts fall, not whether the distinction exists.
 
 Worth settling **before** Bedrock is wired, not after — it determines what the
 comparison prompt is even asking for.
@@ -122,6 +136,21 @@ window**, since "forever" is the wrong default for personal audio. The capture s
 is the easy part: a second `MediaRecorder` tap off the `MediaStream` that already
 exists (`capture-plan.md` §3).
 
+### 1f. `GET /sessions/plan` has no caller
+
+Built and verified — after a run where beat 3 was skipped and beat 5 fumbled, it
+emphasised exactly those two, at confidence 0.00 and 0.21. **Nothing in the
+frontend calls it.**
+
+This is the *read memory → decide* half of `PROJECT_PLAN.md` §2's loop, and it is
+the half that stays invisible. Coaching (`coaching-plan.md`) makes the **write**
+half visible during a scene and the **show** half visible after it; neither of
+them tells her, at the top of a scene, what to watch for based on last time.
+
+Needs no Bedrock — the ordering already exists. It needs a screen.
+
+*Carried forward from `docs/HANDOFF.md` §4c before that document was deleted.*
+
 ---
 
 ## 2. Embeddings and vectors
@@ -170,9 +199,13 @@ None of these block anything.
 
 - **`CharacterTile.tsx:33` says "N lines" while counting beats.** Merry Wives
   went 2,610 → 1,705, so the number changed meaning as well as value. Same for
-  the wrap-up's `linesRun` and `listScenes`' `totalLines`. Copy pass.
-- **Wrap-up and Prompt Book still read `data/mock/*`.** They compile and render,
-  but the fabricated line ids diverge further from real data with every change.
+  `listScenes`' `totalLines`. Copy pass. (The wrap-up's was fixed — it reads
+  "Beats run" off a real `beats_run` column.)
+- **The Prompt Book still reads `data/mock/*`.** It compiles and renders, but the
+  fabricated line ids diverge further from real data with every change. The
+  wrap-up no longer does: it reads `GET /sessions/summary`, and its fixtures were
+  deleted rather than left to rot beside it (see the `/preview/blocks` postmortem
+  below for why that matters).
 - **Beat highlighting inside verse is unsolved.** Beats cross-cut verse lines —
   a boundary usually falls mid-line — so "highlight the active beat" and "keep
   the lineation" fight: you cannot box a beat without breaking the layout or

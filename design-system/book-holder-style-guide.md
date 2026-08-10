@@ -45,6 +45,11 @@ Keep these consistent everywhere — copy, code, and conversation.
 | **Favorite** | A play bookmarked to return to |
 | **In progress** | A play with active rehearsal history |
 | **Focus play** | The flagship, fully-built play (*The Merry Wives of Windsor* for MVP) |
+| **Solid** | She had the beat — shown in coaching, never as a percentage |
+| **Close** | She had the sense of it, not the words — the near-miss Shakespeare makes the norm |
+| **Dry** | She didn't have it. Real theater term for forgetting a line (§2), which is exactly why it beats "missed" |
+
+*Solid / close / dry* are product vocabulary, not just copy — they are the bands the coaching surfaces render and the values the code uses. Keep them identical in both. See `docs/coaching-plan.md` §3.
 
 ---
 
@@ -158,9 +163,22 @@ Every state changes both icon *and* copy together — never a color or icon shif
 
 **Hidden-text / "call for line":** text hides only on manual toggle — never auto-hides based on mastery, at least at MVP. Tapping "Line?" reveals the line's text immediately *and* shows a separate "Read line aloud" button. Text and audio are two distinct, explicit affordances, not bundled into one action — this is the accessibility default. An auto-read-on-peek setting is a reasonable v2 addition, not MVP.
 
-**Feedback timing:** no interruption mid-scene. Mismatches are captured silently and only surface in the scene wrap-up, framed as "worth another look" — never "wrong" or "incorrect," consistent with the voice guide in §2.
+**Feedback timing — revised August 2026, see `docs/coaching-plan.md` §4.** This rule previously read "no interruption mid-scene; mismatches are captured silently and only surface in the scene wrap-up." Coaching now appears *during* the scene, per block. The intent behind the original rule is unchanged and still binding — what changed is the assumption that honoring it meant saying nothing until the scene ended.
 
-**Scene wrap-up list:** flagged lines render as bordered list rows, not cards — a dense, repeatable list, where card treatment would be too heavy. Each row pairs the line text with a "Replay" button tied to the recorded take.
+The standard is **non-interruptive, not invisible**:
+
+- Nothing blocks. Advancing to the next block never waits on a score.
+- Nothing demands a response. She can ignore every annotation and the rehearsal is identical.
+- No sound, and no motion that pulls the eye — this is not a notification.
+- The annotation is clickable, and opening it pauses playback to show the block's notes. Pausing is correct here *because* it is opt-in: she chose to stop and read.
+
+Never "wrong" or "incorrect," unchanged from the original rule and from §2.
+
+**Per-block coaching placement:** under the block, not in a side gutter. A third column narrows the script, needs its own responsive answer, and fights the 200% text-scaling requirement in §8. The annotation slot is **reserved from the start** — every one of her blocks renders a fixed-height empty area that fills in when the score lands, so nothing reflows. Text moving under an actor mid-scene reads as a bug. Scores may arrive a block behind; an unscored block shows a quiet pending state, never a hole.
+
+**Scoring vocabulary — *solid* / *close* / *dry*.** See §3. Never a percentage: a per-block "72%" is precisely the homework-grading register §2 rules out. `confidence_score` stays continuous underneath and drives everything; it is simply not shown as a grade.
+
+**Scene wrap-up:** every block scored, plus a summary note for the whole scene and a fraction — "31 of 34 beats solid." A fraction rather than a percentage, consistent with §10's "the fraction is the real signal." Flagged lines still render as bordered list rows, not cards — a dense, repeatable list, where card treatment would be too heavy. Each row pairs the line text with a "Replay" button tied to the recorded take.
 
 **Multi-speaker lines:** when a line is shared by more than one character, show it as secondary text under the character name (e.g. "with Shallow, Slender") — context, not an interruption to the line itself.
 
@@ -186,7 +204,7 @@ The reflective, whole-play counterpart to the scene picker in §9 — where "wha
 
 - Session history log — deferred from the Prompt Book at MVP to keep the screen focused on needs-work only; worth reconsidering once there's real session data to show.
 - Switching roles within a play — MVP is one role per play, set once. Letting her read a second character (e.g. to practice scenes without a partner) is a natural post-MVP extension, not needed for the hackathon build.
-- Severity distinction for flagged lines — `confidence_score` is continuous, so a near-miss and a full blank currently read the same in the wrap-up. Worth a lighter visual distinction post-MVP; noted for real product development, not needed for the hackathon build.
+- ~~Severity distinction for flagged lines~~ — **answered by the three bands in §3.** A near-miss now reads as *close* and a blank as *dry*, so they no longer look identical. What remains open is not the distinction but where the two cuts fall (`OPEN_ITEMS.md` §1a), which needs real transcripts rather than a design decision.
 - Auto-read vs. manual "Read line aloud" as a configurable setting — post-MVP; the MVP always shows both text and a manual read button.
 - Exact copy/behavior for mic permission failures (denied at the OS level vs. a dropped connection mid-session) — needs a real pass once the AWS Transcribe integration is wired up.
 - Should the script text itself use the display serif or the UI sans? Readability under time pressure argues for sans; character argues for serif. Worth testing both.
