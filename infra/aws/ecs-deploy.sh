@@ -10,11 +10,20 @@
 #
 # NOTE: wires up AWS_REGION, POLLY_CACHE_BUCKET, POLLY_DEFAULT_VOICE_ID (if
 # exported — per-character voices live in characters.polly_voice_id, not an
-# env var), DENO_ENV=production, and COCKROACHDB_URL/ALLOWED_ORIGIN (see
-# COCKROACHDB_URL/ALLOWED_ORIGIN below for where these are read from).
-# BEDROCK_MODEL_ID_*/S3_RECORDINGS_BUCKET are still NOT passed — nothing
-# reads them yet (Bedrock/S3-recordings integration isn't built), so there's
-# nothing to wire up until that exists.
+# env var), BEDROCK_MODEL_ID_COMPARISON (if exported), DENO_ENV=production,
+# and COCKROACHDB_URL/ALLOWED_ORIGIN (see COCKROACHDB_URL/ALLOWED_ORIGIN below
+# for where these are read from).
+#
+# BEDROCK_MODEL_ID_COMPARISON is passed only when set, because
+# configClient.ts carries a working default (the Nova Micro geo profile). The
+# env var exists to change models without a code deploy — which is the whole
+# reason it is plumbed rather than left hardcoded. Note this is the *bootstrap*
+# path; the real deploy is .github/workflows/deploy-api.yml, which reads the
+# same override from a GitHub repository variable.
+#
+# BEDROCK_MODEL_ID_SUMMARY/S3_RECORDINGS_BUCKET are still NOT passed — nothing
+# reads them yet (the coaching-note and S3-recordings work isn't built), so
+# there's nothing to wire up until that exists.
 #
 # Usage:
 #   ./infra/aws/ecs-deploy.sh
@@ -215,6 +224,18 @@ fi
 # way a batch transcription job is, so IAM offers no ARN to narrow this with.
 # Same reasoning as polly:SynthesizeSpeech above.
 #
+# Bedrock, by contrast, is scoped tightly — and needs two ARN shapes for one
+# call. Nova Micro has no in-region presence in us-west-2 (model card: In-Region
+# ✗ / Geo ✓), so it is reached through the US geo inference profile
+# `us.amazon.nova-micro-v1:0`. A profile invocation is authorized against the
+# profile ARN *and* the foundation-model ARN in each region the profile can
+# route to, so granting one without the other yields an AccessDenied naming a
+# region that appears nowhere in this deployment. Keep these in step with
+# api/src/clients/config-client/configClient.ts's comparisonModelId: changing
+# the model there without changing the ARNs here breaks the deployed service
+# while local dev keeps working, because create-dev-user.sh is a separate
+# policy that someone will remember to update and this one is easy to miss.
+#
 # Bucket-level s3:ListBucket is included alongside the object-level actions
 # on purpose, not for browsing the bucket — without it, S3 masks "object
 # doesn't exist" as a generic 403 instead of 404 for this principal (an
@@ -228,6 +249,12 @@ aws iam put-role-policy --role-name "$TASK_ROLE_NAME" --policy-name "PollyAndCac
   "Statement": [
     {"Sid": "PollySynthesize", "Effect": "Allow", "Action": "polly:SynthesizeSpeech", "Resource": "*"},
     {"Sid": "TranscribeStreaming", "Effect": "Allow", "Action": "transcribe:StartStreamTranscription", "Resource": "*"},
+    {"Sid": "BedrockInvokeNova", "Effect": "Allow", "Action": ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"], "Resource": [
+      "arn:aws:bedrock:$AWS_REGION:$ACCOUNT_ID:inference-profile/us.amazon.nova-micro-v1:0",
+      "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-micro-v1:0",
+      "arn:aws:bedrock:us-east-2::foundation-model/amazon.nova-micro-v1:0",
+      "arn:aws:bedrock:us-west-2::foundation-model/amazon.nova-micro-v1:0"
+    ]},
     {"Sid": "PollyCacheBucketObjects", "Effect": "Allow", "Action": ["s3:GetObject", "s3:PutObject", "s3:HeadObject"], "Resource": "arn:aws:s3:::$POLLY_CACHE_BUCKET_NAME/*"},
     {"Sid": "PollyCacheBucketList", "Effect": "Allow", "Action": "s3:ListBucket", "Resource": "arn:aws:s3:::$POLLY_CACHE_BUCKET_NAME"}
   ]
@@ -263,10 +290,12 @@ CONTAINER_ENV_JSON=$(jq -n \
   --arg region "$AWS_REGION" \
   --arg bucket "$POLLY_CACHE_BUCKET_NAME" \
   --arg defaultVoice "${POLLY_DEFAULT_VOICE_ID:-}" \
+  --arg comparisonModel "${BEDROCK_MODEL_ID_COMPARISON:-}" \
   --arg appVersion "$IMAGE_TAG" \
   '[{name: "PORT", value: $port}, {name: "AWS_REGION", value: $region}, {name: "POLLY_CACHE_BUCKET", value: $bucket},
      {name: "DENO_ENV", value: "production"}, {name: "APP_VERSION", value: $appVersion}]
-   + (if $defaultVoice != "" then [{name: "POLLY_DEFAULT_VOICE_ID", value: $defaultVoice}] else [] end)')
+   + (if $defaultVoice != "" then [{name: "POLLY_DEFAULT_VOICE_ID", value: $defaultVoice}] else [] end)
+   + (if $comparisonModel != "" then [{name: "BEDROCK_MODEL_ID_COMPARISON", value: $comparisonModel}] else [] end)')
 
 # COCKROACHDB_URL/ALLOWED_ORIGIN come from Secrets Manager when the secret
 # exists (see secrets-bootstrap.sh), and as plaintext env vars when it

@@ -6,6 +6,7 @@
     "jsr:@std/dotenv@0": "0.225.7",
     "jsr:@std/fmt@1": "1.0.10",
     "jsr:@std/internal@^1.0.12": "1.0.14",
+    "npm:@aws-sdk/client-bedrock-runtime@3": "3.1106.0",
     "npm:@aws-sdk/client-polly@3": "3.1095.0",
     "npm:@aws-sdk/client-s3@3": "3.1095.0",
     "npm:@aws-sdk/client-transcribe-streaming@3": "3.1104.0",
@@ -39,6 +40,23 @@
         "@aws-sdk/core",
         "@aws-sdk/types",
         "@smithy/core",
+        "@smithy/types",
+        "tslib"
+      ]
+    },
+    "@aws-sdk/client-bedrock-runtime@3.1106.0": {
+      "integrity": "sha512-LXi9HXgctft1WPa/aXnuw/XcK7OFoAi0myTz8nZ+FruooHnk2wZf5MWNaWZ3Paz1BuG9g+rCSzJWYS5FNqP2kw==",
+      "dependencies": [
+        "@aws-sdk/core",
+        "@aws-sdk/credential-provider-node",
+        "@aws-sdk/eventstream-handler-node",
+        "@aws-sdk/middleware-eventstream",
+        "@aws-sdk/middleware-websocket",
+        "@aws-sdk/token-providers@3.1106.0",
+        "@aws-sdk/types",
+        "@smithy/core",
+        "@smithy/fetch-http-handler",
+        "@smithy/node-http-handler",
         "@smithy/types",
         "tslib"
       ]
@@ -186,7 +204,7 @@
       "dependencies": [
         "@aws-sdk/core",
         "@aws-sdk/nested-clients",
-        "@aws-sdk/token-providers",
+        "@aws-sdk/token-providers@3.1103.0",
         "@aws-sdk/types",
         "@smithy/core",
         "@smithy/types",
@@ -289,6 +307,17 @@
     },
     "@aws-sdk/token-providers@3.1103.0": {
       "integrity": "sha512-N4wy26MNn31ItGVHYHPrEuCIFY4MBBjC+C5v1lJKqIUSA7OZBdhleCY53zCCrXn27hsk7YNOaTuhQu807S4AfQ==",
+      "dependencies": [
+        "@aws-sdk/core",
+        "@aws-sdk/nested-clients",
+        "@aws-sdk/types",
+        "@smithy/core",
+        "@smithy/types",
+        "tslib"
+      ]
+    },
+    "@aws-sdk/token-providers@3.1106.0": {
+      "integrity": "sha512-5gYmxXoueX9X5QRN2T3BlFPr99mkIB35Z34QrikQDRRo61YJElNyYifxTUGHu/S3G8GI62Y0i8KsVtN5x9+VEA==",
       "dependencies": [
         "@aws-sdk/core",
         "@aws-sdk/nested-clients",
@@ -441,6 +470,7 @@
       "jsr:@std/assert@1",
       "jsr:@std/dotenv@0",
       "jsr:@std/fmt@1",
+      "npm:@aws-sdk/client-bedrock-runtime@3",
       "npm:@aws-sdk/client-polly@3",
       "npm:@aws-sdk/client-s3@3",
       "npm:@aws-sdk/client-transcribe-streaming@3",

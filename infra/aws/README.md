@@ -107,8 +107,21 @@ Also provisions, idempotently, what the Polly workflow needs at runtime:
   `infra/aws/.env.production` > root `.env`, so a one-off `ALLOWED_ORIGIN=... ./infra/aws/ecs-deploy.sh`
   still works too — but `.env.production` means you never have to toggle anything for local dev again.
 
-**Still not wired into the container**: `BEDROCK_MODEL_ID_*`/`S3_RECORDINGS_BUCKET` — nothing reads them yet
-(Bedrock/S3-recordings integration isn't built), so there's nothing to pass until that exists.
+`BEDROCK_MODEL_ID_COMPARISON` is passed **only when set**, because `configClient.ts` already carries a
+working default (`us.amazon.nova-micro-v1:0` — the US geo inference profile, whose `us.` prefix is required
+because Nova Micro has no in-region presence in us-west-2). The variable exists so the model can be changed
+without shipping a commit: export it before `ecs-deploy.sh`, or — for the real deploy path — set the
+`BEDROCK_MODEL_ID_COMPARISON` **repository variable** under Settings → Variables, which
+`.github/workflows/deploy-api.yml` reads.
+
+If you point it at a different model, update the `BedrockInvokeNova` statement in both `ecs-deploy.sh` and
+`create-dev-user.sh` to match. A profile invocation is authorized against the inference-profile ARN *and*
+the foundation-model ARN in every region the profile can route to, so a model swap is two ARN shapes in two
+files, not one string in one.
+
+**Still not wired into the container**: `BEDROCK_MODEL_ID_SUMMARY`/`S3_RECORDINGS_BUCKET` — nothing reads
+them yet (the coaching-note and S3-recordings work isn't built), so there's nothing to pass until that
+exists.
 
 For **local dev**, set `POLLY_CACHE_BUCKET` in the root `.env` to whatever bucket name you're using (run
 `ecs-deploy.sh` once to have it create `book-holder-polly-cache-<account-id>` and reuse that name locally, or

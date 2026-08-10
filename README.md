@@ -125,8 +125,7 @@ the full list with defaults; the ones without defaults are:
     AWS_ACCESS_KEY_ID=            # local dev only — never exposed to the client, and never set in production,
     AWS_SECRET_ACCESS_KEY=        #   where the ECS task role supplies credentials to the same client code
     POLLY_CACHE_BUCKET=           # S3 bucket for cached block audio; see infra/aws/README.md
-    BEDROCK_MODEL_ID_COMPARISON=  # not read yet — Bedrock isn't wired up
-    BEDROCK_MODEL_ID_SUMMARY=     # not read yet
+    BEDROCK_MODEL_ID_SUMMARY=     # not read yet — the coaching-note call isn't built
     S3_RECORDINGS_BUCKET=         # not read yet — recordings aren't built
 
 No AWS keys are ever present in `frontend` — all Bedrock/Polly/Transcribe/S3 calls route through `api`. In

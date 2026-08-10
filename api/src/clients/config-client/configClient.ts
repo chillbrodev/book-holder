@@ -70,6 +70,31 @@ export const ConfigClient = {
       "Brian",
     ),
   },
+  Bedrock: {
+    // Nova Micro, reached through the **US geo inference profile** — the `us.`
+    // prefix is load-bearing, not decoration.
+    //
+    // Nova Micro is not available in-region in us-west-2 (AWS's model card
+    // lists us-west-2 as In-Region ✗ / Geo ✓), which is the region everything
+    // else here runs in. The bare `amazon.nova-micro-v1:0` therefore fails from
+    // us-west-2 with a validation error that reads like a bad model id rather
+    // than a regional gap. The geo profile routes the call across
+    // us-east-1/us-east-2/us-west-2 and is the only way to invoke this model
+    // from here.
+    //
+    // Consequence for IAM: invoking through a profile needs bedrock:InvokeModel
+    // on the inference-profile ARN *and* on the foundation-model ARN in every
+    // destination region — see infra/aws/create-dev-user.sh.
+    //
+    // Text-only Micro rather than multimodal Lite because a comparison is a
+    // transcript against a beat's text; there is no image in this call, and
+    // Micro is the faster of the two, which is what the per-beat call is
+    // starved for.
+    comparisonModelId: getDenoEnvValueOrDefault(
+      "BEDROCK_MODEL_ID_COMPARISON",
+      "us.amazon.nova-micro-v1:0",
+    ),
+  },
   Auth: {
     sessionCookieName: "book_holder_session",
     allowedOrigin: getDenoEnvValueOrDefault(

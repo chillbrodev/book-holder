@@ -52,6 +52,17 @@ fi
 # no resource to scope to — a stream isn't a named, persisted resource the way a
 # batch transcription job is, so IAM offers no ARN to narrow it with. Same
 # reasoning as polly:SynthesizeSpeech.
+#
+# Bedrock needs TWO resource ARNs for one call, which is the least obvious grant
+# in this file. Nova Micro is not available in-region in us-west-2 — AWS's model
+# card lists us-west-2 as In-Region ✗ / Geo ✓ — so it can only be reached from
+# here through the US geo inference profile, `us.amazon.nova-micro-v1:0` (see
+# api/src/clients/config-client/configClient.ts). Invoking a profile is
+# authorized against the profile ARN *and* against the foundation-model ARN in
+# every region the profile may route to; granting only the profile fails with an
+# AccessDenied naming a foundation-model ARN in a region you never configured,
+# which reads like a bug rather than a missing grant. us-east-1/us-east-2/
+# us-west-2 are the US geo's destination regions per the same model card.
 aws iam put-user-policy --user-name "$USER_NAME" --policy-name "LocalDevAccess" \
   --policy-document "$(cat <<EOF
 {
@@ -59,6 +70,12 @@ aws iam put-user-policy --user-name "$USER_NAME" --policy-name "LocalDevAccess" 
   "Statement": [
     {"Sid": "PollySynthesize", "Effect": "Allow", "Action": "polly:SynthesizeSpeech", "Resource": "*"},
     {"Sid": "TranscribeStreaming", "Effect": "Allow", "Action": "transcribe:StartStreamTranscription", "Resource": "*"},
+    {"Sid": "BedrockInvokeNova", "Effect": "Allow", "Action": ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"], "Resource": [
+      "arn:aws:bedrock:$AWS_REGION:$ACCOUNT_ID:inference-profile/us.amazon.nova-micro-v1:0",
+      "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-micro-v1:0",
+      "arn:aws:bedrock:us-east-2::foundation-model/amazon.nova-micro-v1:0",
+      "arn:aws:bedrock:us-west-2::foundation-model/amazon.nova-micro-v1:0"
+    ]},
     {"Sid": "PollyCacheBucketObjects", "Effect": "Allow", "Action": ["s3:GetObject", "s3:PutObject", "s3:HeadObject", "s3:DeleteObject"], "Resource": "arn:aws:s3:::$POLLY_CACHE_BUCKET_NAME/*"},
     {"Sid": "PollyCacheBucketList", "Effect": "Allow", "Action": "s3:ListBucket", "Resource": "arn:aws:s3:::$POLLY_CACHE_BUCKET_NAME"}
   ]
