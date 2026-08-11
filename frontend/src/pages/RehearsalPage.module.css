@@ -61,6 +61,33 @@
   display: none;
 }
 
+/* Shown only while the browser is refusing to play cues. Terracotta rather than
+   gold: gold is the app's "this is on and working" colour, and this is the one
+   state where the reading has stopped and needs her. Full width and inside the
+   sticky header so it cannot be scrolled away from while it still applies. */
+.audioBlocked {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: var(--bh-tap-target-min);
+  margin-top: 4px;
+  padding: 8px 16px;
+  background: var(--bh-terracotta-light);
+  border: 1px solid var(--bh-terracotta-mid);
+  border-radius: var(--bh-radius-md);
+  color: var(--bh-terracotta-dark);
+  font-family: var(--bh-font-sans);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.audioBlocked:hover {
+  background: var(--bh-surface);
+}
+
 .changeLink {
   display: flex;
   align-items: center;

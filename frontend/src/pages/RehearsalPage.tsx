@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { getPlay, getSceneDialogue, getSelectedRole, getSingleLineDialogue, setLastScene } from '../data/client'
 import { getBlockAudio } from '../data/pollyClient'
+import { isPlaybackBlocked, playUrl, unlockPlayback } from '../utils/audioPlayback'
+import type { PlaybackSession } from '../utils/audioPlayback'
 import { saveSession } from '../data/sessionClient'
 import { recordSessionSave } from '../data/pendingSessionSave'
 import { useAsync } from '../hooks/useAsync'
@@ -65,6 +67,13 @@ export function RehearsalPage() {
   // disclosure button is display:none and the meta is always shown, so this
   // state exists but governs nothing — the desktop header is unchanged.
   const [sceneMetaOpen, setSceneMetaOpen] = useState(false)
+  // The browser refused to play a cue, so the reading is holding rather than
+  // running the scene down in silence. Cleared by the prompt below, whose tap
+  // is what makes playback possible again.
+  const [audioBlocked, setAudioBlocked] = useState(false)
+  // Bumped to re-run the playback effect for the current line after an unlock;
+  // `cursor` hasn't moved, so without it the effect has no reason to retry.
+  const [playbackAttempt, setPlaybackAttempt] = useState(0)
 
   useEffect(() => {
     localStorage.setItem(AUTO_SCROLL_STORAGE_KEY, autoScroll ? 'on' : 'off')
@@ -256,32 +265,46 @@ export function RehearsalPage() {
     if (!entry.blockId || !entry.speakerId) return
 
     let cancelled = false
-    let audio: HTMLAudioElement | undefined
+    let session: PlaybackSession | undefined
     let fallbackTimer: ReturnType<typeof setTimeout> | undefined
 
     getBlockAudio(entry.blockId, entry.speakerId)
       .then(({ audioUrl }) => {
         if (cancelled) return
-        audio = new Audio(audioUrl)
-        audio.addEventListener('ended', () => {
-          if (!cancelled) advance()
+        session = playUrl(audioUrl, {
+          onEnded: () => {
+            if (!cancelled) advance()
+          },
+          onError: () => {
+            if (!cancelled) advance()
+          },
         })
-        audio.addEventListener('error', () => {
-          if (!cancelled) advance()
-        })
-        return audio.play()
+        return session.started
       })
-      .catch(() => {
-        if (!cancelled) fallbackTimer = setTimeout(() => advance(), AUTO_ADVANCE_DELAY_MS)
+      .catch((error: unknown) => {
+        if (cancelled) return
+        // The two failures here want opposite responses, and collapsing them
+        // into one `advance()` is what made this unusable on iOS. A refusal to
+        // play is not a missing cue to skip past — nothing is wrong with the
+        // audio, and skipping runs the whole scene down in silence 650ms at a
+        // time until it reaches her next line. So it stops and asks, and the
+        // tap on that prompt is the gesture that buys back playback.
+        if (isPlaybackBlocked(error)) {
+          setAudioBlocked(true)
+          return
+        }
+        // A genuinely broken cue — synthesis failed, the signed URL 403'd.
+        // Keep the rehearsal moving; that is what this delay is for.
+        fallbackTimer = setTimeout(() => advance(), AUTO_ADVANCE_DELAY_MS)
       })
 
     return () => {
       cancelled = true
-      audio?.pause()
+      session?.cancel()
       if (fallbackTimer) clearTimeout(fallbackTimer)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- advance() closes over cursor/dialogue, re-derived every render
-  }, [cursor, dialogue, done, readingPaused])
+  }, [cursor, dialogue, done, readingPaused, playbackAttempt])
 
   // Her speech is captured, so move on. Previously this needed a second tap,
   // which was pure friction: the app already knew the block was done, and asking
@@ -313,15 +336,23 @@ export function RehearsalPage() {
    */
   async function readLineAloud(blockId: string, speakerId: string) {
     if (readingAloudBlockId) return
+    // Synchronous, before the first await, while this click's activation is
+    // still live. It is nearly always a no-op by now — the first tap anywhere
+    // in the app already unlocked playback (AppLayout) — but this is the one
+    // path with a real gesture in hand at the moment of playing, so it may as
+    // well be the belt to that braces. After the await below the activation is
+    // gone, which is exactly how the autoplay bug arose in the first place.
+    unlockPlayback()
     setReadingAloudBlockId(blockId)
     setMuted(true)
     try {
       const { audioUrl } = await getBlockAudio(blockId, speakerId)
-      const audio = new Audio(audioUrl)
       await new Promise<void>((resolve) => {
-        audio.addEventListener('ended', () => resolve())
-        audio.addEventListener('error', () => resolve())
-        void audio.play().catch(() => resolve())
+        const session = playUrl(audioUrl, { onEnded: resolve, onError: resolve })
+        // Resolves on refusal too: she asked for the line, and leaving the
+        // button stuck on "Reading…" with the mic muted would be a worse
+        // failure than simply not hearing it.
+        void session.started.catch(() => resolve())
       })
     } finally {
       setMuted(false)
@@ -389,6 +420,23 @@ export function RehearsalPage() {
             <Icon name={sceneMetaOpen ? 'chevron-up' : 'chevron-down'} size={20} />
           </button>
         </div>
+        {/* Only ever shown when the browser has actually refused — not a
+            standing "enable sound" banner. The tap is the point: it is a real
+            user gesture, so unlocking inside it is what makes the retry work. */}
+        {audioBlocked && (
+          <button
+            type="button"
+            className={styles.audioBlocked}
+            onClick={() => {
+              unlockPlayback()
+              setAudioBlocked(false)
+              setPlaybackAttempt((n) => n + 1)
+            }}
+          >
+            <Icon name="play" size={18} />
+            Tap to hear the other parts
+          </button>
+        )}
         <div className={styles.controls}>
           <ToggleButton
             on={!readingPaused}

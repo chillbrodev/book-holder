@@ -3,6 +3,7 @@ import { NavLink, Outlet } from 'react-router-dom'
 import { cx } from '../../utils/cx'
 import { useAuth } from '../../auth/useAuth'
 import { AuthModal } from '../../auth/AuthModal'
+import { isPlaybackUnlocked, unlockPlayback } from '../../utils/audioPlayback'
 import styles from './AppLayout.module.css'
 
 /** Header with wordmark + nav, wraps every page via <Outlet/>. Replaces the prototype's local screen-state switch with real routes. */
@@ -15,6 +16,28 @@ export function AppLayout() {
   const [accountMenuOpen, setAccountMenuOpen] = useState(false)
   const accountRef = useRef<HTMLDivElement>(null)
   const accountTriggerRef = useRef<HTMLButtonElement>(null)
+
+  // Spend the very first tap anywhere in the app on unlocking audio playback.
+  //
+  // It lives up here rather than on the rehearsal screen because by the time
+  // that screen mounts it is already too late: she arrives by tapping "Resume
+  // rehearsal" on the previous page, and the reading starts on its own with no
+  // further tap to borrow. Registering here means the tap that begins the
+  // journey is the one that pays for it, and the rehearsal screen finds
+  // playback already unlocked. See utils/audioPlayback.ts for what iOS Safari
+  // actually requires and why one element is shared.
+  //
+  // Not `once: true` — the first tap can land while the page is still settling,
+  // and an unlock that fails has to be retryable. unlockPlayback() returns
+  // immediately once it has succeeded, so the listener costs nothing after that.
+  useEffect(() => {
+    const onGesture = () => {
+      unlockPlayback()
+      if (isPlaybackUnlocked()) document.removeEventListener('pointerdown', onGesture)
+    }
+    document.addEventListener('pointerdown', onGesture)
+    return () => document.removeEventListener('pointerdown', onGesture)
+  }, [])
 
   // Dismissal. `pointerdown` rather than `click` so the menu closes on press
   // rather than release — a click listener lets the menu sit open under a
