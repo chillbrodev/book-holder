@@ -66,6 +66,88 @@ jobs:
           role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/book-holder-api-deploy
           aws-region: ${{ env.AWS_REGION }}
 
+      # Runs before the build so a drifted role fails in seconds rather than
+      # after an image push and a service roll.
+      #
+      # This workflow ships code but deliberately holds no IAM *write*
+      # permission — applying the task role stays with the human-run
+      # ecs-deploy.sh, which is not the deploy path. That gap shipped a real
+      # outage: the capture work merged with transcribe:StartStreamTranscription
+      # added to ecs-deploy.sh, nobody re-ran it, and every rehearsal in
+      # production died 403 behind a green deploy. The mic said "Can't hear you
+      # — check your mic", which blames the actor's hardware.
+      #
+      # So this verifies rather than applies: read-only IAM, and a red build that
+      # names the missing action. It simulates against the *same* policy document
+      # ecs-deploy.sh applies (infra/aws/task-role-policy.sh) — a second copy
+      # inlined here would drift exactly the way the first one did.
+      #
+      # Simulated per statement rather than as one action/resource matrix,
+      # because a matrix cross-products every action against every resource and
+      # would fail on polly:SynthesizeSpeech-against-an-S3-ARN, which is a
+      # correct denial and not drift.
+      #
+      # Needs iam:GetContextKeysForPrincipalPolicy/iam:SimulatePrincipalPolicy on
+      # the book-holder-api-deploy role — a one-time grant, and read-only.
+      - name: Verify the task role grants what the code needs
+        run: |
+          set -euo pipefail
+          ACCOUNT_ID="${{ secrets.AWS_ACCOUNT_ID }}"
+          ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/${TASK_ROLE_NAME}"
+
+          POLICY="$(AWS_REGION="$AWS_REGION" ACCOUNT_ID="$ACCOUNT_ID" \
+            POLLY_CACHE_BUCKET_NAME="book-holder-polly-cache-${ACCOUNT_ID}" \
+            ./infra/aws/task-role-policy.sh)"
+
+          FAILED=0
+          # Newline-separated rather than bash arrays: mapfile is bash 4+, and
+          # keeping this bash-3 clean is what lets it be run by hand on a Mac
+          # before it is trusted in CI. ARNs contain no spaces, so the unquoted
+          # expansion below splits correctly and deliberately.
+          #
+          # One simulate call per *action*, not per statement. Batching a
+          # statement's actions into one call fails with "require different
+          # authorization information" when they don't share an authorization
+          # context — s3:GetObject/s3:PutObject alongside s3:HeadObject does
+          # exactly that. Individually they all evaluate fine, and a per-action
+          # call also lets the error below name the one that is actually missing.
+          while read -r STATEMENT; do
+            SID="$(jq -r '.Sid' <<<"$STATEMENT")"
+            RESOURCES="$(jq -r '[.Resource] | flatten | .[]' <<<"$STATEMENT")"
+
+            while read -r ACTION; do
+              # A "*" resource is the simulator's default, and passing it
+              # explicitly is rejected for some actions — so omit it entirely.
+              if [ "$RESOURCES" = "*" ]; then
+                DECISION="$(aws iam simulate-principal-policy \
+                  --policy-source-arn "$ROLE_ARN" \
+                  --action-names "$ACTION" \
+                  --query 'EvaluationResults[].EvalDecision' --output text)"
+              else
+                # shellcheck disable=SC2086
+                DECISION="$(aws iam simulate-principal-policy \
+                  --policy-source-arn "$ROLE_ARN" \
+                  --action-names "$ACTION" \
+                  --resource-arns $RESOURCES \
+                  --query 'EvaluationResults[].EvalDecision' --output text)"
+              fi
+
+              if [ "$DECISION" = "allowed" ]; then
+                echo "ok: ${SID} — ${ACTION}"
+              else
+                echo "::error::Task role ${TASK_ROLE_NAME} cannot ${ACTION} (${SID}): ${DECISION}"
+                FAILED=1
+              fi
+            done < <(jq -r '[.Action] | flatten | .[]' <<<"$STATEMENT")
+          done < <(jq -c '.Statement[]' <<<"$POLICY")
+
+          if [ "$FAILED" = "1" ]; then
+            echo "::error::The deployed task role is behind infra/aws/task-role-policy.sh."
+            echo "::error::Run ./infra/aws/ecs-deploy.sh to reapply it, then re-run this workflow."
+            echo "::error::Deploying anyway would go green and fail at runtime with an AccessDeniedException."
+            exit 1
+          fi
+
       - name: Log in to ECR
         id: ecr
         uses: aws-actions/amazon-ecr-login@v2

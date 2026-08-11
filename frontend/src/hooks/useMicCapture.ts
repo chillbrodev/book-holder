@@ -280,6 +280,15 @@ export function useMicCapture(blockId: string | undefined, characterId: string |
                 setMicState('captured')
                 break
               case 'error':
+                // The server has just told us precisely what went wrong, and
+                // "Can't hear you — check your mic" is the one thing it isn't:
+                // this branch is reached when the socket connected fine and the
+                // *server* failed. Discarding `msg` here cost a real debugging
+                // session — a deployed capture failed 403 on Transcribe for
+                // want of an IAM action, and the browser console showed nothing
+                // but an unrelated 401, so the mic copy was the only evidence
+                // and it pointed at the wrong machine.
+                console.error(`Capture failed server-side: ${event.name} — ${event.msg}`)
                 setMicState('cantHear')
                 break
             }

@@ -213,54 +213,19 @@ else
   echo "IAM role '$TASK_ROLE_NAME' already exists — skipping creation (policy is reapplied below regardless)."
 fi
 
-# Inline policy, not a managed one — scoped to exactly what the running
-# container needs at runtime (Polly synthesis, Transcribe streaming, and
-# read/write/head on its own cache bucket). put-role-policy always overwrites,
-# so this stays correct if the bucket name ever changes via
-# POLLY_CACHE_BUCKET_NAME.
+# Inline policy, not a managed one — scoped to exactly what the running container
+# needs at runtime. put-role-policy always overwrites, so this stays correct if
+# the bucket name ever changes via POLLY_CACHE_BUCKET_NAME.
 #
-# transcribe:StartStreamTranscription takes "*" because Transcribe streaming
-# has no resource to scope to — a stream is not a named, persisted resource the
-# way a batch transcription job is, so IAM offers no ARN to narrow this with.
-# Same reasoning as polly:SynthesizeSpeech above.
-#
-# Bedrock, by contrast, is scoped tightly — and needs two ARN shapes for one
-# call. Nova Micro has no in-region presence in us-west-2 (model card: In-Region
-# ✗ / Geo ✓), so it is reached through the US geo inference profile
-# `us.amazon.nova-micro-v1:0`. A profile invocation is authorized against the
-# profile ARN *and* the foundation-model ARN in each region the profile can
-# route to, so granting one without the other yields an AccessDenied naming a
-# region that appears nowhere in this deployment. Keep these in step with
-# api/src/clients/config-client/configClient.ts's comparisonModelId: changing
-# the model there without changing the ARNs here breaks the deployed service
-# while local dev keeps working, because create-dev-user.sh is a separate
-# policy that someone will remember to update and this one is easy to miss.
-#
-# Bucket-level s3:ListBucket is included alongside the object-level actions
-# on purpose, not for browsing the bucket — without it, S3 masks "object
-# doesn't exist" as a generic 403 instead of 404 for this principal (an
-# information-hiding default), which breaks the cache-miss detection
-# PollyService.getLineAudio/warmLine rely on (see clients/s3-client's
-# isNotFound()). Confirmed by hitting exactly this while testing.
+# The policy document itself lives in task-role-policy.sh, and the reasoning
+# behind each statement lives there with it. It is a separate file because the
+# deploy workflow verifies against the same document — this script is not the
+# deploy path, so an action added here reaches production only when a human
+# re-runs this script, and for the capture work nobody did. See that file's
+# header for what that cost.
 aws iam put-role-policy --role-name "$TASK_ROLE_NAME" --policy-name "PollyAndCacheBucketAccess" \
-  --policy-document "$(cat <<EOF
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {"Sid": "PollySynthesize", "Effect": "Allow", "Action": "polly:SynthesizeSpeech", "Resource": "*"},
-    {"Sid": "TranscribeStreaming", "Effect": "Allow", "Action": "transcribe:StartStreamTranscription", "Resource": "*"},
-    {"Sid": "BedrockInvokeNova", "Effect": "Allow", "Action": ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"], "Resource": [
-      "arn:aws:bedrock:$AWS_REGION:$ACCOUNT_ID:inference-profile/us.amazon.nova-micro-v1:0",
-      "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-micro-v1:0",
-      "arn:aws:bedrock:us-east-2::foundation-model/amazon.nova-micro-v1:0",
-      "arn:aws:bedrock:us-west-2::foundation-model/amazon.nova-micro-v1:0"
-    ]},
-    {"Sid": "PollyCacheBucketObjects", "Effect": "Allow", "Action": ["s3:GetObject", "s3:PutObject", "s3:HeadObject"], "Resource": "arn:aws:s3:::$POLLY_CACHE_BUCKET_NAME/*"},
-    {"Sid": "PollyCacheBucketList", "Effect": "Allow", "Action": "s3:ListBucket", "Resource": "arn:aws:s3:::$POLLY_CACHE_BUCKET_NAME"}
-  ]
-}
-EOF
-)" >/dev/null
+  --policy-document "$(AWS_REGION="$AWS_REGION" ACCOUNT_ID="$ACCOUNT_ID" \
+    POLLY_CACHE_BUCKET_NAME="$POLLY_CACHE_BUCKET_NAME" "$(dirname "$0")/task-role-policy.sh")" >/dev/null
 
 if [ "$ROLE_JUST_CREATED" = "1" ]; then
   echo "Roles just created — IAM is eventually consistent, waiting 15s before using them..."

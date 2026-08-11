@@ -161,7 +161,27 @@ condition a branch from a fork could assume it and deploy to production.
 
 The role can push to this one ECR repository, describe/update this one service, and `PassRole` exactly the
 execution and task roles (scoped — an unscoped `iam:PassRole` is a privilege-escalation path to any role in
-the account). It **cannot** create roles, change policies, or read the database secret.
+the account). It **cannot** create roles, change policies, or read the database secret. Its only IAM
+capability is read-only: `iam:SimulatePrincipalPolicy`, for the check below.
+
+### The task role is verified on every deploy, not applied
+
+The task role's policy lives in **`infra/aws/task-role-policy.sh`**, which prints it and grants nothing.
+Two things consume it: `ecs-deploy.sh` applies it, and `.github/workflows/deploy-api.yml` *verifies* it.
+
+That split exists because of a real outage. `ecs-deploy.sh` is not the deploy path — it is local and
+human-run — so an IAM action added alongside code reached production only if someone remembered to re-run
+it. On **August 8 2026** the capture work merged with `transcribe:StartStreamTranscription` added to this
+script, nobody re-ran it, and every rehearsal in production failed with
+`AccessDeniedException: transcribe:StartStreamTranscription` — **behind a completely green deploy**. The mic
+reported "Can't hear you — check your mic", which points at the actor's hardware rather than at IAM.
+
+The workflow now simulates every action in that policy against the live task role before building, and fails
+the deploy naming the missing action. It verifies rather than applies deliberately: applying would mean
+`iam:PutRolePolicy` in CI, which is exactly the privilege this role is designed not to have.
+
+**When you add an action**, put it in `task-role-policy.sh` and re-run `ecs-deploy.sh`. If you forget, the
+next deploy goes red with the action name in the error instead of green with a runtime 403.
 
 ### Secrets
 

@@ -183,7 +183,19 @@ aws iam put-role-policy --role-name "$ROLE_NAME" --policy-name "DeployApi" \
          Resource: [$execArn, $taskArn],
          Condition: {StringEqualsIfExists: {"iam:PassedToService": ["ecs-tasks.amazonaws.com", "ecs.amazonaws.com"]}}},
         {Sid: "ResolveSecretArnOnly", Effect: "Allow",
-         Action: "secretsmanager:DescribeSecret", Resource: $secretArnPrefix}
+         Action: "secretsmanager:DescribeSecret", Resource: $secretArnPrefix},
+        # Read-only, and the whole point is that it stays that way. The workflow
+        # verifies that the task role grants what the shipped code needs, rather
+        # than applying the policy itself — applying would mean iam:PutRolePolicy
+        # in CI, which is the privilege this role exists to avoid.
+        #
+        # Without this the verification step fails closed on its first run and
+        # blocks every deploy, so it is not optional once that step exists.
+        # SimulatePrincipalPolicy takes "*": the resource of a simulate call is
+        # the principal being simulated, and scoping it to the task role ARN is
+        # not expressible here.
+        {Sid: "VerifyTaskRoleOnly", Effect: "Allow", Resource: "*",
+         Action: ["iam:SimulatePrincipalPolicy", "iam:GetContextKeysForPrincipalPolicy"]}
       ]
     }')" >/dev/null
 
