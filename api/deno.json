@@ -5,7 +5,8 @@
     "start": "deno run --allow-net --allow-env --allow-read=../.env --allow-sys=osRelease src/main.ts",
     "test": "deno test --allow-net --allow-env --allow-read=../.env --allow-sys=osRelease",
     "warm-polly-cache": "deno run --allow-net --allow-env --allow-read=../.env --allow-sys=osRelease src/scripts/warmPollyCache.ts",
-    "test-polly-line": "deno run --allow-net --allow-env --allow-read=../.env --allow-sys=osRelease src/scripts/testPollyLine.ts"
+    "test-polly-line": "deno run --allow-net --allow-env --allow-read=../.env --allow-sys=osRelease src/scripts/testPollyLine.ts",
+    "test-coach-block": "deno run --allow-net --allow-env --allow-read=../.env --allow-sys=osRelease src/scripts/testCoachBlock.ts"
   },
   "imports": {
     "hono": "jsr:@hono/hono",

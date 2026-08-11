@@ -27,10 +27,11 @@ so the work is the middle rather than the ends.
 | Schema | Migration 006 applied; all four objects live and empty (§6) |
 | IAM | `transcribe` and `bedrock` granted to both the ECS task role and the local dev user, and the deploy now fails if the role drifts behind the repo |
 | Live transcript | `HeardSoFar.tsx`, in the slot the annotation will share (§4) |
+| **The judgement itself** | `features/coaching` — one call per block, per-beat band + note, `score.ts` fallback on any failure. Rubric verified against real Nova: **4/4 bands, 809 ms, 251 in / 112 out**. `deno task test-coach-block` re-runs it |
 
 **Not built — this document's actual scope:**
 
-- Scoring on the capture socket at `complete`, and the `scored` event carrying it
+- Calling `CoachingService.coachBlock` from the capture socket at `complete`, and the `scored` event carrying it
 - The auth-aware socket (§7)
 - Incremental writes to `session_beat_score` / `block_coaching`, and the session
   row created at rehearsal start (§6)
@@ -267,13 +268,35 @@ what "Save Progress" has always been offering.
   automatically on first invocation. The "a human must grant this before any of
   it works" blocker recorded through several sessions no longer exists for Nova.
 
-- **The rubric has to say the input is a transcript.** On that first call the
-  model returned the note *"the capitalization of 'Songs' and 'Sonnets' was
-  missed"* — about a delivery she spoke aloud. Left alone it will judge a
-  speech-to-text string as if it were typed prose, and punctuation and casing are
-  artifacts of Transcribe, not of her performance. This is a prompt problem
-  rather than a model one, and it belongs with the threshold work in
-  `OPEN_ITEMS.md` §1a.
+- ~~**The rubric has to say the input is a transcript.**~~ **Done — and it took
+  three revisions against the real model, none of which were guessable.** The
+  rubric now states at length that its input came out of speech-to-text.
+  `deno task test-coach-block` is the regression: four synthetic beats, one per
+  case, run against real Nova. What the iterations actually found:
+
+  1. **The §8 note is gone.** No mention of capitalisation or punctuation.
+  2. **The model copied an example out of the rubric verbatim.** The first pass
+     returned *"The list in the middle is where it comes apart."* — which was one
+     of the rubric's own illustrative good notes, about a speech it had never
+     seen. Concrete positive examples get parroted; the fix was to keep only
+     negative examples and require the note to quote something from the speech
+     in front of it.
+  3. **Telling the model that mangled names are the transcriber's fault was not
+     enough.** Beat 2 — a real run where `'Custalourum` came back `Castellorum`
+     — stayed *dry* through two revisions even while the note showed the model
+     knew the name had been misheard. What worked was a procedure rather than a
+     principle: *strike out every proper noun and archaic word, then judge what
+     is left.* Stated that way it went to *solid* immediately.
+
+  Also settled by the same runs: **the solid/close cut is about whose words came
+  back, not how much meaning survived.** A perfect paraphrase is *close*; a
+  faithful delivery the transcriber mangled is *solid*. The model could not tell
+  those apart until the rubric said so in exactly those terms.
+
+  **Known limitation, not worth more prompt effort.** Nova Micro still writes
+  notes that restate the marks — *"The fourth beat was empty"* — despite being
+  told not to. Useless rather than harmful, and the note cap in `OPEN_ITEMS.md`
+  §1c is where that gets solved properly.
 - **How many notes a long speech may produce.** `OPEN_ITEMS.md` §1c already
   answers this for monologues — cap them, rank by severity, rest to the Prompt
   Book. The same cap is needed here and is not yet applied.

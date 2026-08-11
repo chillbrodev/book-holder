@@ -15,7 +15,10 @@ import {
  * not re-export, and adding a direct dependency on a transitive package to name
  * one type would be a worse trade than this line.
  */
-type ToolJsonSchema = Extract<ToolInputSchema, { json: unknown }>["json"];
+export type ToolJsonSchema = Extract<
+  ToolInputSchema,
+  { json: unknown }
+>["json"];
 import { ConfigClient } from "../config-client/configClient.ts";
 
 /**
