@@ -58,6 +58,13 @@ export function RehearsalPage() {
   // Persisted across sessions, not just this scene — someone who turns it
   // off wants it off everywhere, not re-prompted every rehearsal.
   const [autoScroll, setAutoScroll] = useState(() => localStorage.getItem(AUTO_SCROLL_STORAGE_KEY) !== 'off')
+  // Phone only: whether the play title and the change-scene/role links are
+  // showing. Closed by default because on a 390px screen that block cost ~90px
+  // of a permanently pinned header to tell her the name of the play she just
+  // chose and offer two links she needs about once a rehearsal. Above 600px the
+  // disclosure button is display:none and the meta is always shown, so this
+  // state exists but governs nothing — the desktop header is unchanged.
+  const [sceneMetaOpen, setSceneMetaOpen] = useState(false)
 
   useEffect(() => {
     localStorage.setItem(AUTO_SCROLL_STORAGE_KEY, autoScroll ? 'on' : 'off')
@@ -349,7 +356,11 @@ export function RehearsalPage() {
 
   return (
     <div className={styles.wrap}>
-      <header className={styles.header}>
+      {/* data-meta-open governs the phone layout only — it gates the play title
+          and the two change links, which above 600px are shown unconditionally.
+          One flag on the header rather than a prop on each, because they hide
+          and reveal together and are not adjacent in the DOM. */}
+      <header className={styles.header} data-meta-open={sceneMetaOpen || undefined}>
         {play && <h1 className={`bh-display ${styles.playTitle}`}>{play.title}</h1>}
         <div className={styles.sceneLine}>
           <span className={styles.sceneLabel}>
@@ -366,11 +377,23 @@ export function RehearsalPage() {
               Change role
             </Link>
           </span>
+          {/* display:none above 600px — on desktop there is nothing to disclose,
+              since everything it would reveal is already on screen. */}
+          <button
+            type="button"
+            className={styles.metaDisclosure}
+            onClick={() => setSceneMetaOpen((v) => !v)}
+            aria-expanded={sceneMetaOpen}
+            aria-label={sceneMetaOpen ? 'Hide play details' : 'Show play details'}
+          >
+            <Icon name={sceneMetaOpen ? 'chevron-up' : 'chevron-down'} size={20} />
+          </button>
         </div>
         <div className={styles.controls}>
           <ToggleButton
             on={!readingPaused}
             label="Scene reading"
+            shortLabel="Reading"
             onStateLabel="Playing"
             offStateLabel="Paused"
             onIcon="pause"
@@ -380,6 +403,7 @@ export function RehearsalPage() {
           <ToggleButton
             on={autoScroll}
             label="Auto-scroll"
+            shortLabel="Auto"
             onStateLabel="On"
             offStateLabel="Off"
             onIcon="scroll-down"
@@ -389,6 +413,7 @@ export function RehearsalPage() {
           <ToggleButton
             on={showYourLines}
             label="Your lines"
+            shortLabel="Yours"
             onStateLabel="Shown"
             offStateLabel="Hidden"
             onIcon="eye"
@@ -401,6 +426,7 @@ export function RehearsalPage() {
           <ToggleButton
             on={showOtherLines}
             label="Other lines"
+            shortLabel="Others"
             onStateLabel="Shown"
             offStateLabel="Hidden"
             onIcon="eye"

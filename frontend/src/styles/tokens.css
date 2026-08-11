@@ -41,3 +41,49 @@
   --bh-font-display: 'DM Serif Display', Georgia, serif;
   --bh-font-sans: 'DM Sans', -apple-system, sans-serif;
 }
+
+/* Breakpoints — two of them, and they measure different axes on purpose.
+ *
+ *   COMPACT  @media (max-width: 600px), (max-height: 500px)
+ *   NARROW   @media (max-width: 600px)
+ *
+ * This started as a single `max-width: 600px` meaning "phone", which was wrong
+ * in a way that only shows up on rotation. A phone in landscape is 844x390 —
+ * wider than the breakpoint and shorter than anything it was written for — so
+ * it matched nothing and was served the full desktop layout on a 390px-tall
+ * screen: 284px of the 390 went to the app header and the rehearsal header,
+ * leaving 106px for the script. Rotating the phone made the app worse than it
+ * had been before any of this work.
+ *
+ * The lesson is that "phone" was never one condition. Screens are constrained
+ * on two axes independently, and the layout answers to them separately:
+ *
+ *   COMPACT — short of vertical room, whichever way the device is held. Owns
+ *     everything that buys height: the thin rehearsal strip, the play title
+ *     behind its disclosure, the toggles moved out to a bottom bar, smaller
+ *     vertical padding. Written as an OR, so portrait phones qualify on width
+ *     and landscape phones on height.
+ *
+ *   NARROW — short of horizontal room, which is portrait only. Owns everything
+ *     that buys width: the two-row app header, the abbreviated toggle labels,
+ *     16px gutters. A landscape phone has 844px and needs none of it, so it
+ *     keeps the one-row header and the full labels.
+ *
+ * NARROW is a strict subset of COMPACT, so a portrait phone gets both blocks
+ * and their order matters — NARROW is always written second in each file so it
+ * wins where the two set the same property.
+ *
+ * The 500px height threshold clears every phone landscape (a large phone is
+ * ~430px) and stays well clear of a tablet's 768px, which should keep the
+ * desktop layout.
+ *
+ * Both numbers are deliberately NOT custom properties. `@media (max-width:
+ * var(--bh-bp-narrow))` parses without error and then never matches, because
+ * custom properties resolve per-element at computed-value time and a media
+ * query has no element to resolve against. It fails silently — the query never
+ * fires and the rules look like they were never written. So the numbers are
+ * written out at each site, and this comment is the single place that says why.
+ *
+ * Grep `max-height: 500px` for the compact blocks and `max-width: 600px` for
+ * both.
+ */

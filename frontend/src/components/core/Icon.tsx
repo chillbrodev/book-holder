@@ -4,6 +4,8 @@ export type IconName =
   | 'check'
   | 'chevron-right'
   | 'chevron-left'
+  | 'chevron-down'
+  | 'chevron-up'
   | 'mic'
   | 'alert-triangle'
   | 'bookmark'
@@ -53,6 +55,12 @@ function renderIconBody(name: IconName) {
     // and lines up on the same optical centre.
     case 'chevron-left':
       return <path d="M15 6l-6 6 6 6" strokeLinecap="round" strokeLinejoin="round" />
+    // Drawn out for the same reason as chevron-left: a rotated chevron-right
+    // would need a wrapper to transform and would sit off the optical centre.
+    case 'chevron-down':
+      return <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+    case 'chevron-up':
+      return <path d="M6 15l6-6 6 6" strokeLinecap="round" strokeLinejoin="round" />
     case 'mic':
       return (
         <>

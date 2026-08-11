@@ -37,6 +37,13 @@
   color: var(--bh-ink);
 }
 
+/* Exactly one of the two is ever displayed; the media query at the bottom of
+   this file swaps them. Default is the full name, so any caller that never
+   passes shortLabel — and every non-phone width — behaves as before. */
+.labelShort {
+  display: none;
+}
+
 .on .label {
   color: var(--bh-gold-dark);
 }
@@ -45,4 +52,50 @@
   font-family: var(--bh-font-sans);
   font-size: 13px;
   color: inherit;
+}
+
+/* NARROW — portrait only, and deliberately not COMPACT. See tokens.css.
+ *
+ * Four of these share the width of the bottom bar, which is ~89px each at 390px,
+ * so the icon moves above the text instead of beside it and the abbreviated
+ * label takes over. Both of those are answers to a width problem, and a
+ * landscape phone doesn't have one: at 844px each column is ~205px, which fits
+ * "Scene reading / Playing" beside its icon with room over. Landscape therefore
+ * keeps the desktop arrangement and gets a ~60px bar instead of an ~84px one —
+ * the stacked layout would cost it 24px of a 390px-tall screen to solve nothing.
+ *
+ * The state word stays in both — on/off is carried by icon, word and fill
+ * together per the redundant-encoding rule, and dropping the word to save 14px
+ * would leave colour doing work it isn't allowed to do alone. It's the one thing
+ * in here that isn't negotiable for space. */
+@media (max-width: 600px) {
+  .button {
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    padding: 7px 4px;
+    text-align: center;
+  }
+
+  .text {
+    align-items: center;
+  }
+
+  .labelFull {
+    display: none;
+  }
+
+  .labelShort {
+    display: inline;
+  }
+
+  .label {
+    font-size: 12px;
+    line-height: 1.2;
+  }
+
+  .state {
+    font-size: 11px;
+    line-height: 1.2;
+  }
 }

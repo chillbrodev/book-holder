@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { cx } from '../../utils/cx'
 import { useAuth } from '../../auth/useAuth'
@@ -9,6 +9,37 @@ import styles from './AppLayout.module.css'
 export function AppLayout() {
   const { user, isCheckingSession, logout } = useAuth()
   const [showAuthModal, setShowAuthModal] = useState(false)
+  // "Log out" was the widest thing in the header after the wordmark and was on
+  // screen permanently to serve an action taken about once. It now lives behind
+  // the name, which is where a signed-in user looks for it anyway.
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false)
+  const accountRef = useRef<HTMLDivElement>(null)
+  const accountTriggerRef = useRef<HTMLButtonElement>(null)
+
+  // Dismissal. `pointerdown` rather than `click` so the menu closes on press
+  // rather than release — a click listener lets the menu sit open under a
+  // finger already on its way somewhere else, and on touch that reads as lag.
+  useEffect(() => {
+    if (!accountMenuOpen) return
+
+    const onPointerDown = (event: PointerEvent) => {
+      if (!accountRef.current?.contains(event.target as Node)) setAccountMenuOpen(false)
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      setAccountMenuOpen(false)
+      // Focus goes back to what opened the menu, or it would fall to the top of
+      // the document and a keyboard user would have to tab in from the start.
+      accountTriggerRef.current?.focus()
+    }
+
+    document.addEventListener('pointerdown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [accountMenuOpen])
 
   return (
     <div className={styles.shell}>
@@ -39,15 +70,41 @@ export function AppLayout() {
           {/* Opt-in only — rehearsing works fine as a guest. This is the one, low-key
               affordance for "I want this saved," never a gate in front of the app. */}
           {!isCheckingSession && (
-            <div className={styles.account}>
+            <div className={styles.account} ref={accountRef}>
               {user ? (
                 <>
-                  {/* No data-interactive: it isn't a control, so it reserves no
-                      underline — and now needs no padding to stay level. */}
-                  <span className={styles.headerItem}>Hi, {user.name}</span>
-                  <button type="button" data-interactive className={styles.headerItem} onClick={() => void logout()}>
-                    Log out
+                  {/* Now genuinely a control, so it takes data-interactive and
+                      the underline that goes with it — and unlike the nav, it
+                      carries that underline at rest rather than on hover. A
+                      phone has no hover, and without it the name reads as the
+                      label it used to be, with nothing to say the only way to
+                      sign out is through it. */}
+                  <button
+                    type="button"
+                    data-interactive
+                    ref={accountTriggerRef}
+                    className={cx(styles.headerItem, styles.accountTrigger)}
+                    onClick={() => setAccountMenuOpen((open) => !open)}
+                    aria-haspopup="menu"
+                    aria-expanded={accountMenuOpen}
+                  >
+                    Hi, {user.name}
                   </button>
+                  {accountMenuOpen && (
+                    <div className={styles.accountMenu} role="menu">
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className={styles.accountMenuItem}
+                        onClick={() => {
+                          setAccountMenuOpen(false)
+                          void logout()
+                        }}
+                      >
+                        Log out
+                      </button>
+                    </div>
+                  )}
                 </>
               ) : (
                 <button

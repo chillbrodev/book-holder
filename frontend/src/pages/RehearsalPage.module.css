@@ -55,6 +55,12 @@
   gap: 16px;
 }
 
+/* Phone only. Above 600px everything it would reveal is already on screen, so
+   there is nothing for it to do and it isn't rendered. */
+.metaDisclosure {
+  display: none;
+}
+
 .changeLink {
   display: flex;
   align-items: center;
@@ -159,4 +165,177 @@
   font-family: var(--bh-font-sans);
   color: var(--bh-text-muted);
   margin: 12px 0 24px;
+}
+
+/* ---------------------------------------------------------------------------
+   COMPACT — short of vertical room, either orientation. See tokens.css.
+
+   Measured before: the app header was 158px and this one was 339px, so 497px of
+   an 844px screen — 59% — was furniture, and the script ran in the 347px left
+   over. This header is sticky, so that 40% never came back by scrolling.
+
+   The rearrangement is: the four toggles leave the top of the screen entirely
+   and become a bottom bar, and everything in the header except "where am I,
+   who am I" goes behind a disclosure. What's left pinned to the top is one line
+   of type. The toggles are no worse off for the move — they're better placed,
+   since this is a screen used one-handed with a script in the other hand, and
+   the bottom of a phone is the part of it a thumb reaches.
+
+   Every rule in here answers to height, which is why the whole block is COMPACT
+   and almost nothing about this screen turned out to be NARROW's business. That
+   is also why landscape was the worse of the two orientations before this split:
+   a rotated phone kept all 204px of the desktop header and had 390px of screen
+   to spend it from.
+   ------------------------------------------------------------------------- */
+@media (max-width: 600px), (max-height: 500px) {
+  /* Still pulling the parchment fill out over AppLayout .main's padding so
+     lines don't show through beside it. Only the top is set here, because only
+     the top is the same in both orientations — .main's vertical padding is 20px
+     everywhere COMPACT applies, while its horizontal padding is 40px in
+     landscape and 16px in portrait. The left and right are corrected in NARROW
+     below; get these out of step with .main and the fill leaves a gap. */
+  .header {
+    margin-top: -20px;
+    padding: 10px 40px 9px;
+    gap: 6px;
+    align-items: stretch;
+  }
+
+  .sceneLine {
+    flex-wrap: nowrap;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  /* One line, always, even for "Act III, Scene II · as Mistress Quickly" —
+     truncation keeps the pinned strip a fixed height, where wrapping would
+     make the whole script jump down a line on the longest scene names. */
+  .sceneLabel {
+    min-width: 0;
+    overflow: hidden;
+    font-size: 16px;
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .metaDisclosure {
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    /* Square and full tap-target size: it's the only control on the strip and
+       it sits at the screen edge, which is the hardest place to hit. */
+    width: var(--bh-tap-target-min);
+    height: var(--bh-tap-target-min);
+    /* Negative margin so a 44px target doesn't set a 44px-tall strip — the
+       touch area overhangs the padding instead of pushing it open. */
+    margin: -10px -12px -9px 0;
+    padding: 0;
+    background: transparent;
+    border: none;
+    color: var(--bh-gold-dark);
+    cursor: pointer;
+  }
+
+  /* Both are the disclosure's contents. Hidden by default: the title names a
+     play she picked thirty seconds ago, and the links are a once-a-rehearsal
+     need being charged rent on every screen. */
+  .playTitle,
+  .sceneActions {
+    display: none;
+  }
+
+  .header[data-meta-open] .playTitle {
+    display: block;
+    font-size: 21px;
+  }
+
+  /* Full-basis so the links take their own row under the strip rather than
+     squeezing onto it, and ordered after the chevron so the strip itself
+     stays label-then-chevron. */
+  .header[data-meta-open] .sceneLine {
+    flex-wrap: wrap;
+  }
+
+  .header[data-meta-open] .sceneActions {
+    display: flex;
+    flex-basis: 100%;
+    order: 2;
+    justify-content: center;
+    gap: 24px;
+  }
+
+  .metaDisclosure {
+    order: 1;
+  }
+
+  /* The bottom bar. Fixed to the viewport, not to the sticky header it lives
+     inside — `position: sticky` does not create a containing block for fixed
+     descendants (only transform/filter/perspective/contain do), so this
+     resolves against the viewport exactly like .jumpToLine already does.
+
+     Four equal columns rather than flex, so the buttons are the same width
+     whatever their labels say and the row can't reflow when a state word
+     changes from "Playing" to "Paused". */
+  .controls {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 30;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    margin: 0;
+    /* env() keeps the row clear of the home indicator on a notched iPhone and
+       resolves to 0px everywhere else, so no branch is needed. */
+    padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
+    background: var(--bh-parchment);
+    border-top: 1px solid var(--bh-border-hairline);
+  }
+
+  /* Clearance for the bar, which no longer takes part in flow. Without this the
+     last speech of a scene — and the mic controls under it — sit behind it and
+     cannot be scrolled into view.
+
+     Sized for the landscape bar, which is ~60px: the toggles keep their
+     side-by-side layout there and the row is one line of type tall. NARROW
+     raises both numbers for the portrait bar, where the toggles stack their
+     icon over the label and the row is ~84px. Measured, not guessed — a bar
+     taller than its clearance silently eats the last line of the scene. */
+  .lines {
+    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Lifted above the bar for the same reason; at bottom:28px it landed on top
+     of the toggles. */
+  .jumpToLine {
+    bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+    padding: 10px 18px;
+    font-size: 14px;
+  }
+}
+
+/* NARROW — portrait only. Written after COMPACT so it wins where both set a
+   property; see tokens.css. Everything here is a width correction: COMPACT
+   assumed the desktop 40px gutter that landscape keeps, and portrait cuts it
+   to 16px. */
+@media (max-width: 600px) {
+  .header {
+    margin-right: -16px;
+    margin-left: -16px;
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+
+  /* The portrait bar is ~84px, not ~60px — its toggles stack icon over label
+     to fit four across 390px. Clearance follows. */
+  .lines {
+    padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .jumpToLine {
+    bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+  }
 }

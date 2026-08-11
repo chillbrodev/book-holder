@@ -35,6 +35,7 @@
 }
 
 .account {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 16px;
@@ -96,6 +97,60 @@
   background: var(--bh-gold-dark);
 }
 
+/* The account trigger wears its underline all the time, not only on hover.
+   Written after the two rules above so it beats them at equal specificity —
+   both this and `.headerItem[data-interactive]::after` are (0,2,1), so source
+   order is what decides, exactly as the comment above warns. The hover rule is
+   (0,3,1) and still wins over this one, which is the intent: quiet at rest,
+   gold on hover or while the menu is open. */
+.accountTrigger[data-interactive]::after {
+  background: var(--bh-ash-mid);
+}
+
+.accountTrigger[aria-expanded='true']::after {
+  background: var(--bh-gold-dark);
+}
+
+/* Anchored to .account's right edge so it can never run off the side of the
+   screen, which a left-anchored menu would on a phone — the trigger sits within
+   a name's width of the right margin. Absolute, so opening it moves nothing:
+   the header items' box heights stay exactly as they were. */
+.accountMenu {
+  position: absolute;
+  top: calc(100% + 12px);
+  right: 0;
+  /* Above the rehearsal screen's sticky header (10) and its bottom bar (30),
+     both of which this can overlap when it drops into the scroll region. */
+  z-index: 40;
+  min-width: 148px;
+  padding: 6px;
+  background: var(--bh-surface);
+  border: 1px solid var(--bh-border-hairline);
+  border-radius: var(--bh-radius-md);
+  box-shadow: 0 6px 20px rgb(43 29 20 / 16%);
+}
+
+.accountMenuItem {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: var(--bh-tap-target-min);
+  padding: 0 12px;
+  background: transparent;
+  border: none;
+  border-radius: var(--bh-radius-sm);
+  font-family: var(--bh-font-sans);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--bh-ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.accountMenuItem:hover {
+  background: var(--bh-ash-light);
+}
+
 /* min-height:0 is load-bearing — without it a flex child refuses to shrink
    below its content height and the region never scrolls. */
 .scroll {
@@ -110,4 +165,130 @@
   width: 100%;
   margin: 0 auto;
   box-sizing: border-box;
+}
+
+/* COMPACT — short of vertical room, either orientation. See tokens.css. */
+@media (max-width: 600px), (max-height: 500px) {
+  /* The header was 158px tall on a 390px screen — 19% of the viewport, gone
+     before anything was read. Not because it asked for that height: the row is
+     `space-between` with a 26px display serif wordmark, a 28px-gap nav and a
+     32px-gap account cluster, which at 390px cannot fit. Flex resolved the
+     overflow the only way it can, by crushing the first item to its
+     min-content width — 78px — which wrapped "The Book Holder" onto three
+     lines and set the header's height to the wordmark's.
+
+     So the fix is to stop the wordmark being wrappable at all. `nowrap` plus a
+     smaller face means the row runs out of horizontal space instead of trading
+     it for vertical space, and the header becomes one line of type tall.
+
+     Horizontal padding stays at the desktop 40px here and is cut to 16px in the
+     NARROW block below — a landscape phone has 844px of width and no reason to
+     crop its margins. */
+  .header {
+    padding: 10px 40px;
+  }
+
+  .wordmark {
+    font-size: 19px;
+    white-space: nowrap;
+  }
+
+  .headerItem {
+    white-space: nowrap;
+  }
+
+  /* One line of type is 23px, and these are now touch targets rather than
+     mouse targets — a hair under the 24px WCAG 2.5.8 floor, let alone a
+     thumb's worth.
+
+     Grown with a pseudo-element rather than padding, because padding would
+     resize the box, and the box height of these items is load-bearing: the
+     comment above records a measured misalignment caused by exactly that, and
+     `::after`'s underline is pinned to `bottom: -8px` of this box and would be
+     dragged down with it. `::before` takes no part in layout, so the hit area
+     grows and the underline, the row height and the baseline all stay put.
+
+     Only interactive items get one — "Hi, <name>" is the trigger and counts;
+     it should not be swallowing taps aimed at the nav row beneath it. */
+  .headerItem[data-interactive]::before {
+    content: '';
+    position: absolute;
+    inset: -8px -6px;
+  }
+
+  /* Vertical only. The horizontal half is NARROW's business. */
+  .main {
+    padding-top: 20px;
+    padding-bottom: 20px;
+  }
+}
+
+/* NARROW — short of horizontal room, i.e. portrait. Written after COMPACT so it
+   wins where both set a property; see tokens.css. */
+@media (max-width: 600px) {
+  /* Two rows, because one is arithmetically impossible. Measured at 390px: the
+     five header items need 423px of text on their own — wordmark 141, The Shelf
+     65, Prompt Book 91, "Hi, <name>" 73, Log out 53 — plus ~48px of gaps and
+     divider, into 358px of available width. Over by ~113px.
+
+     Left alone, flex spent the overflow the same way it did on the wordmark: it
+     wrapped every one of them onto two lines, so a header that had stopped being
+     158px tall was still 70px of stacked two-line fragments reading "The /
+     Shelf", "Prompt / Book", "Log / out".
+
+     So the row is split by what the items are, not by what fits. Row one is
+     identity — the wordmark and who's signed in. Row two is navigation, which
+     already has an active underline and so reads as a tab strip once it's on a
+     line of its own. */
+  .header {
+    flex-wrap: wrap;
+    row-gap: 10px;
+  }
+
+  /* Dissolves the wrapper so nav and account become direct children of .header
+     and can be placed on different rows. They're grouped in the DOM because on
+     desktop they share a right-aligned cluster; that grouping is exactly what's
+     wrong here, and `display: contents` drops the box without touching the
+     markup or disturbing the desktop rule that still uses it. */
+  .headerRight {
+    display: contents;
+  }
+
+  /* Full basis puts the nav on its own row; the order values keep it below the
+     account cluster it precedes in source order. */
+  .nav {
+    order: 2;
+    flex-basis: 100%;
+    gap: 20px;
+  }
+
+  /* The divider goes. On desktop it separates the account from the nav beside
+     it; here the row split already does that, and on a narrow enough phone
+     (~320px and under) the wordmark takes a row of its own and leaves the rule
+     hanging at the start of a line with nothing to its left, reading as a
+     rendering fault rather than a separator. */
+  .account {
+    order: 1;
+    gap: 12px;
+    padding-left: 0;
+    border-left: none;
+  }
+
+  /* The expanded hit areas from COMPACT overlap vertically once the header is
+     two rows 10px apart — but they never share an x-range, since the account
+     is right-aligned on row one and the nav left-aligned on row two, so they
+     cannot contend for the same tap. */
+
+  /* 40px of gutter each side left 310px of a 390px screen for the script —
+     a fifth of the width spent on margin, and verse re-wrapping far earlier
+     than it needed to. Horizontal only; COMPACT set the vertical. */
+  .main {
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+
+  .header {
+    padding-right: 16px;
+    padding-left: 16px;
+  }
 }
