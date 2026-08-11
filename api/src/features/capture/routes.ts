@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { CaptureSession } from "./service.ts";
 import { CaptureError } from "./errors.ts";
+import { CoachingService } from "../coaching/service.ts";
 import type { AppEnv } from "../../types.ts";
 
 const capture = new Hono<AppEnv>();
@@ -45,6 +46,17 @@ capture.get("/blocks/:blockId", (c) => {
   // frames are silently dropped, which costs the opening words of the block —
   // the ones she is most likely to be judged on getting wrong.
   const early: Uint8Array[] = [];
+  // The same race, for the control frame rather than the audio. `done` arriving
+  // before `session` exists used to hit `session?.finish()` and vanish — and
+  // because `done` is the only thing that closes the audio queue, the capture
+  // then ran until the duration ceiling instead of finishing. Silent, and it
+  // leaves a billing Transcribe stream open the whole time.
+  //
+  // Narrow but reachable: the window is one database round trip, and the client
+  // sends `done` on a tap she can make immediately. Found by a probe that opened
+  // the socket and said `done` in the same tick, which is the worst case rather
+  // than an unrealistic one.
+  let finishRequested = false;
 
   const send = (event: unknown) => {
     if (socket.readyState === WebSocket.OPEN) {
@@ -57,11 +69,33 @@ capture.get("/blocks/:blockId", (c) => {
       session = await CaptureSession.open({ blockId, characterId }, send);
       for (const chunk of early) session.pushAudio(chunk);
       early.length = 0;
+      // Replayed after the audio, never before: finishing closes the queue, and
+      // anything still in `early` would be dropped on the floor.
+      if (finishRequested) session.finish();
       // Deliberately not awaited before returning: run() lives as long as the
       // stream does, and onopen must not block the socket's message pump.
-      await session.run();
-      // Transcribe has closed and `complete` has been sent, so there is nothing
-      // further to say on this socket.
+      const result = await session.run();
+
+      // Coaching happens here rather than inside CaptureSession, so that
+      // `features/capture` stays a capture feature. The socket is simply the
+      // channel the answer travels back on.
+      //
+      // The socket is held open across this call — about a second — even though
+      // `complete` has already gone. That second is invisible to the mic UI,
+      // which moved on the moment `complete` landed, and it is the difference
+      // between the annotation arriving on this connection and needing a second
+      // route to deliver it.
+      //
+      // coachBlock never throws (BE_PLAN.md §5): on any failure it answers from
+      // word recall and says so in `source`. So there is no catch here, and a
+      // rehearsal is never blocked on Bedrock.
+      if (result) {
+        const coaching = await CoachingService.coachBlock(result);
+        send({ type: "scored", ...coaching });
+      }
+
+      // Transcribe has closed and both events have been sent, so there is
+      // nothing further to say on this socket.
       if (socket.readyState === WebSocket.OPEN) socket.close(1000, "complete");
     } catch (err) {
       if (err instanceof CaptureError) {
@@ -97,7 +131,10 @@ capture.get("/blocks/:blockId", (c) => {
       // "done" is her finishing the speech, which is the normal end: it closes
       // the audio, which closes the Transcribe stream, which lets run() emit
       // `complete`. The socket stays open until that arrives.
-      if (message?.type === "done") session?.finish();
+      if (message?.type === "done") {
+        if (session) session.finish();
+        else finishRequested = true;
+      }
     } catch {
       // A malformed control frame is not worth killing a live capture over.
       console.warn("Ignoring unparseable capture control message.");

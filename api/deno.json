@@ -7,7 +7,8 @@
     "warm-polly-cache": "deno run --allow-net --allow-env --allow-read=../.env --allow-sys=osRelease src/scripts/warmPollyCache.ts",
     "test-polly-line": "deno run --allow-net --allow-env --allow-read=../.env --allow-sys=osRelease src/scripts/testPollyLine.ts",
     "test-coach-block": "deno run --allow-net --allow-env --allow-read=../.env --allow-sys=osRelease src/scripts/testCoachBlock.ts",
-    "embed-beats": "deno run --allow-net --allow-env --allow-read=../.env --allow-sys=osRelease src/scripts/embedBeats.ts"
+    "embed-beats": "deno run --allow-net --allow-env --allow-read=../.env --allow-sys=osRelease src/scripts/embedBeats.ts",
+    "test-capture-socket": "deno run --allow-net --allow-env --allow-read=../.env --allow-sys=osRelease src/scripts/testCaptureSocket.ts"
   },
   "imports": {
     "hono": "jsr:@hono/hono",

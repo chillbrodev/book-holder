@@ -3,6 +3,10 @@ import { TranscribeClient } from "../../clients/transcribe-client/transcribeClie
 import { alignToBeats, type BeatProgress } from "./beatCursor.ts";
 import { AudioQueue } from "./audioQueue.ts";
 import { CaptureError } from "./errors.ts";
+// Type-only, and deliberately the only thing capture knows about coaching: the
+// `scored` event travels on this socket, so the protocol is described in one
+// place, but nothing here calls the coach or knows that Bedrock exists.
+import type { BlockCoaching } from "../coaching/types.ts";
 
 export type BlockBeat = {
   lineId: string;
@@ -52,7 +56,43 @@ export type CaptureEvent =
      * `max(15, this)` — see docs/capture-plan.md §5. */
     secondsForwarded: number;
   }
+  | ({
+    /**
+     * How the block was judged. Arrives after `complete`, on the same socket,
+     * roughly a second later — one Bedrock call behind.
+     *
+     * A separate event rather than a field on `complete` because the two have
+     * different guarantees. `complete` is capture's own output and always
+     * arrives; `scored` is a round trip to another service and may be late, may
+     * be the deterministic fallback, and on a socket she closed by walking away
+     * may never arrive at all. `coaching-plan.md` §4 designs the UI for exactly
+     * that — the annotation slot is reserved from the start and tolerates being
+     * a block behind, so nothing waits on this.
+     */
+    type: "scored";
+  } & BlockCoaching)
   | { type: "error"; name: string; msg: string };
+
+/**
+ * What capture actually produced: the (expected, heard) pairs for one block,
+ * with the context needed to judge them.
+ *
+ * Returned from `run()` rather than only emitted, so the caller can score it,
+ * persist it, or ignore it. Capture's job ends at "here is what she said" —
+ * keeping the decision about what happens next outside this file is what stops
+ * `features/capture` growing a dependency on coaching and on sessions.
+ */
+export interface CaptureResult {
+  blockId: string;
+  playTitle: string;
+  characterName: string;
+  beats: {
+    lineId: string;
+    beatNumber: number;
+    expected: string;
+    heard: string;
+  }[];
+}
 
 /**
  * The block's beats, in order, with their line ids.
@@ -184,8 +224,15 @@ export class CaptureSession {
    * WebSocket is already open, so there is no HTTP response left to fail. A
    * capture that dies mid-block must leave the rehearsal usable — she marks the
    * beat as said and carries on (BE_PLAN.md §5).
+   *
+   * Resolves with the block's (expected, heard) pairs, or `undefined` if
+   * Transcribe failed and there is nothing to judge. `undefined` rather than an
+   * empty result on purpose: a block where she said nothing is a real outcome
+   * that should still be scored (every beat dry), and a block that never
+   * listened is not. Collapsing them would record silence she was never asked
+   * for.
    */
-  async run(): Promise<void> {
+  async run(): Promise<CaptureResult | undefined> {
     this.#emit({
       type: "ready",
       blockId: this.#block.blockId,
@@ -234,14 +281,31 @@ export class CaptureSession {
       return;
     }
 
+    const beats = this.#block.beats.map((beat, index) => ({
+      lineId: beat.lineId,
+      beatNumber: beat.beatNumber,
+      expected: beat.text,
+      heard: this.#progress.heardByBeat[index] ?? "",
+    }));
+
     this.#emit({
       type: "complete",
-      heard: this.#block.beats.map((beat, index) => ({
-        lineId: beat.lineId,
-        beatNumber: beat.beatNumber,
-        heard: this.#progress.heardByBeat[index] ?? "",
+      // The client already has the beat texts from the dialogue endpoint, so
+      // `expected` is stripped here rather than sent — the event stays as small
+      // as it was, while the return value below carries what the server needs.
+      heard: beats.map(({ lineId, beatNumber, heard }) => ({
+        lineId,
+        beatNumber,
+        heard,
       })),
       secondsForwarded: Number(this.#queue.secondsForwarded.toFixed(2)),
     });
+
+    return {
+      blockId: this.#block.blockId,
+      playTitle: this.#block.playTitle,
+      characterName: this.#block.characterName,
+      beats,
+    };
   }
 }
