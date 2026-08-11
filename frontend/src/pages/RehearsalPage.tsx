@@ -11,6 +11,7 @@ import { DialogueLine } from '../components/rehearsal/DialogueLine'
 import { StageDirection } from '../components/rehearsal/StageDirection'
 import { MicStateIndicator } from '../components/rehearsal/MicStateIndicator'
 import { CaptureDebugInfo } from '../components/rehearsal/CaptureDebugInfo'
+import { HeardSoFar } from '../components/rehearsal/HeardSoFar'
 import { Button } from '../components/core/Button'
 import { Icon } from '../components/core/Icon'
 import { ToggleButton } from '../components/core/ToggleButton'
@@ -468,6 +469,10 @@ export function RehearsalPage() {
                     stalled={stalled}
                   />
                 </div>
+                {/* Her words in production; the cursor/mic diagnostics only in
+                    dev. Both read the same transcript — the difference is who
+                    each is for. */}
+                <HeardSoFar micState={micState} transcript={transcript} />
                 <CaptureDebugInfo
                   micState={micState}
                   beatIndex={beatIndex}

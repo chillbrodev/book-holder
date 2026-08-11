@@ -157,6 +157,15 @@ Established while designing the live rehearsal and scene wrap-up screens — ext
 
 Every state changes both icon *and* copy together — never a color or icon shift alone. Trust that the app is actually listening matters more on this screen than almost anywhere else in the product.
 
+**Live transcript ("Heard"):** what the mic is picking up shows under the mic dial, in her active line's card, while she speaks and after she stops. Sans at the 16px body floor with a 13px label and a hairline left rule — a rule rather than a box or fill, so it doesn't read as a second card competing with the line above it.
+
+Two rules make this safe to show unconditionally, including when "Your lines" is hidden:
+
+- It renders **what she said, never what the text says**. Seeing your own words is feedback; seeing the line would be the app rehearsing for you. That distinction is why it needs no toggle of its own.
+- It is **display only**. Provisional text may be shown and must never be scored (`docs/capture-plan.md` §7).
+
+It stays on screen after capture rather than clearing — the last thing she said should still be readable once the scene moves on, which is what makes it feedback rather than a readout that vanishes exactly when it becomes useful. Nothing renders before she has spoken: an empty quoted box under her line reads as a broken mic, which this screen must never falsely imply.
+
 **Text-visible mode:** toggling "Show text" to "Hide text" reveals the active line the same way "Line?" does, so the "Line?" button disappears entirely once text is visible — there's nothing left for it to reveal. The state label (e.g. "Listening") stays put regardless of text visibility; the two are independent.
 
 **Mic error recovery:** on "Can't hear you," the active card's border switches from gold to ash gray, not just the icon — the whole card reads as a different state, not a subtle color tweak. "Try again" sits alongside "Line?", since a dropped mic shouldn't also strand her without her line.

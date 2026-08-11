@@ -1,0 +1,37 @@
+/* Sits under the mic dial, inside her active line's card. It has to be legible
+   at a glance mid-delivery without pulling the eye off the speech above it —
+   so: quiet colour and a left rule, rather than a box, a fill or a border that
+   would read as a second card competing with the line. */
+.heard {
+  margin-top: 14px;
+  padding-left: 12px;
+  border-left: 2px solid var(--bh-border-hairline);
+}
+
+/* 13px is the UI-label floor in style guide §8, not a value to shave. */
+.label {
+  font-family: var(--bh-font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--bh-text-faint);
+  margin-bottom: 4px;
+}
+
+/* Sans rather than the display serif, and at the 16px body floor: this is read
+   under time pressure while she is still speaking, which is the case §5 of the
+   style guide says argues for sans over character.
+
+   overflow-wrap so a long speech grows downward and never widens the card —
+   a transcript arrives word by word and any horizontal growth would reflow the
+   script mid-line. user-select stays on so a wrong transcript can be copied
+   into a bug report, which is how the number-normalization case was found. */
+.text {
+  font-family: var(--bh-font-sans);
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--bh-text-muted);
+  margin: 0;
+  overflow-wrap: anywhere;
+}
