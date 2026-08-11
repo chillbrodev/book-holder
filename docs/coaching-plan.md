@@ -187,12 +187,26 @@ what "Save Progress" has always been offering.
   figures for Nova or for any current-generation model — so `BE_PLAN.md` §7's
   "verify pricing at build time" remains genuinely outstanding rather than
   quietly assumed.
-- **Whether Nova honours forced `toolChoice`.** Nova supports client-side tool
-  calling but *not* structured outputs, so the response shape comes from a forced
-  single-tool call. The model card does not state whether forcing is honoured.
-  `BedrockClient.converseJson` falls back to scraping JSON from prose and reports
-  it via `recoveredFromText`; if that ever comes back true, the toolChoice shape
-  is wrong and the parser is not the thing to widen.
+- ~~**Whether Nova honours forced `toolChoice`.**~~ **Settled August 10 2026 —
+  it does.** A real Converse call through `us.amazon.nova-micro-v1:0` returned
+  the scored object as a tool call with `recoveredFromText: false`. Measured on
+  that call: **571 ms**, 523 input / 43 output tokens for one beat. The
+  prose-scraping fallback stays as the safety net it was built to be, and
+  `recoveredFromText` coming back true is still the signal that the toolChoice
+  shape has broken.
+
+  Also settled by the same call: **model access needs no console step.** Bedrock
+  retired the Model access page — serverless foundation models enable
+  automatically on first invocation. The "a human must grant this before any of
+  it works" blocker recorded through several sessions no longer exists for Nova.
+
+- **The rubric has to say the input is a transcript.** On that first call the
+  model returned the note *"the capitalization of 'Songs' and 'Sonnets' was
+  missed"* — about a delivery she spoke aloud. Left alone it will judge a
+  speech-to-text string as if it were typed prose, and punctuation and casing are
+  artifacts of Transcribe, not of her performance. This is a prompt problem
+  rather than a model one, and it belongs with the threshold work in
+  `OPEN_ITEMS.md` §1a.
 - **How many notes a long speech may produce.** `OPEN_ITEMS.md` §1c already
   answers this for monologues — cap them, rank by severity, rest to the Prompt
   Book. The same cap is needed here and is not yet applied.

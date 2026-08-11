@@ -130,9 +130,14 @@ Consequences that bite:
   Both `infra/aws/create-dev-user.sh` and `infra/aws/ecs-deploy.sh` carry them; changing
   the model means changing both files, not one config string.
 - **Nova does not support structured outputs.** The response shape comes from a forced
-  single-tool call. `BedrockClient.converseJson` falls back to scraping JSON out of prose
-  and reports it via `recoveredFromText` — if that comes back true, the toolChoice shape is
-  wrong, and widening the parser is the wrong fix.
+  single-tool call, which Nova *does* honour — verified with a real Converse call
+  (`recoveredFromText: false`, 571 ms, 523 in / 43 out tokens for one beat).
+  `BedrockClient.converseJson` still falls back to scraping JSON out of prose; if
+  `recoveredFromText` ever comes back true the toolChoice shape has broken, and widening
+  the parser is the wrong fix.
+- **No console step is needed to enable a model.** Bedrock retired the Model access page —
+  serverless foundation models enable on first invocation. Older notes calling this a
+  blocking human step are out of date.
 - **`BEDROCK_MODEL_ID_COMPARISON` has a working default in `configClient.ts`**, so it is
   passed to the container only when set. The real deploy path reads it from a GitHub
   repository variable; `ecs-deploy.sh` reads it from the environment.
