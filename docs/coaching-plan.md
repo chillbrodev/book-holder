@@ -10,6 +10,41 @@ it. This doc is about the judgement in between, and where that judgement surface
 
 ---
 
+## 0. State of play — read before building
+
+Nothing in this document is wired up yet. What exists is everything *around* it,
+so the work is the middle rather than the ends.
+
+**Built and verified against the real services:**
+
+| | |
+|---|---|
+| Capture | `features/capture` — WebSocket per block, Transcribe, beat cursor. `complete` already emits the (expected, heard) pairs coaching needs, with the expected text loaded server-side |
+| Scoring | `features/sessions/score.ts` — deterministic word-recall, the §5 fallback, built as the real scorer |
+| Session write | `POST /sessions` — one serializable transaction at scene end. **This is what §6 changes** |
+| Wrap-up read | `GET /sessions/summary`, rendered by `WrapUpPage` with no fixtures left |
+| Bedrock | `clients/bedrock-client` — Converse, verified with a real Nova Micro call: 571 ms, forced `toolChoice` honoured (§8) |
+| Schema | Migration 006 applied; all four objects live and empty (§6) |
+| IAM | `transcribe` and `bedrock` granted to both the ECS task role and the local dev user, and the deploy now fails if the role drifts behind the repo |
+| Live transcript | `HeardSoFar.tsx`, in the slot the annotation will share (§4) |
+
+**Not built — this document's actual scope:**
+
+- Scoring on the capture socket at `complete`, and the `scored` event carrying it
+- The auth-aware socket (§7)
+- Incremental writes to `session_beat_score` / `block_coaching`, and the session
+  row created at rehearsal start (§6)
+- The band and note rendered under the block (§4)
+- The scene-summary call and its stored note (§5)
+
+**Two things block the *quality* of it, not the building of it:** both threshold
+cuts in §3 are unset, and no rehearsal has ever been run to the end of a scene —
+`session_history` is at 0 rows, so there are no real transcripts to set them
+from. `docs/verify-session-loop.md` is what produces those. Build against
+`score.ts`'s placeholder in the meantime; don't invent thresholds.
+
+---
+
 ## 1. The decision, in one table
 
 | Question | Answer | Why |
@@ -105,6 +140,14 @@ always exist — she may have two blocks back to back, or be alone on stage. So 
 slot fills in asynchronously and tolerates being a block behind. An unscored
 block shows a quiet pending state, never a hole.
 
+**Part of this slot already exists.** `components/rehearsal/HeardSoFar.tsx`
+renders the live transcript under the mic dial, in the same real estate, and
+persists after capture. The band and note land directly beneath the words they
+are judging, which is the arrangement to build toward rather than replace — read
+that component's header before adding to it, because the reasons it shows
+partials, shows no toggle, and does *not* dim on partial events all apply equally
+to whatever is added next to it.
+
 ## 5. The two calls
 
 They are different workloads and should not share a model.
@@ -134,33 +177,57 @@ judgement, not the interface.
 
 ## 6. Schema and lifecycle
 
-Three changes, one migration.
+**Migration `006_session_coaching.sql` is written and already applied** to the
+database — `schema_migrations` runs 001→006. Read that file: the reasoning for
+each object is in it at length, and this section is the summary rather than the
+source. All four objects are live and empty.
 
-**The session row is created at rehearsal start, not at save.** Per-block writes
-need somewhere to write. This deletes the end-of-scene transaction that currently
+**The session row is created at rehearsal start, not at save.** No schema change
+was needed for this — `duration_seconds` and `beats_run` were already nullable —
+but the write path still has to change, and has not yet. Per-block writes need
+somewhere to write. This deletes the end-of-scene transaction that currently
 loops `scoreBeat` and an `INSERT` over every attempt at once, which was about to
 become a loop of network calls inside an open serializable transaction.
 
 It also fixes something already broken: today, abandoning a scene loses the whole
-run. Incremental writes mean a partial rehearsal is still a rehearsal, which is
-the more honest record of what she did.
+run. Incremental writes mean a partial rehearsal is still a rehearsal.
 
-The cost, accepted deliberately: abandoned sessions become real rows. Cleaning
-them up is not solved here and does not need to be.
+The cost, accepted deliberately: abandoned sessions become real rows. Cleanup is
+not solved and does not need to be.
 
-**`block_coaching`, keyed `(session_id, block_id)`**, holding the block's note.
-`mistake_log` is per-beat and deliberately filtered to misses only — putting
-notes there would bury the signal it exists for. The wrap-up reads this table
-back to show every block scored, not only the flagged ones.
+Note `beats_run` gains a third state migration 005 did not anticipate: NULL still
+means "written before the column existed", but a new session now starts at 0 and
+counts up, so 0 means "in progress" rather than "ran none".
 
-**A summary column on `session_history`** for the stored scene note (§5).
+**`session_beat_score (session_id, line_id, confidence_score, heard)`** — the
+addition least obvious from the design above, and the one that makes deriving the
+band possible at all. Deriving needs the underlying score to still exist for every
+beat of every *past* session, and neither existing table keeps it: `line_mastery`
+is keyed `(user_id, line_id)` and holds only the latest recall, so a second run of
+a scene overwrites the first; `mistake_log` is filtered to misses on purpose
+because the embeddings work (`OPEN_ITEMS.md` §2) runs over it. This is the
+session's own record, misses and successes alike. `heard` empty means she said
+nothing, the same convention `mistake_log` uses.
+
+**`block_coaching (session_id, block_id, note)`** — the per-block note. Separate
+from the beat scores because a note is per block while a score is per beat;
+folding it onto every beat row would repeat it N times and invite a reader to
+wonder which copy is authoritative.
+
+**`session_history.coaching_note`** for the stored scene note (§5), and
+**`session_history.completed_at`** to separate a finished rehearsal from an
+abandoned one. `duration_seconds IS NOT NULL` would answer the same question
+today, but only as an accident of write order — and without an explicit column,
+starting a scene and walking away makes *that* row the newest, so re-opening an
+old wrap-up would show an empty rehearsal instead of the one she finished.
 
 **The band is derived, not stored.** One less column, and the thresholds are
 being actively tuned toward §1a. The tradeoff, stated so it is not discovered
 later: **retuning a threshold silently re-bands every past session.** A run she
 remembers as solid can become close. That is acceptable while the thresholds are
 unsettled and the history is days old; it stops being acceptable once either of
-those changes, and the fix at that point is to store the band at write time.
+those changes, and the fix at that point is a band column on
+`session_beat_score`, written at insert time.
 
 ## 7. Auth
 
