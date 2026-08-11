@@ -178,6 +178,46 @@ judgement, not the interface.
 
 ## 6. Schema and lifecycle
 
+> **Amended August 11 2026 by migration 008 — a session is a set of blocks, and
+> a whole scene is one kind of set.** This section was written assuming a session
+> and a scene were the same object. They are not: drilling four speeches is a
+> rehearsal, and the scene is the goal rather than the unit.
+>
+> Almost nothing below changes, which is the useful part. The coaching call was
+> already per block (§1), and `session_beat_score`, `block_coaching` and
+> `line_mastery` are all keyed per beat or per block and never per scene — so
+> *what she actually ran* was already recorded correctly at any scope, and
+> `getSessionPlan` already worked unchanged.
+>
+> What was missing was **intent**. Without it, "finished the four speeches I
+> chose" and "abandoned the scene a third of the way in" are the same row.
+> Migration 008 adds `session_history.scope` (`'scene' | 'blocks'`) and a
+> `session_block` table listing the blocks a session set out to cover, with a
+> `source` of `'user'` or `'coach'`.
+>
+> `session_block` is populated for **both** scopes, so completion is one uniform
+> question — does every block in `session_block` have all its beats in
+> `session_beat_score` — rather than two questions behind a discriminator.
+> `scope` explains why the set is what it is and is never load-bearing for a
+> query.
+>
+> `source` is what makes the coach's recommendations checkable rather than
+> merely made: an agent that cannot tell what it told you to do cannot act on
+> its own memory. Recorded from the start rather than retrofitted.
+>
+> Two consequences for the sections below: **`completed_at` now means "every
+> block in `session_block` was run to the end"** — the same statement for a
+> scene, and a defined one for a drill set. And `GET /sessions/summary`, keyed
+> `(playId, act, scene)`, can no longer identify a session, because a scene now
+> has many; it needs to key on the session id. That was already half-broken for
+> the reason recorded further down, where starting a scene and walking away makes
+> that row the newest.
+>
+> Scope is one scene per session, deliberately. "Drill your ten worst speeches
+> across the play" would make `act`/`scene_range` derived labels and push a
+> rethink into every read path; two sessions is an acceptable answer until it
+> isn't.
+
 **Migration `006_session_coaching.sql` is written and already applied** to the
 database — `schema_migrations` runs 001→006. Read that file: the reasoning for
 each object is in it at length, and this section is the summary rather than the
