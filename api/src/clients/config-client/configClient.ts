@@ -94,6 +94,24 @@ export const ConfigClient = {
       "BEDROCK_MODEL_ID_COMPARISON",
       "us.amazon.nova-micro-v1:0",
     ),
+    // Titan Text Embeddings V2. **No `us.` prefix, and that is not an
+    // oversight** — it is the opposite case to Nova Micro above, and the two
+    // are easy to pattern-match onto each other wrongly.
+    //
+    // Nova Micro has no in-region presence in us-west-2 and is reachable only
+    // through the geo inference profile, so it needs the prefix. Titan V2 *is*
+    // available in-region, has no inference profile, and the bare id is the
+    // only thing that resolves — prefixing it fails with the same
+    // bad-model-id-shaped error that omitting the prefix causes for Nova.
+    //
+    // 1024 dimensions, matching `VECTOR(1024)` from migration 004. Chosen in
+    // `docs/OPEN_ITEMS.md` §2 partly because it is already a Bedrock model, so
+    // embeddings add no new vendor, no new credential, and no new IAM shape
+    // beyond the foundation-model ARN.
+    embeddingModelId: getDenoEnvValueOrDefault(
+      "BEDROCK_MODEL_ID_EMBEDDING",
+      "amazon.titan-embed-text-v2:0",
+    ),
   },
   Auth: {
     sessionCookieName: "book_holder_session",

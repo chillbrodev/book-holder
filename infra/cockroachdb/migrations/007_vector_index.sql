@@ -1,0 +1,85 @@
+-- Vector indexes over the two embedding columns, so nearest-neighbour search
+-- stays a lookup rather than a scan of every beat.
+--
+-- Design and reasoning: docs/OPEN_ITEMS.md §2. This file records what a reader
+-- of the schema alone could not reconstruct.
+--
+-- ## Why only now
+--
+-- The columns have existed since migration 001 (and were resized in 004 from
+-- VECTOR(1536) to VECTOR(1024) when the model moved from Titan G1 to V2). The
+-- index was deliberately left out: `README.md:31` marks it a TODO, and an index
+-- over an all-NULL column is a maintenance cost buying nothing. `lines.embedding`
+-- is now populated for all 1,705 beats of Merry Wives (`deno task embed-beats`),
+-- which is what makes this worth creating.
+--
+-- ## Op class must match the query operator
+--
+-- CockroachDB v26.2.5 supports all three distance operators — verified against
+-- the live cluster rather than taken from docs:
+--
+--   <->  L2          vector_l2_ops
+--   <=>  cosine      vector_cosine_ops
+--   <#>  inner prod  vector_ip_ops
+--
+-- **An index is only used by a query whose operator matches its op class.** A
+-- cosine query against an L2 index does not error — it silently falls back to a
+-- full scan, which on 1,705 rows looks fine and on a real corpus does not.
+--
+-- The same silent fallback has a second, more likely trigger, found while
+-- verifying this migration: **the probe vector must be a bound parameter, not a
+-- subquery.** This plans as a FULL SCAN —
+--
+--   ORDER BY embedding <-> (SELECT embedding FROM lines WHERE id = '…')
+--
+-- while this plans as `• vector search` —
+--
+--   ORDER BY embedding <-> $1::VECTOR
+--
+-- Both return the same rows, and at this corpus size both return them fast, so
+-- nothing about the result distinguishes them. EXPLAIN does. Anything querying
+-- these indexes should fetch the probe vector in one statement and bind it in
+-- the next.
+--
+-- L2 is chosen here, matching what `OPEN_ITEMS.md` §2 and the README already
+-- specify. It is a safe choice precisely because Titan V2 is invoked with
+-- `normalize: true` (see clients/bedrock-client/embeddingsClient.ts): every
+-- stored vector is unit length, and for unit vectors L2 and cosine produce the
+-- same ranking. Measured on the first three rows inserted — norm 1.000000
+-- exactly.
+--
+-- Correction to `OPEN_ITEMS.md` §2 while it is in view: that section says L2 is
+-- "the only option CockroachDB offers", and builds the case for normalization on
+-- it. That is no longer true, as the operator list above shows. Normalizing is
+-- still correct — it is Titan's default and it keeps the two rankings aligned —
+-- but it is now belt and braces rather than the thing holding the design up.
+--
+-- ## The preview gate is already open
+--
+-- Migration 001's header warns that vector indexes are v25.2+ and preview-gated
+-- behind `SET CLUSTER SETTING feature.vector_index.enabled = true`. This cluster
+-- is v26.2.5 and the setting already reads true, so no SET is issued here. That
+-- is deliberate: a cluster setting is not schema, it outlives any one migration,
+-- and flipping global cluster state from a per-database migration is how a
+-- shared cluster acquires settings nobody remembers enabling. If this ever runs
+-- against a cluster where the gate is shut, the CREATE below fails loudly with a
+-- message naming the setting, which is the right failure.
+--
+-- ## mistake_log gets one too, though it is empty
+--
+-- Unlike `lines`, this one is created over zero rows — the opposite of the
+-- reasoning above, on purpose. `mistake_log` fills during rehearsal, one row at
+-- a time, and an index created now grows with it; creating it later means
+-- building it over live data on a table the coach is actively reading. It is the
+-- more valuable of the two columns (`OPEN_ITEMS.md` §2: nearest-neighbour over
+-- what she actually said turns forty scattered mistakes into "these six are the
+-- same mistake"), and it costs nothing while empty.
+--
+-- IF NOT EXISTS throughout: dev and production share one database, so every
+-- migration here has to be safe to re-run and safe to arrive twice.
+
+CREATE VECTOR INDEX IF NOT EXISTS lines_embedding_idx
+    ON lines (embedding vector_l2_ops);
+
+CREATE VECTOR INDEX IF NOT EXISTS mistake_log_embedding_idx
+    ON mistake_log (embedding vector_l2_ops);

@@ -44,6 +44,13 @@ set -euo pipefail
 # appears nowhere in this deployment. Keep these in step with
 # api/src/clients/config-client/configClient.ts's comparisonModelId.
 #
+# Titan Text Embeddings V2 is the opposite shape and deliberately gets its own
+# statement rather than another ARN in the Nova one. It IS available in-region,
+# has no inference profile, and needs exactly one ARN: the bare foundation model
+# here. Keep it in step with configClient.ts's embeddingModelId — and with
+# create-dev-user.sh, which carries the same pair for the local user. Adding a
+# model is two files, never one.
+#
 # Bucket-level s3:ListBucket sits alongside the object-level actions on purpose,
 # not for browsing: without it S3 masks "object doesn't exist" as a generic 403
 # instead of 404 for this principal, which breaks the cache-miss detection
@@ -63,6 +70,9 @@ cat <<EOF
       "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-micro-v1:0",
       "arn:aws:bedrock:us-east-2::foundation-model/amazon.nova-micro-v1:0",
       "arn:aws:bedrock:us-west-2::foundation-model/amazon.nova-micro-v1:0"
+    ]},
+    {"Sid": "BedrockInvokeTitanEmbeddings", "Effect": "Allow", "Action": "bedrock:InvokeModel", "Resource": [
+      "arn:aws:bedrock:$AWS_REGION::foundation-model/amazon.titan-embed-text-v2:0"
     ]},
     {"Sid": "PollyCacheBucketObjects", "Effect": "Allow", "Action": ["s3:GetObject", "s3:PutObject", "s3:HeadObject"], "Resource": "arn:aws:s3:::$POLLY_CACHE_BUCKET_NAME/*"},
     {"Sid": "PollyCacheBucketList", "Effect": "Allow", "Action": "s3:ListBucket", "Resource": "arn:aws:s3:::$POLLY_CACHE_BUCKET_NAME"}

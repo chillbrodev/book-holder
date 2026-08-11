@@ -162,34 +162,54 @@ not the feature ships:
 |---|---|
 | model | Titan Text Embeddings V2 (`amazon.titan-embed-text-v2:0`) — already in Bedrock for coaching, no new vendor |
 | dimension | **1024**, V2's default. Migration 004 moved both columns off `VECTOR(1536)`, which was Titan **G1**'s width. The column must match the model exactly or every insert fails. |
-| distance | L2 — the only option CockroachDB offers (`infra/cockroachdb/README.md:46`) |
+| distance | L2 (`<->`, `vector_l2_ops`). **Not because it is the only option — that was wrong.** Verified against the live v26.2.5 cluster: `<->` (L2), `<=>` (cosine) and `<#>` (inner product) all evaluate. L2 is *chosen*, and is safe because the vectors are normalized |
 | normalization | leave Titan V2's `normalize` at its default `true` |
 | unit | the beat, matching everything else |
 | cost | ~27,000 tokens for all of Merry Wives — a fraction of a cent |
 
-**Why normalization is load-bearing:** embedding models are generally trained
-for *cosine* distance, which compares only the angle between two vectors.
-CockroachDB offers only *L2*. The two rank identically **if** every vector is
-unit-length, which is what normalizing does. Turning it off silently degrades
-every nearest-neighbour result rather than erroring.
+**Why normalization still matters:** embedding models are generally trained for
+*cosine* distance, which compares only the angle between two vectors. L2 and
+cosine rank identically **if** every vector is unit-length, which is what
+normalizing does — so the stored vectors are correct under whichever operator a
+query uses, and switching operators later cannot silently degrade results.
+Measured on the first rows inserted: norm **1.000000** exactly.
+
+An earlier version of this section called normalization load-bearing on the
+grounds that L2 was CockroachDB's only distance. That was wrong (see the table),
+and the correction is worth keeping visible: the reason to normalize is that it
+makes the choice of operator *not matter*, not that there was no choice.
+
+### Done — August 11 2026
+
+- **`embedBeats.ts` is written and has run.** All **1,705** beats of Merry Wives
+  embedded, **0 failures, 113 s** at concurrency 4, **$0.0006**. Generation
+  stayed *out* of the importer as planned — it is a script alongside
+  `warmPollyCache`, dry-run by default, resumable via `WHERE embedding IS NULL`,
+  with `--limit` for proving the model and the cast before a full pass.
+- **The vector index migration** shipped as `007_vector_index.sql`, over both
+  `lines.embedding` and `mistake_log.embedding`. The second is created empty on
+  purpose: it grows a row at a time with rehearsal rather than being built later
+  over live data the coach is reading.
+- **IAM needed a second grant.** Titan is the *opposite* ARN shape to Nova Micro
+  — in-region, no inference profile, exactly one bare foundation-model ARN.
+  Added to both `create-dev-user.sh` and `task-role-policy.sh`, because adding a
+  model here is always two files.
 
 ### Still open
 
-- **Whether it ships at all.** `ORCHESTRATION_PLAN.md:60` has it as cut-first
-  scope. Counterweight: `PROJECT_PLAN.md:45` lists "quality use of vector
-  index" as a judging criterion, so it isn't purely optional.
-- **`embedBeats.ts` isn't written.** Generation stays *out* of the importer on
-  purpose — the importer must remain offline, deterministic, and re-runnable
-  with no AWS credentials, which is what makes `--dry-run` review useful. Same
-  reasoning as keeping Polly warming separate.
-- **The vector index migration** (`infra/cockroachdb/README.md:31`) is still a
-  TODO. Not worth creating over an all-NULL column.
-- **Which column earns its keep.** `mistake_log.embedding` is the valuable one
-  — nearest-neighbour over what she actually said turns forty scattered
-  mistakes into "these six are the same mistake," which no SQL expresses. But
-  it only becomes useful once she has history. `lines.embedding` is weaker
-  (find beats resembling this one) but populatable at import, so it is what
-  puts real content in the index on day one.
+- **A query must pass the vector as a parameter, not a subquery.** `ORDER BY
+  embedding <-> (SELECT …)` plans as a **FULL SCAN** — no error, no warning, and
+  on 1,705 rows it still returns the right answer quickly, so it looks fine. The
+  same query with `$1::VECTOR` plans as `• vector search`. Anything reading these
+  indexes has to fetch the probe vector first and bind it; `EXPLAIN` is the only
+  thing that tells the two apart.
+- **Which column earns its keep.** `mistake_log.embedding` is still the valuable
+  one — nearest-neighbour over what she actually said turns forty scattered
+  mistakes into "these six are the same mistake," which no SQL expresses — and it
+  is still empty, because it needs rehearsal history. `lines.embedding` is
+  populated and already useful: seeded with Mistress Ford on her husband's lack
+  of jealousy, its nearest neighbours are the jealousy plot, including two lines
+  that share no significant word with the seed.
 
 ---
 

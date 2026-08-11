@@ -63,6 +63,16 @@ fi
 # AccessDenied naming a foundation-model ARN in a region you never configured,
 # which reads like a bug rather than a missing grant. us-east-1/us-east-2/
 # us-west-2 are the US geo's destination regions per the same model card.
+#
+# Titan Text Embeddings V2, in the same file, is the OPPOSITE case and is worth
+# reading beside Nova rather than pattern-matched onto it. Titan V2 IS available
+# in-region, has no inference profile, and so takes exactly one ARN — the bare
+# foundation model in this region. Adding profile ARNs for it would grant
+# nothing that exists.
+#
+# Both grants are duplicated in task-role-policy.sh for the deployed task role.
+# Changing an embedding or comparison model means editing both files; the model
+# id in configClient.ts is not where authorization lives.
 aws iam put-user-policy --user-name "$USER_NAME" --policy-name "LocalDevAccess" \
   --policy-document "$(cat <<EOF
 {
@@ -75,6 +85,9 @@ aws iam put-user-policy --user-name "$USER_NAME" --policy-name "LocalDevAccess" 
       "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-micro-v1:0",
       "arn:aws:bedrock:us-east-2::foundation-model/amazon.nova-micro-v1:0",
       "arn:aws:bedrock:us-west-2::foundation-model/amazon.nova-micro-v1:0"
+    ]},
+    {"Sid": "BedrockInvokeTitanEmbeddings", "Effect": "Allow", "Action": "bedrock:InvokeModel", "Resource": [
+      "arn:aws:bedrock:$AWS_REGION::foundation-model/amazon.titan-embed-text-v2:0"
     ]},
     {"Sid": "PollyCacheBucketObjects", "Effect": "Allow", "Action": ["s3:GetObject", "s3:PutObject", "s3:HeadObject", "s3:DeleteObject"], "Resource": "arn:aws:s3:::$POLLY_CACHE_BUCKET_NAME/*"},
     {"Sid": "PollyCacheBucketList", "Effect": "Allow", "Action": "s3:ListBucket", "Resource": "arn:aws:s3:::$POLLY_CACHE_BUCKET_NAME"}
