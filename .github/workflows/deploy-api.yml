@@ -183,6 +183,23 @@ jobs:
           # live in a single secret. The trailing empty fields are the
           # version-stage and version-id slots — required, and left blank to
           # mean "current".
+          # BEDROCK_MODEL_ID_COMPARISON comes from a repository variable, not a
+          # secret — a model id is not sensitive, and Settings -> Variables is
+          # where it can be changed without editing this file or shipping a
+          # commit. Unset means the default in configClient.ts applies (the Nova
+          # Micro geo profile). A blank value would fall through to that default
+          # too, since getDenoEnvValueOrDefault treats blank as missing
+          # deliberately, so the conditional below is about not declaring an
+          # empty variable on the task rather than about correctness.
+          #
+          # Explanations live out here, in shell comments, and NOT inside the jq
+          # program below. The jq program sits in a single-quoted bash string
+          # inside $( ), where an apostrophe ends the string and bash parses the
+          # remainder as code. A comment reading "configClient.ts's default"
+          # shipped exactly that way and broke the deploy with "syntax error near
+          # unexpected token ('". It cannot be caught locally either: bash 3.2,
+          # which is what macOS ships, defers parsing inside $( ) and reports the
+          # file as fine, while bash 5 on the runner rejects it.
           PRIMARY_CONTAINER="$(jq -n \
             --arg image "${{ steps.image.outputs.uri }}" \
             --arg port "$CONTAINER_PORT" \
@@ -202,14 +219,6 @@ jobs:
                 {name: "DENO_ENV",           value: "production"},
                 {name: "APP_VERSION",        value: $version}
               ]
-              # Repository variable, not a secret — a model id is not sensitive,
-              # and Settings → Variables is where it can be changed without
-              # touching this file or shipping a commit. Unset means
-              # configClient.ts's default (the Nova Micro geo profile) applies.
-              # A blank value would fall through to that default too
-              # (getDenoEnvValueOrDefault treats blank as missing, deliberately),
-              # so this is about not declaring an empty variable on the task
-              # rather than about correctness.
               + (if $comparisonModel != "" then [{name: "BEDROCK_MODEL_ID_COMPARISON", value: $comparisonModel}] else [] end)),
               secrets: [
                 {name: "COCKROACHDB_URL", valueFrom: ($secretArn + ":COCKROACHDB_URL::")},
