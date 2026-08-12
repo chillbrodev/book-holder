@@ -47,6 +47,21 @@ capture.get("/blocks/:blockId", (c) => {
   // to open one. Its absence is never an error — see the persistence step below.
   const sessionId = c.req.query("sessionId");
 
+  // Read here, synchronously, while the HTTP request still exists.
+  //
+  // `Deno.upgradeWebSocket` below hands the connection over to the WebSocket
+  // protocol and closes the underlying Request. Anything that touches its
+  // headers afterwards — which `getCookie` does — throws `TypeError: Request
+  // closed`. Doing this inside `socket.onopen` is therefore always wrong, and
+  // wrong in a way that reads like a server fault rather than a lifecycle
+  // mistake: the client gets INTERNAL_SERVER_ERROR and the actor gets "Can't
+  // hear you — check your mic", pointing at a microphone that is working fine.
+  //
+  // The token is a string, so capturing it costs nothing; resolving it into a
+  // user is a database round trip and stays inside onopen where it can be
+  // awaited.
+  const sessionToken = getCookie(c, ConfigClient.Auth.sessionCookieName);
+
   const { socket, response } = Deno.upgradeWebSocket(c.req.raw);
 
   let session: CaptureSession | undefined;
@@ -76,10 +91,9 @@ capture.get("/blocks/:blockId", (c) => {
     try {
       // Resolved here rather than by middleware, because this route must work
       // for nobody as well as for someone. `findSessionUser` is the non-throwing
-      // half of `getSessionUser` for exactly this caller.
-      const user = await AuthService.findSessionUser(
-        getCookie(c, ConfigClient.Auth.sessionCookieName),
-      );
+      // half of `getSessionUser` for exactly this caller. The token itself was
+      // captured before the upgrade — see above for why that is not optional.
+      const user = await AuthService.findSessionUser(sessionToken);
 
       session = await CaptureSession.open({ blockId, characterId }, send);
       for (const chunk of early) session.pushAudio(chunk);
