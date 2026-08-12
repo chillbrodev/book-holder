@@ -315,6 +315,28 @@ export function useMicCapture(
 
         const socket = openCaptureSocket(blockId!, characterId!, {
           onEvent: (event: CaptureEvent) => {
+            // Handled before the `cancelled` guard, and that ordering is the
+            // entire point.
+            //
+            // A score arrives about a second after `complete`, by which time the
+            // page has advanced, this effect has been cleaned up and `cancelled`
+            // is true. Every other event is genuinely stale at that point and
+            // must be dropped — a `progress` from a finished block would move
+            // the cursor under a speech she is already delivering. A score is
+            // the opposite: it is the answer this connection was held open for,
+            // and it belongs to the block that produced it rather than to
+            // whichever block is live now, which is why it carries its own
+            // `blockId` and leaves through a ref instead of state.
+            //
+            // Keeping the socket open (see teardown) achieves nothing on its own
+            // if the handler then throws the message away, which is exactly the
+            // bug this replaced.
+            if (event.type === 'scored') {
+              awaitingScoreRef.current = false
+              const { type: _type, ...scored } = event
+              onScoredRef.current?.(scored)
+              return
+            }
             if (cancelled) return
             switch (event.type) {
               case 'ready':
@@ -343,24 +365,6 @@ export function useMicCapture(
                 awaitingScoreRef.current = true
                 setMicState('captured')
                 break
-              case 'scored': {
-                // **Deliberately outside the `cancelled` guard.** By the time
-                // this lands the page has advanced, this effect has been cleaned
-                // up and `cancelled` is true — which is precisely the situation
-                // the score has to survive, not a reason to drop it. It belongs
-                // to the block that produced it rather than to whichever block
-                // is live now, so it leaves through a ref that teardown cannot
-                // revoke.
-                //
-                // It also deliberately does not touch micState: she may already
-                // be mid-speech somewhere else, and moving the mic on the
-                // strength of a score arriving would be the app reacting to its
-                // own bookkeeping in front of her.
-                awaitingScoreRef.current = false
-                const { type: _type, ...rest } = event
-                onScoredRef.current?.(rest)
-                break
-              }
               case 'error':
                 // The server has just told us precisely what went wrong, and
                 // "Can't hear you — check your mic" is the one thing it isn't:
