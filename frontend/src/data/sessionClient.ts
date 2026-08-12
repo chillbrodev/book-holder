@@ -216,3 +216,46 @@ export function getPromptBook(playId: string, characterId: string): Promise<Prom
   const query = new URLSearchParams({ playId, characterId })
   return apiRequest(`/sessions/prompt-book?${query}`)
 }
+
+/** What the coach decided she should do next. */
+export interface CoachRecommendation {
+  id: string
+  /** One or two sentences, quoting a line from her own history. */
+  note: string
+  /** `drill` runs the named speeches; `scene` runs the whole scene. */
+  action: 'drill' | 'scene'
+  act: string
+  scene: string
+  /** The speeches to drill. Empty for a `scene` action. */
+  blockIds: string[]
+}
+
+/**
+ * Run the coach agent over her history and store what it decides.
+ *
+ * A POST because it is not a read: the agent spends tokens and writes a
+ * `coach_recommendation` row it will read back next time. Returns null when
+ * there is nothing worth saying — a clean run deserves silence rather than
+ * manufactured praise — and also when the agent failed, which the wrap-up
+ * treats identically. It never errors: a wrap-up that won't load because the
+ * coach had an opinion it couldn't express is worse than one with no coach.
+ */
+export function runCoach(
+  sessionId: string,
+  playId: string,
+  characterId: string,
+): Promise<{ recommendation: CoachRecommendation | null }> {
+  return apiRequest(`/sessions/${sessionId}/coach`, {
+    method: 'POST',
+    body: JSON.stringify({ playId, characterId }),
+  })
+}
+
+/** The recommendation already made for this session, without re-running the
+ * agent — so revisiting a wrap-up costs nothing and says the same thing. */
+export function getCoachRecommendation(
+  sessionId: string,
+  playId: string,
+): Promise<{ recommendation: CoachRecommendation | null }> {
+  return apiRequest(`/sessions/${sessionId}/coach?playId=${encodeURIComponent(playId)}`)
+}

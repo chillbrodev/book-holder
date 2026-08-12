@@ -2,7 +2,14 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { getScenesSummary, getSelectedRole } from '../data/client'
 import { getBlockAudio } from '../data/pollyClient'
 import { playUrl, unlockPlayback } from '../utils/audioPlayback'
-import { getSessionSummary, type SessionSummary } from '../data/sessionClient'
+import {
+  getCoachRecommendation,
+  getSessionSummary,
+  runCoach,
+  type CoachRecommendation,
+  type SessionSummary,
+} from '../data/sessionClient'
+import { CoachNote } from '../components/rehearsal/CoachNote'
 import { pendingSessionSave } from '../data/pendingSessionSave'
 import { ApiError } from '../data/apiClient'
 import { useAsync } from '../hooks/useAsync'
@@ -61,6 +68,28 @@ export function WrapUpPage() {
   const { data: role } = useAsync(() => getSelectedRole(playId), [playId])
   // Asked for with the character so `characterLines` comes back — that field is
   // what separates "the next scene" from "the next scene she's in".
+  /**
+   * The coach's recommendation for this run.
+   *
+   * Read first, and only run if there isn't one — so revisiting a wrap-up shows
+   * the same advice rather than billing a fresh agent loop and saying something
+   * different about a rehearsal that hasn't changed. Same reasoning
+   * `coaching-plan.md` §5 gives for storing the scene summary instead of
+   * regenerating it: advice that rewords itself on refresh reads as arbitrary.
+   */
+  // `result?.summary` rather than `summary`: that binding is destructured after
+  // the loading guard below, and a hook cannot run after an early return.
+  const ranSession = result?.summary
+  const coach = useAsync(async () => {
+    if (!ranSession || !role) return null
+    const existing = await getCoachRecommendation(ranSession.sessionId, ranSession.playId)
+      .catch(() => ({ recommendation: null as CoachRecommendation | null }))
+    if (existing.recommendation) return existing.recommendation
+    const fresh = await runCoach(ranSession.sessionId, ranSession.playId, role.id)
+      .catch(() => ({ recommendation: null as CoachRecommendation | null }))
+    return fresh.recommendation
+  }, [ranSession?.sessionId, role?.id])
+
   const { data: scenes } = useAsync(
     () => (role ? getScenesSummary(playId, role.id) : getScenesSummary(playId)),
     [playId, role?.id],
@@ -185,6 +214,25 @@ export function WrapUpPage() {
               — everything you ran is saved.
             </p>
           )}
+          {/* Above the notes and the flagged list on purpose: this is the one
+              thing on the page that read her *whole* history and decided
+              something, and everything below it is the evidence. Renders
+              nothing at all when the agent had nothing to say. */}
+          <CoachNote
+            recommendation={coach.data}
+            loading={coach.loading}
+            onAct={(rec) => {
+              const back = encodeURIComponent(`/play/${playId}/wrap-up/${act}/${scene}`)
+              // A coach recommendation drives exactly the same block-scoped
+              // drill "Practice these lines" does — the path migration 008
+              // built and `?blocks=` already exercises.
+              navigate(
+                rec.action === 'drill'
+                  ? `/play/${playId}/rehearse/${rec.act}/${rec.scene}?blocks=${rec.blockIds.join(',')}&back=${back}`
+                  : `/play/${playId}/rehearse/${rec.act}/${rec.scene}?back=${back}`,
+              )
+            }}
+          />
           {notedSpeeches.length > 0 && (
             <>
               <div className={`bh-eyebrow ${styles.sectionLabel}`}>From the wings</div>

@@ -1,0 +1,53 @@
+/* Gold, not terracotta. Terracotta is "worth another look" and lives in the
+   flagged list below; this is the book holder speaking, and gold is the colour
+   this app uses for a thing that is working. Left border rather than a full
+   tint so it reads as an aside in the page rather than a banner over it. */
+.card {
+  background: var(--bh-surface);
+  border-left: 3px solid var(--bh-gold-mid);
+  border-radius: 0 var(--bh-radius-md) var(--bh-radius-md) 0;
+  padding: 16px 18px;
+  margin-bottom: 28px;
+}
+
+.eyebrow {
+  margin-bottom: 8px;
+}
+
+.note {
+  font-family: var(--bh-font-sans);
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--bh-ink);
+  margin: 0 0 14px;
+  max-width: 54ch;
+}
+
+/* Waiting for the agent. Same height as a two-line note plus its button, so
+   the flagged list below doesn't jump when the answer lands. No animation, for
+   the reason recorded on the rehearsal's pending annotation. */
+.skeletonNote {
+  height: 44px;
+  background: var(--bh-ash-light);
+  border-radius: var(--bh-radius-sm);
+  margin-bottom: 14px;
+  max-width: 46ch;
+}
+
+.skeletonAction {
+  width: 160px;
+  height: 40px;
+  background: var(--bh-ash-light);
+  border-radius: var(--bh-radius-md);
+}
+
+@media (max-width: 600px), (max-height: 500px) {
+  .card {
+    padding: 14px 14px;
+    margin-bottom: 20px;
+  }
+
+  .note {
+    font-size: 15px;
+  }
+}
