@@ -42,6 +42,38 @@ const SCORE_SEEN_MS = 900
  * whose connection dropped. The scene must never stall on feedback.
  */
 const SCORE_WAIT_CAP_MS = 1500
+
+/**
+ * How long a speech worth looking at stays up before the scene moves on itself.
+ *
+ * The backstop behind the Continue button, not the expected path — she taps
+ * when she has read it. It exists so that putting the phone down mid-scene
+ * doesn't leave the rehearsal parked forever, and it is generous because being
+ * hurried through a note is the thing this whole mechanism exists to prevent.
+ */
+const AUTO_CONTINUE_MS = 6000
+
+/**
+ * Whether a scored speech is worth stopping for.
+ *
+ * The split that keeps the Continue button from becoming the per-line
+ * confirmation tap this page deliberately removed once — "pure friction… a
+ * small piece of admin" is the comment on the effect below, and it was right.
+ * A speech she had needs no acknowledgement: the pills going by *are* the
+ * acknowledgement, and there is nothing to read.
+ *
+ * So the scene stops only when there is something to look at — a beat that
+ * wasn't solid, or a note. Which is roughly when a person holding the book
+ * would stop you, and not otherwise.
+ *
+ * Notes are trusted here because the server now drops ungrounded ones
+ * (`coaching/service.ts`). Before that filter a note meant almost nothing —
+ * Nova would emit "All beats are dry" — and stopping the scene on one would
+ * have been stopping it for filler.
+ */
+function worthAPause(score: BlockScored): boolean {
+  return score.note.length > 0 || score.beats.some((beat) => beat.band !== 'solid')
+}
 const AUTO_SCROLL_STORAGE_KEY = 'bh:autoScroll'
 
 export function RehearsalPage() {
@@ -163,6 +195,11 @@ export function RehearsalPage() {
   useEffect(() => {
     capturedAtRef.current = micState === 'captured' ? Date.now() : null
   }, [micState, activeUserBlockId])
+
+  /** The scene is holding on this speech because there is something on it worth
+   * reading — which is also the only condition under which Continue appears. */
+  const activeScore = activeUserBlockId ? coachingByBlock.get(activeUserBlockId) : undefined
+  const holdingForScore = !!activeScore && worthAPause(activeScore)
 
   // Every beat she's attempted this scene, keyed by lineId so a block re-entered
   // (a retry, or a re-render delivering the same `complete`) overwrites rather
@@ -427,12 +464,16 @@ export function RehearsalPage() {
     // somebody else is speaking.
     if (!activeUserBlockId || micState !== 'captured' || done || readingPaused) return
 
-    const scored = coachingByBlock.has(activeUserBlockId)
+    const score = coachingByBlock.get(activeUserBlockId)
     // Measured from when the capture completed, not from when this effect last
     // ran. The effect re-runs when the score lands, and a cap restarted from
     // there would be a second full wait rather than the remainder of the first.
     const waitedFor = capturedAtRef.current === null ? 0 : Date.now() - capturedAtRef.current
-    const delay = scored ? SCORE_SEEN_MS : Math.max(0, SCORE_WAIT_CAP_MS - waitedFor)
+    const delay = !score
+      ? Math.max(0, SCORE_WAIT_CAP_MS - waitedFor)
+      : worthAPause(score)
+      ? AUTO_CONTINUE_MS
+      : SCORE_SEEN_MS
 
     const timer = setTimeout(() => advance(), delay)
     return () => clearTimeout(timer)
@@ -720,6 +761,21 @@ export function RehearsalPage() {
                   beatCount={entry.beats.length}
                 />
                 <div className={styles.actions}>
+                  {/* Shown only while the scene is holding on this speech, which
+                      is only when there was something to look at. On a clean
+                      speech it never appears and nothing is asked of her — that
+                      split is what keeps this from being the per-line
+                      confirmation tap removed below.
+
+                      It skips the remaining wait rather than causing the
+                      advance: the scene was going to move on by itself either
+                      way, so tapping it is never the difference between
+                      rehearsing and not. */}
+                  {micState === 'captured' && holdingForScore && (
+                    <Button variant="primary" onClick={() => advance()}>
+                      Continue
+                    </Button>
+                  )}
                   {micState === 'cantHear' && (
                     <Button variant="secondary" onClick={retry}>
                       Try again

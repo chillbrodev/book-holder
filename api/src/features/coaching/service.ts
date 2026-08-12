@@ -157,9 +157,69 @@ async function callModel(
   return {
     blockId: input.blockId,
     beats: mapBeats(input, value),
-    note: typeof value?.note === "string" ? value.note.trim() : "",
+    note: groundedNote(
+      typeof value?.note === "string" ? value.note : "",
+      input,
+    ),
     source: "bedrock",
   };
+}
+
+/**
+ * Keep the note only if it is actually about this speech; otherwise drop it.
+ *
+ * The rubric asks for a note built from the written words and forbids
+ * restating the marks. Nova Micro does not reliably comply — across several
+ * revisions it kept returning things like *"All beats are dry"*, *"She did not
+ * have the thought"* and *"The second beat is a solid delivery despite the name
+ * change, and the fourth beat is empty"*. Each describes the scoring rather than
+ * the speech, would read identically for a hundred other blocks, and tells her
+ * nothing the pills above it don't.
+ *
+ * Two rubric revisions failed to stop it, which is the signal to stop asking.
+ * The rule is mechanically checkable, so it is checked here instead of hoped
+ * for: the model proposes, this disposes. A prompt is the wrong place to
+ * enforce a constraint you can evaluate yourself.
+ *
+ * The test is **groundedness**, not punctuation: does any run of three
+ * consecutive words in the note also appear in the speech? That accepts a note
+ * that names the place it went wrong even if the model forgot the quote marks,
+ * and rejects generic commentary, which by construction shares no phrasing with
+ * Shakespeare.
+ *
+ * Dropping to "" is always safe — `coaching-plan.md` §4 has an empty note as
+ * the right answer more often than not. It matters more since §4's pause
+ * reversal: the rehearsal now *holds* on a note, so filler costs her seconds of
+ * the scene rather than merely being noise.
+ */
+const NOTE_GROUNDING_SHINGLE = 3;
+
+function groundedNote(note: string, input: CoachBlockInput): string {
+  const trimmed = note.trim();
+  if (trimmed.length === 0) return "";
+
+  const words = (text: string) =>
+    text.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(
+      Boolean,
+    );
+
+  const written = words(input.beats.map((beat) => beat.expected).join(" "))
+    .join(
+      " ",
+    );
+  const noteWords = words(trimmed);
+
+  for (let i = 0; i + NOTE_GROUNDING_SHINGLE <= noteWords.length; i++) {
+    const shingle = noteWords.slice(i, i + NOTE_GROUNDING_SHINGLE).join(" ");
+    if (written.includes(shingle)) return trimmed;
+  }
+
+  console.info(
+    `Dropped an ungrounded note for block ${input.blockId}: ${
+      JSON.stringify(trimmed.slice(0, 80))
+    }`,
+  );
+  return "";
 }
 
 /**

@@ -123,16 +123,41 @@ if (import.meta.main) {
     lowerNote.includes(word)
   );
 
+  // The quote test, checked rather than trusted. A note either carries words
+  // lifted from the written speech or it is filler that restates the marks —
+  // and filler is no longer harmless, because the rehearsal now *pauses* on a
+  // note (`coaching-plan.md` §4). A note that says nothing costs her six
+  // seconds of a scene.
+  const written = BLOCK.beats.map((beat) => beat.expected.toLowerCase()).join(
+    " ",
+  );
+  const quoted = [...result.note.matchAll(/"([^"]{2,})"|'([^']{4,})'/g)]
+    .map((match) => (match[1] ?? match[2]).toLowerCase().trim())
+    .filter((phrase) => phrase.split(/\s+/).length >= 2);
+  const quotesFromSpeech = quoted.filter((phrase) => written.includes(phrase));
+  const notePasses = result.note.length === 0 || quotesFromSpeech.length > 0;
+
   console.log("\n--- verdict ---");
   console.log(`bands correct:      ${bandsCorrect}/${EXPECTED_BANDS.length}`);
+  console.log(
+    `note quotes the speech (or is empty): ${
+      notePasses
+        ? result.note.length === 0
+          ? "yes — empty"
+          : `yes — ${JSON.stringify(quotesFromSpeech[0])}`
+        : "NO — filler, would pause the scene for nothing"
+    }`,
+  );
   console.log(
     `note stays off the transcript: ${
       offending.length === 0 ? "yes" : `NO — mentions ${offending.join(", ")}`
     }`,
   );
 
-  // The §8 regression is the failing condition. A band being off is a tuning
-  // question and worth seeing rather than exiting over; a note telling an actor
-  // to fix her punctuation is the specific bug this rubric was written against.
-  if (offending.length > 0) Deno.exit(1);
+  // Both are hard failures now. The §8 regression is a note telling an actor to
+  // fix punctuation she never typed; the quote test failing is a note that
+  // restates the marks, which since §4's pause reversal costs her six seconds of
+  // the scene rather than merely being useless. A band being off stays a tuning
+  // question, worth seeing rather than exiting over.
+  if (offending.length > 0 || !notePasses) Deno.exit(1);
 }
