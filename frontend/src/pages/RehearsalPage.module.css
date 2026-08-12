@@ -366,3 +366,40 @@
     bottom: calc(92px + env(safe-area-inset-bottom, 0px));
   }
 }
+
+/* "This run isn't being saved." Ash rather than terracotta: nothing has gone
+   wrong with the rehearsal, and the one thing this must not do is read as an
+   error in the middle of a scene. It sits inside the sticky header so it can't
+   be scrolled away from while it still applies, and it is dismissible because
+   a statement of fact only needs saying once. */
+.notRemembered {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-top: 6px;
+  padding: 8px 14px;
+  background: var(--bh-ash-light);
+  border-radius: var(--bh-radius-md);
+  font-family: var(--bh-font-sans);
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--bh-text-muted);
+  text-align: center;
+}
+
+.notRememberedDismiss {
+  flex: none;
+  min-height: var(--bh-tap-target-min);
+  padding: 0 4px;
+  background: transparent;
+  border: none;
+  color: var(--bh-gold-dark);
+  font-family: var(--bh-font-sans);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}

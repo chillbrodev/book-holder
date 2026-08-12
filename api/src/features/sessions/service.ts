@@ -60,6 +60,26 @@ export type FlaggedBeat = BeatMastery & {
   whatWasSaid: string;
 };
 
+/**
+ * One of her speeches, as the wrap-up shows it back.
+ *
+ * The note is the most coach-like thing this app produces and it used to exist
+ * only while the scene was on screen — stored in `block_coaching`, rendered
+ * live, and then gone the moment she left. Reading it back here is what turns it
+ * from a notification into a record.
+ */
+export type SpeechSummary = {
+  blockId: string;
+  /** Scene-local order, so the speeches read in the order she spoke them. */
+  firstLineNumber: number;
+  /** The coach's note, or empty — silence is the right answer more often than
+   * not (`coaching-plan.md` §4) and an empty note is not a missing one. */
+  note: string;
+  /** Per-beat confidence for this speech, in beat order. The band is derived
+   * from these at render time, never stored — see §6. */
+  confidences: number[];
+};
+
 export type SessionSummary = {
   sessionId: string;
   playId: string;
@@ -71,6 +91,21 @@ export type SessionSummary = {
   beatsRun: number | null;
   startedAt: string;
   flagged: FlaggedBeat[];
+  /**
+   * How much of what she set out to do she got through.
+   *
+   * This is migration 008's block-scoped session made visible. `blocksPlanned`
+   * comes from `session_block` — the intent recorded before she said a word —
+   * and `blocksRun` counts the ones that actually have scores. A scene run and a
+   * four-speech drill are the same two numbers.
+   */
+  blocksPlanned: number;
+  blocksRun: number;
+  /** Set only when every planned block was run to the end. Null is "she stopped
+   * early", which is now a kept rehearsal rather than a lost one. */
+  completedAt: string | null;
+  /** Her speeches this session, each with whatever the coach said about it. */
+  speeches: SpeechSummary[];
 };
 
 /** A sane ceiling on a claimed rehearsal length, since the duration comes from the
@@ -220,7 +255,7 @@ export const SessionService = {
     // Ordered by started_at, not by insertion: "the run she just did" is the
     // latest one, and a scene rehearsed twice must not show the earlier attempt.
     const session = await DbClient.getPool().query(
-      `SELECT id, play_id, act, scene_range, duration_seconds, beats_run, started_at
+      `SELECT id, play_id, act, scene_range, duration_seconds, beats_run, started_at, completed_at
          FROM session_history
         WHERE user_id = $1 AND play_id = $2 AND act = $3 AND scene_range = $4
           AND ($5::uuid IS NULL OR id = $5::uuid)
@@ -263,6 +298,46 @@ export const SessionService = {
       [row.id, userId],
     );
 
+    /**
+     * Her speeches, with the coach's note and the beat scores side by side.
+     *
+     * LEFT JOIN from `session_beat_score` rather than from `block_coaching`,
+     * because a speech she ran always has scores and only *sometimes* has a
+     * note — joining the other way would hide every speech the coach had
+     * nothing to say about, which is most of the good ones.
+     *
+     * Ordered by `line_number` for the reason recorded above `flagged`:
+     * `beat_number` is the beat's index within its block, so ordering by it
+     * interleaves speeches and puts several unrelated "beat 1"s together.
+     */
+    const speeches = await DbClient.getPool().query(
+      `SELECT l.block_id,
+              min(l.line_number) AS first_line_number,
+              coalesce(max(bc.note), '') AS note,
+              array_agg(sbs.confidence_score ORDER BY l.line_number) AS confidences
+         FROM session_beat_score sbs
+         JOIN lines l ON l.id = sbs.line_id
+         LEFT JOIN block_coaching bc
+                ON bc.session_id = sbs.session_id AND bc.block_id = l.block_id
+        WHERE sbs.session_id = $1
+        GROUP BY l.block_id
+        ORDER BY first_line_number`,
+      [row.id],
+    );
+
+    // Intent versus achievement, which is the whole point of migration 008.
+    // `blocksPlanned` is what she set out to run, recorded before she started;
+    // `blocksRun` is what actually has scores against it.
+    const coverage = await DbClient.getPool().query(
+      `SELECT
+         (SELECT count(*) FROM session_block WHERE session_id = $1) AS planned,
+         (SELECT count(DISTINCT l.block_id)
+            FROM session_beat_score sbs
+            JOIN lines l ON l.id = sbs.line_id
+           WHERE sbs.session_id = $1) AS run`,
+      [row.id],
+    );
+
     return {
       sessionId: row.id,
       playId: row.play_id,
@@ -271,6 +346,25 @@ export const SessionService = {
       durationSeconds: Number(row.duration_seconds ?? 0),
       beatsRun: row.beats_run === null ? null : Number(row.beats_run),
       startedAt: new Date(row.started_at).toISOString(),
+      completedAt: row.completed_at === null
+        ? null
+        : new Date(row.completed_at).toISOString(),
+      blocksPlanned: Number(coverage.rows[0]?.planned ?? 0),
+      blocksRun: Number(coverage.rows[0]?.run ?? 0),
+      speeches: speeches.rows.map((
+        speech: {
+          block_id: string;
+          first_line_number: number | string;
+          note: string;
+          confidences: (number | string)[];
+        },
+      ) => ({
+        blockId: speech.block_id,
+        firstLineNumber: Number(speech.first_line_number),
+        note: speech.note,
+        // `pg` hands back 64-bit numerics as strings; the array is no exception.
+        confidences: speech.confidences.map(Number),
+      })),
       flagged: flagged.rows.map((
         beat: RawMasteryRow & {
           act: string;

@@ -114,6 +114,12 @@ export function RehearsalPage() {
    * identical, only the memory differs (docs/coaching-plan.md §7).
    */
   const [sessionId, setSessionId] = useState<string | undefined>(undefined)
+  /** The session couldn't be opened. Distinct from "guest" in cause and
+   * identical in consequence, which is why they share one message below. */
+  const [sessionFailed, setSessionFailed] = useState(false)
+  /** Dismissed for this rehearsal. Not persisted — it is a statement of fact
+   * about *this* run, and a guest starting a new scene should be told again. */
+  const [noticeDismissed, setNoticeDismissed] = useState(false)
 
   const { micState, tapMic, retry, beatIndex, beatsCompleted, beatCount, stalled, transcript, heard, coaching, setMuted } =
     useMicCapture(activeUserBlockId, role?.id, sessionId)
@@ -171,7 +177,11 @@ export function RehearsalPage() {
         if (!cancelled) setSessionId(started.sessionId)
       })
       .catch((err) => {
+        // Told, not just logged — see `notRemembered` below. She can carry on
+        // either way, but she should not find out at the wrap-up that a scene
+        // she just ran was never written down.
         console.warn('This rehearsal will not be remembered:', err)
+        if (!cancelled) setSessionFailed(true)
       })
     return () => {
       cancelled = true
@@ -497,6 +507,33 @@ export function RehearsalPage() {
             <Icon name="play" size={18} />
             Tap to hear the other parts
           </button>
+        )}
+        {/* Shown when this run isn't being written down: a guest, or a session
+            that failed to open. Different causes, same consequence, so one
+            message covers both rather than making her distinguish them.
+            Deliberately not shown for a single-beat drill, which was never
+            going to be saved and where saying so would be noise.
+
+            Nothing blocks and nothing is demanded — the same rule as the
+            annotation slot (§4). She can dismiss it and rehearse exactly as
+            before; the only thing missing is the memory, which is precisely
+            what "Save Progress" has always been offering. */}
+        {!lineId && !sessionId && (!user || sessionFailed) && !noticeDismissed && (
+          <div className={styles.notRemembered}>
+            <span>
+              {user
+                ? "This run isn't being saved — something went wrong opening it."
+                : "This run won't be saved. Sign in and the Book Holder remembers how it went."}
+            </span>
+            <button
+              type="button"
+              className={styles.notRememberedDismiss}
+              onClick={() => setNoticeDismissed(true)}
+              aria-label="Dismiss"
+            >
+              Got it
+            </button>
+          </div>
         )}
         <div className={styles.controls}>
           <ToggleButton

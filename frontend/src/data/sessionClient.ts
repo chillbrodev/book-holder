@@ -50,6 +50,21 @@ export interface FlaggedBeat extends BeatMastery {
   whatWasSaid: string
 }
 
+/** One of her speeches, with whatever the coach said about it. */
+export interface SpeechSummary {
+  blockId: string
+  /** Scene-local order — the order she spoke them in. */
+  firstLineNumber: number
+  /** Empty when there was nothing worth saying, which is common and correct. */
+  note: string
+  /** Per-beat confidence, in beat order. Deliberately **not** rendered as bands
+   * here: the two cuts that turn a number into solid/close/dry are still unset
+   * (`docs/OPEN_ITEMS.md` §1a), and inventing them at the render layer is how a
+   * guess becomes product behaviour. Carried because the coach agent will want
+   * it. */
+  confidences: number[]
+}
+
 export interface SessionSummary {
   sessionId: string
   playId: string
@@ -61,6 +76,13 @@ export interface SessionSummary {
   beatsRun: number | null
   startedAt: string
   flagged: FlaggedBeat[]
+  /** What she set out to run, versus what she got through. Migration 008's
+   * block-scoped session, made visible. */
+  blocksPlanned: number
+  blocksRun: number
+  /** Null when she stopped early — a kept rehearsal, not a lost one. */
+  completedAt: string | null
+  speeches: SpeechSummary[]
 }
 
 /**

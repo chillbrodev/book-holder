@@ -69,6 +69,11 @@ export function WrapUpPage() {
   }
 
   const { summary } = result
+  // Only the speeches the coach actually said something about. An empty note is
+  // the right answer more often than not (`coaching-plan.md` §4), and a list of
+  // blank rows would suggest something failed rather than that a speech went
+  // fine.
+  const notedSpeeches = summary?.speeches.filter((speech) => speech.note.length > 0) ?? []
   const backParam = encodeURIComponent(`/play/${playId}/wrap-up/${act}/${scene}`)
   const { playRow, roleRow } = describeNeighbours(findSceneNeighbours(scenes ?? [], act, scene))
 
@@ -121,8 +126,51 @@ export function WrapUpPage() {
             {/* Null means the session predates the beats_run column, not that she
                 ran no beats — an em dash says "unrecorded", 0 would be a claim. */}
             <StatCard value={summary.beatsRun ?? '—'} label="Beats run" />
+            {/* What she set out to run against what she got through. A scene run
+                and a four-speech drill are the same two numbers, which is the
+                point of a session being a set of blocks (migration 008). */}
+            <StatCard
+              value={`${summary.blocksRun}/${summary.blocksPlanned}`}
+              label="Speeches run"
+            />
             <StatCard value={summary.flagged.length} label="Worth another look" tone="terracotta" />
           </div>
+          {/* Said plainly rather than left to be inferred from the fraction
+              above. Stopping early is a normal way to rehearse and no longer
+              loses anything, so this states the fact without framing it as a
+              failure. */}
+          {summary.completedAt === null && summary.blocksRun < summary.blocksPlanned && (
+            <p className={styles.partial}>
+              You stopped after {summary.blocksRun} of your {summary.blocksPlanned} speeches
+              — everything you ran is saved.
+            </p>
+          )}
+          {notedSpeeches.length > 0 && (
+            <>
+              <div className={`bh-eyebrow ${styles.sectionLabel}`}>From the wings</div>
+              <div className={styles.notes}>
+                {notedSpeeches.map((speech) => {
+                  const flaggedHere = summary.flagged.filter(
+                    (beat) => beat.blockId === speech.blockId,
+                  ).length
+                  return (
+                    <div key={speech.blockId} className={styles.note}>
+                      <p className={styles.noteText}>{speech.note}</p>
+                      {/* A count rather than a band. The two cuts that turn a
+                          confidence into solid/close/dry are still unset, and
+                          this number is already stored and already means
+                          exactly one thing. */}
+                      {flaggedHere > 0 && (
+                        <span className={`bh-meta ${styles.noteMeta}`}>
+                          {flaggedHere} {flaggedHere === 1 ? 'beat' : 'beats'} worth another look
+                        </span>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </>
+          )}
           {summary.flagged.length > 0 && (
             <>
               <div className={`bh-eyebrow ${styles.sectionLabel}`}>Worth another look</div>

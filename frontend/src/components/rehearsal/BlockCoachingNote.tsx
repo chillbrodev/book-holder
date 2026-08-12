@@ -57,6 +57,17 @@ export function BlockCoachingNote({ coaching, beatCount }: BlockCoachingNoteProp
         ))}
       </div>
       {coaching.note.length > 0 && <p className={styles.note}>{coaching.note}</p>}
+      {/* Said only when it is true, and said quietly.
+          `fallback` means Bedrock was unreachable and these bands came from word
+          overlap rather than judgement — which cannot tell a paraphrase from a
+          miss, and is exactly the thing the coach exists to do. Without this the
+          two are indistinguishable on screen, and an app that silently overstates
+          how well it understood her is worse than one that admits it didn't. */}
+      {coaching.source === 'fallback' && (
+        <p className={`bh-meta ${styles.degraded}`}>
+          Matched on words this time — the coach couldn't be reached.
+        </p>
+      )}
     </div>
   )
 }
