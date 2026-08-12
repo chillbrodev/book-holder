@@ -11,10 +11,13 @@ about it, so nobody re-litigates the settled part.
 
 ## 1. Agentic coaching
 
-The core of the product and the least built part of it. `BE_PLAN.md:60` —
-Transcribe and Bedrock are both "not started." What exists today is the
-segmentation that makes them possible: the **beat**, one thought, which is what
-gets scored and what `line_mastery` keys on (`beats-and-blocks-plan.md` §2).
+*Was: "the least built part of it… Transcribe and Bedrock are both not started."*
+Both are built and running as of August 11 2026 — Transcribe through the capture socket,
+Nova Micro through `features/coaching`, one call per block. What remains genuinely unbuilt
+is the **agent**: nothing yet reads this memory back and decides what she should run next.
+
+The segmentation underneath is unchanged: the **beat**, one thought, is what gets scored
+and what `line_mastery` keys on (`beats-and-blocks-plan.md` §2).
 
 ### 1a. The fuzzy-match threshold — the biggest open question in the product
 
@@ -42,8 +45,24 @@ Formerly related and now closed: style guide §11's "a near-miss and a full blan
 read identically in the wrap-up" — the bands answer that. What is open is where
 the cuts fall, not whether the distinction exists.
 
-Worth settling **before** Bedrock is wired, not after — it determines what the
-comparison prompt is even asking for.
+~~Worth settling **before** Bedrock is wired, not after.~~ **Bedrock is wired, and the
+cuts are still unset — deliberately.** `coaching-plan.md`'s rubric asks the model for the
+band directly alongside the continuous score, so nothing in the live path derives a band
+from a number today. That was the smaller invention: picking 0.9 and 0.5 here and shipping
+them would have hardened two guesses into product behaviour, where asking a model that is
+already judging meaning for the judgement is the thing it is for.
+
+So this item is no longer blocking, and it has not gone away. Two places still want it:
+
+- **The wrap-up shows no bands**, only a count of flagged beats, precisely because
+  deriving one at the render layer would mean inventing the cuts. That is a real gap in
+  what she can see after a run.
+- **`confidence_score` is stored for every beat of every session**, which is the dataset
+  this needs — but a stored number and a model-returned band can drift apart, and nothing
+  currently checks that they agree.
+
+The right time to settle them is once there are real sessions to plot: the model's own
+bands become the labels, and the cuts can be fitted to them rather than guessed.
 
 **Now measurable rather than hypothetical.** Capture is built, and the dev-only
 `CaptureDebugInfo` puts the live transcript under the speech. One finding already
@@ -94,8 +113,13 @@ audible at all.
 Derived at read time from beat count (≥6 beats: 22 such blocks in Merry Wives).
 Not a separate parse — a coaching mode:
 
-- **Cap the notes.** A 16-beat speech could yield 16; a director gives two or
-  three. Rank by severity, rest to the Prompt Book.
+- ~~**Cap the notes.** A 16-beat speech could yield 16~~ — **mostly answered by the
+  shape of the call.** Coaching returns exactly **one** note per block, not one per beat
+  (`coaching-plan.md` §1), so the 16-note case cannot arise. And `groundedNote` drops any
+  note that shares no three-word run with the written speech, which removes the filler
+  Nova produces when it has nothing to say. What is left of this item is narrower: on a
+  long speech, one note may be too *few* to cover two unrelated problems — the opposite
+  worry to the one recorded here.
 - **Mastery is the weakest beat, not the average** — averaging hides the one
   place she drops every time, which is the entire point of the feature.
 - **Drill a section.** You cannot fix beat 7 by re-running 27 lines. Beat ±
@@ -319,6 +343,23 @@ None of these block anything.
 ---
 
 ## 6. Recently closed, so nobody reopens them
+
+Closed August 11 2026:
+
+- ~~Whether vector search ships at all~~ — it does, and it is not optional: the hackathon
+  requires two CockroachDB tools. All 1,705 beats embedded, both columns indexed
+  (migration 007). `ORCHESTRATION_PLAN.md` had it as cut-first scope; that is corrected
+  there.
+- ~~Whether L2 is CockroachDB's only distance~~ — it is not. `<->`, `<=>` and `<#>` all
+  work on v26.2.5, verified against the live cluster. Normalizing is still right, for the
+  better reason that it makes the operator choice moot.
+- ~~Whether a session and a scene are the same thing~~ — they are not (migration 008). A
+  session is a set of blocks; a scene is one kind of set. Drilling four speeches is a
+  rehearsal, and abandoning one no longer loses it.
+- ~~Whether the coach can be told not to restate the marks~~ — **no, and it stopped being
+  worth asking.** Three rubric revisions failed. The rule is mechanically checkable, so it
+  is checked in code (`groundedNote`). Recorded as a lesson rather than a defeat: a prompt
+  is the wrong place to enforce a constraint you can evaluate yourself.
 
 - ~~Whether display and coaching need the same unit~~ — they don't, and they
   never contend: Polly voices only other characters' lines, the mic captures
