@@ -14,9 +14,14 @@ against: screens, the older-user usability bar (treated as a requirement, not a 
 parchment/ink identity is in place as CSS custom properties (`src/styles/tokens.css`) with CSS Modules per
 component.
 
-**Rendering, but on mock data**: `WrapUpPage` and `PromptBookPage` (`src/data/mock/*`). They need mastery
-rows that don't exist server-side yet, and their fabricated line ids drift further from real data with every
-change — move them as the transactional write lands, not before.
+**Rendering, but on mock data**: `PromptBookPage` only (`src/data/mock/*`). `WrapUpPage` came off fixtures
+when the session write landed — it reads `sessions/summary`, and as of August 11 2026 also shows the
+per-speech coaching notes and how many speeches were run against how many were planned.
+
+**Coaching is live in the rehearsal itself** (`coaching-plan.md`): about a second after each speech, a band
+per beat lands under it — *solid* / *close* / *dry* — and the scene holds with a **Continue** button when
+there is something worth reading. A guest sees identical coaching and is told, quietly, that the run isn't
+being saved.
 
 **Real, as of August 7 2026**: the mic. `useMicSimulation`'s timer-driven state machine is gone, replaced by
 `useMicCapture` — `getUserMedia` → `AudioWorklet` (`public/pcm-capture-processor.js`) → 16 kHz PCM →
@@ -103,7 +108,7 @@ Matches the week-by-week sequence in `ORCHESTRATION_PLAN.md`.
    play from the Polly cache; the mic half is simulated. This is the core demo screen — most design and
    testing time goes here. Note the display unit is the **block** (one speech), not the beat: beats are what
    get scored, and they cross-cut verse lines, which is why highlighting one is unsolved (§6).
-3. **Session summary / coaching note** — renders, on mock data. What the agent decided to emphasize next
+3. ~~**Session summary / coaching note** — renders, on mock data.~~ Real. What the agent decided to emphasize next
    time, written in plain, encouraging language (not a raw score dump).
 4. **History / recordings playback** — not started; needs the write path.
 
@@ -132,8 +137,21 @@ Matches the week-by-week sequence in `ORCHESTRATION_PLAN.md`.
 ## 6. Open items to verify while building
 
 - ~~HeroUI's theming API~~ — moot; no component library was used (§1).
-- `MediaRecorder` support/permission-prompt differences across target browsers, confirmed on a real device,
-  not just desktop Chrome.
+- ~~`MediaRecorder` support/permission-prompt differences across target browsers~~ — wrong target. It cannot
+  produce an encoding Transcribe streaming accepts (`capture-plan.md` §3), and its place here is the S3
+  session recording. `AudioWorklet` and the mic permission prompt are what need the real-device pass (§5).
+- ~~**Audio playback across browsers.**~~ **Answered the hard way on a real iPhone, August 11 2026.** iOS
+  Safari grants playback **per `<audio>` element, not per page**, so `new Audio(url)` per line could never
+  work: each fresh element needed its own user gesture, and `play()` was being called after a network await
+  that had already ended the activation. The rejection landed in the same `catch` written for "the synthesis
+  request failed", so the app skipped every other character's line 650ms apart in silence until it reached
+  hers. Now one shared element, unlocked once on the first tap anywhere in the app
+  (`utils/audioPlayback.ts`), and a refusal is surfaced rather than treated as a missing cue.
+- **Mobile layout is done and has its own rule** (`tokens.css`): two breakpoints, on different axes.
+  `COMPACT` is `(max-width: 600px), (max-height: 500px)` and owns everything that buys height; `NARROW` is
+  `(max-width: 600px)` and owns everything that buys width. A single width breakpoint standing in for "phone"
+  is wrong in a way that only appears on rotation — a landscape phone is 844x390, wider than the breakpoint
+  and shorter than anything written for it.
 - **Highlighting the active beat inside verse is unsolved.** Beats cross-cut verse lines — a boundary usually
   falls mid-line — so "highlight the active beat" and "keep the lineation" fight each other: you cannot box a
   beat without either breaking the layout or highlighting partial lines. The "Line?" prompt sidesteps it by

@@ -8,13 +8,29 @@ first to get oriented, then `BE_PLAN.md` for the fuller rationale/history behind
 
 ## 0. Status
 
-**Built**: Deno + Hono runtime, `clients/` (config + DB), `errors/` (base error pattern), `features/app`
-(composition root), `features/auth` (username + PIN auth, full register/login/logout/me flow, PIN lockout).
-Dockerfile + `infra/aws/ecs-deploy.sh` exist and are verified but **not deployed** — deliberately holding off
-until there's more to deploy (see `ORCHESTRATION_PLAN.md`).
+*Rewritten August 11 2026. This section said "nothing past auth exists yet" and "not deployed";
+both had been untrue for some time.*
 
-**Not built**: any rehearsal-flow endpoints (play/role/scene picker, line playback, submission/comparison,
-session write) — nothing past auth exists yet. No Bedrock/Polly/Transcribe/S3 wiring.
+**Deployed.** Push to `main` touching `api/**` builds, pushes to ECR and rolls the ECS service
+(`.github/workflows/deploy-api.yml`). `GET /health` returns `{version: "<short sha>"}` — match it
+against `git rev-parse --short HEAD`, because a 200 alone proves nothing while two revisions are
+serving. `ecs-deploy.sh` is infrastructure bootstrap, not the deploy path.
+
+**Every endpoint below is built**, and all four AWS integrations are wired: Polly (S3-cached audio),
+Transcribe (the capture socket), Bedrock Nova Micro (coaching) and Bedrock Titan V2 (embeddings).
+
+| Route | | |
+|---|---|---|
+| `POST /auth/register` `login` `logout`, `GET /auth/me` | auth-gated where it must be | §6 |
+| `GET /plays` | shelf | |
+| `GET /plays/:playId/scenes/:act/:scene/dialogue` | the script, beats grouped into blocks | |
+| `GET /polly/blocks/:blockId/audio` | **billed on a cache miss, and writes to S3** — never use it to smoke-test a deploy | |
+| `GET /capture/blocks/:blockId` | **WebSocket.** PCM up; `ready`/`progress`/`complete`/`scored` down. Auth-*aware*, not auth-gated | `capture-plan.md`, `coaching-plan.md` §7 |
+| `POST /sessions/start`, `POST /sessions/:sessionId/complete` | the session lifecycle — a row exists before she speaks | `coaching-plan.md` §6 |
+| `GET /sessions/plan`, `GET /sessions/summary` | read her history | |
+| `POST /sessions` | **superseded.** The old end-of-scene write, no longer used by the rehearsal page; blocks are written as they finish | |
+
+**Not built**: the scene-summary call (`coaching-plan.md` §5) and the coach agent.
 
 ---
 
@@ -43,7 +59,15 @@ session write) — nothing past auth exists yet. No Bedrock/Polly/Transcribe/S3 
 | `dev` | `deno run --watch --allow-net --allow-env --allow-read=../.env src/main.ts` | Local dev, auto-restart on change |
 | `start` | same as `dev` minus `--watch` | Manual local run |
 | `production` | same as `start` | **What the Dockerfile's `CMD` actually runs** (`["task", "production"]`) — single source of truth for prod permission flags instead of duplicating them in the Dockerfile |
-| `test` | `deno test --allow-net --allow-env --allow-read=../.env` | `deno task test` |
+| `test` | `deno test --allow-net --allow-env --allow-read=../.env` | `deno task test` — 68 tests, no AWS, no billing |
+| `test-coach-block` | `src/scripts/testCoachBlock.ts` | The coaching rubric against **real Nova**. Fails on an ungrounded note. Re-run after touching the rubric |
+| `test-capture-socket` | `src/scripts/testCaptureSocket.ts` | `ready -> complete -> scored` over the **real socket**, no microphone. **Re-run after any change to the capture route** — it was not, once, and a cookie read placed after the WebSocket upgrade broke every capture in the app while reporting itself as a microphone fault |
+| `test-session-lifecycle` | `src/scripts/testSessionLifecycle.ts` | start/record/complete against the **real database**, deleting everything it made |
+| `embed-beats` | `src/scripts/embedBeats.ts` | Backfills `lines.embedding` via Titan V2. Dry run unless `--yes`, resumable, `--limit` to prove the model before a full pass |
+| `warm-polly-cache` | `src/scripts/warmPollyCache.ts` | Bulk Polly synthesis. **Billed**, dry run by default — keep it that way |
+
+The four `test-*` tasks and `embed-beats` hit real AWS and the real database and are **billed**, which is
+why they are tasks rather than part of `deno task test`. Each covers something no unit test can.
 
 `--allow-read=../.env` is granted in every task (including `production`) even though the container never has
 that file — the permission *grant* is required before Deno will even check whether the file exists;
@@ -244,7 +268,9 @@ exercises the real validation logic (still without a DB — see §8).
 
 ---
 
-## 8. Deployment (built, not yet run)
+## 8. Deployment (live)
+
+Push to `main` touching `api/**` is the deploy. The rest of this section is the machinery under it.
 
 - `Dockerfile` — `denoland/deno:2.9.4` base, runs as the non-root `deno` user for the whole build (not just
   runtime) by `chown`ing `/app` before `deno install`/copying source in — works around

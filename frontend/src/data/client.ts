@@ -1,7 +1,10 @@
 /**
- * Play/character/scene/dialogue data is real now (api's features/plays) —
- * see FE-Stub-Plan.md's original stub shapes, which this was deliberately
- * built to match so swapping in a real fetch required no caller changes.
+ * Play/character/scene/dialogue data is real now (api's features/plays).
+ *
+ * This module began as a stub layer shaped after the database schema rather
+ * than after whatever the screens happened to want, so that swapping in a real
+ * fetch needed no caller changes. It worked — the callers never moved. Worth
+ * knowing because the shapes here look over-engineered for a mock and weren't.
  *
  * Still mock/localStorage-backed, on purpose: getSelectedRole/selectRole's
  * persistence, and getPromptBookSummary.
