@@ -220,11 +220,33 @@ export const PlaysService = {
     }));
   },
 
-  /** Interleaves lines and stage directions into one ordered stream, same
-   * merge rule as the frontend's mock buildSceneDialogue: a direction with
-   * after_line_number = N sorts immediately before line N. Doesn't compute
-   * isUserLine — that depends on which character the browser has locally
-   * selected to rehearse as, which this endpoint has no notion of. */
+  /**
+   * Interleaves beats and stage directions into one ordered stream.
+   *
+   * **A direction with `after_line_number = N` sorts immediately *after* beat N,
+   * which is what the column name has always said and what the importer has
+   * always meant** — it writes the running `lineNumber`, i.e. the last beat the
+   * direction follows (`buildRows.ts`). This used to sort it *before* beat N,
+   * and the tiebreak was the whole bug.
+   *
+   * It broke 79 of 1,060 blocks — every one where a direction is anchored to a
+   * block's *last* beat, which is the common case, since directions mostly fall
+   * between speeches. The effect was that the direction landed one beat early,
+   * inside the block it should have followed, splitting that block into two
+   * display entries **sharing one `block_id`**.
+   *
+   * Two symptoms, and the audible one is why it was found: `getBlockAudio` keys
+   * on the block, so both halves requested the same recording — the whole
+   * speech — and the scene read it twice, jumping ahead through text it hadn't
+   * shown and then apparently starting the speech again. On screen it also put
+   * "Exeunt" before a scene's final line rather than after it.
+   *
+   * `after_line_number = 0` still sorts before everything: beats are numbered
+   * from 1, so a scene-opening direction has no beat to tie with.
+   *
+   * Doesn't compute isUserLine — that depends on which character the browser
+   * has locally selected to rehearse as, which this endpoint has no notion of.
+   */
   async getSceneDialogue(
     playId: string,
     act: string,
@@ -252,32 +274,23 @@ export const PlaysService = {
       ),
     ]);
 
-    type Sortable = {
-      sortKey: number;
-      tiebreak: number;
-      entry: DialogueEntryRow;
-    };
-    const sortable: Sortable[] = [
-      ...lines.rows.map((r: RawLineRow): Sortable => ({
-        sortKey: Number(r.line_number),
-        tiebreak: 1,
+    return interleaveSceneStream(
+      lines.rows.map((r: RawLineRow) => ({
+        lineNumber: Number(r.line_number),
         entry: mapLineRow(r),
       })),
-      ...directions.rows.map((
+      directions.rows.map((
         r: {
           after_line_number: number | string;
           sequence: number | string;
           text: string;
         },
-      ): Sortable => ({
-        sortKey: Number(r.after_line_number),
-        tiebreak: 0,
-        entry: { type: "stage", text: r.text },
+      ) => ({
+        afterLineNumber: Number(r.after_line_number),
+        sequence: Number(r.sequence),
+        entry: { type: "stage" as const, text: r.text },
       })),
-    ];
-
-    sortable.sort((a, b) => a.sortKey - b.sortKey || a.tiebreak - b.tiebreak);
-    return sortable.map((s) => s.entry);
+    );
   },
 
   async getLine(lineId: string): Promise<DialogueEntryRow> {
@@ -320,3 +333,69 @@ export const PlaysService = {
     return result.rows.map(mapLineRow);
   },
 };
+
+export interface SceneBeat {
+  lineNumber: number;
+  entry: DialogueEntryRow;
+}
+
+export interface SceneDirection {
+  /** The beat this direction follows. 0 means "before the scene's first beat" —
+   * beats are numbered from 1, so an opening direction ties with nothing. */
+  afterLineNumber: number;
+  /** Import order among directions sharing an anchor. */
+  sequence: number;
+  entry: DialogueEntryRow;
+}
+
+/**
+ * Merge beats and stage directions into the order they are read in.
+ *
+ * Extracted from `getSceneDialogue` and exported for the test beside it,
+ * because the whole of this function's behaviour is two comparisons and both
+ * of them were wrong in ways nothing failed on.
+ *
+ * **A direction anchored to beat N comes after beat N.** It used to come
+ * before, which put 79 of the corpus's 1,060 blocks in the wrong shape — every
+ * block whose last beat a direction was anchored to. The block was then split
+ * into two display entries sharing one `block_id`, and since `getBlockAudio`
+ * keys on the block, both halves asked for the same recording and the scene
+ * read the whole speech twice.
+ *
+ * **Directions sharing an anchor keep their import order.** `sequence` was
+ * being selected and then not used, so I.iv's "They retire" and "Enter FORD
+ * with PISTOL, and PAGE" — both anchored to beat 59 — came back in whatever
+ * order the rows arrived in.
+ */
+export function interleaveSceneStream(
+  beats: SceneBeat[],
+  directions: SceneDirection[],
+): DialogueEntryRow[] {
+  type Sortable = {
+    sortKey: number;
+    isDirection: number;
+    sequence: number;
+    entry: DialogueEntryRow;
+  };
+  const sortable: Sortable[] = [
+    ...beats.map((b): Sortable => ({
+      sortKey: b.lineNumber,
+      isDirection: 0,
+      sequence: 0,
+      entry: b.entry,
+    })),
+    ...directions.map((d): Sortable => ({
+      sortKey: d.afterLineNumber,
+      isDirection: 1,
+      sequence: d.sequence,
+      entry: d.entry,
+    })),
+  ];
+
+  sortable.sort((a, b) =>
+    a.sortKey - b.sortKey ||
+    a.isDirection - b.isDirection ||
+    a.sequence - b.sequence
+  );
+  return sortable.map((s) => s.entry);
+}
