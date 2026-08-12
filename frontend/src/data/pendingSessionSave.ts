@@ -17,13 +17,17 @@
  * doesn't block; the waiting happens on the page where a failed save is worth
  * mentioning anyway.
  */
-import type { SavedSession } from './sessionClient'
-
+/**
+ * Only the session id is needed, and narrowing to it is deliberate. This used to
+ * carry the whole `SavedSession` from the one end-of-scene write; blocks are now
+ * persisted as they finish and the closing call reports whether the run counted
+ * as complete, not what was scored. The wrap-up never read anything else.
+ */
 interface PendingSave {
   playId: string
   act: string
   scene: string
-  result: Promise<SavedSession>
+  result: Promise<{ sessionId: string }>
 }
 
 let lastSave: PendingSave | null = null
@@ -40,7 +44,11 @@ export function recordSessionSave(save: PendingSave): void {
  * free, and React re-runs effects), but navigating to some older wrap-up URL
  * later must not pick up a stale save and read the wrong session back.
  */
-export function pendingSessionSave(playId: string, act: string, scene: string): Promise<SavedSession> | null {
+export function pendingSessionSave(
+  playId: string,
+  act: string,
+  scene: string,
+): Promise<{ sessionId: string }> | null {
   if (!lastSave || lastSave.playId !== playId || lastSave.act !== act || lastSave.scene !== scene) {
     return null
   }

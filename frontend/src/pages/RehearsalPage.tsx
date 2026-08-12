@@ -4,7 +4,7 @@ import { getPlay, getSceneDialogue, getSelectedRole, getSingleLineDialogue, setL
 import { getBlockAudio } from '../data/pollyClient'
 import { isPlaybackBlocked, playUrl, unlockPlayback } from '../utils/audioPlayback'
 import type { PlaybackSession } from '../utils/audioPlayback'
-import { saveSession } from '../data/sessionClient'
+import { completeSession, startSession } from '../data/sessionClient'
 import { recordSessionSave } from '../data/pendingSessionSave'
 import { useAsync } from '../hooks/useAsync'
 import { useAuth } from '../auth/useAuth'
@@ -14,6 +14,8 @@ import { StageDirection } from '../components/rehearsal/StageDirection'
 import { MicStateIndicator } from '../components/rehearsal/MicStateIndicator'
 import { CaptureDebugInfo } from '../components/rehearsal/CaptureDebugInfo'
 import { HeardSoFar } from '../components/rehearsal/HeardSoFar'
+import { BlockCoachingNote } from '../components/rehearsal/BlockCoachingNote'
+import type { BlockScored } from '../hooks/useMicCapture'
 import { Button } from '../components/core/Button'
 import { Icon } from '../components/core/Icon'
 import { ToggleButton } from '../components/core/ToggleButton'
@@ -103,8 +105,18 @@ export function RehearsalPage() {
   const activeUserBlockId =
     activeEntry?.type === 'speech' && activeEntry.isUserLine ? activeEntry.blockId : undefined
 
-  const { micState, tapMic, retry, beatIndex, beatsCompleted, beatCount, stalled, transcript, heard, setMuted } =
-    useMicCapture(activeUserBlockId, role?.id)
+  /**
+   * The open session this rehearsal writes into, once there is one.
+   *
+   * `undefined` for a guest and for a single-beat drill, and briefly undefined
+   * at the very start of every rehearsal while the request is in flight. All
+   * three are the same case as far as this page is concerned: coaching is
+   * identical, only the memory differs (docs/coaching-plan.md §7).
+   */
+  const [sessionId, setSessionId] = useState<string | undefined>(undefined)
+
+  const { micState, tapMic, retry, beatIndex, beatsCompleted, beatCount, stalled, transcript, heard, coaching, setMuted } =
+    useMicCapture(activeUserBlockId, role?.id, sessionId)
 
   // Every beat she's attempted this scene, keyed by lineId so a block re-entered
   // (a retry, or a re-render delivering the same `complete`) overwrites rather
@@ -114,10 +126,58 @@ export function RehearsalPage() {
   // When this scene started, for session_history.duration_seconds.
   const startedAtRef = useRef(Date.now())
 
+  /**
+   * Every block's score so far, keyed by blockId.
+   *
+   * The hook only reports the most recent one, but a score belongs to its block
+   * for the rest of the scene — she should be able to scroll back and still see
+   * how the speech three blocks ago went. State rather than a ref because the
+   * annotations render from it.
+   */
+  const [coachingByBlock, setCoachingByBlock] = useState<Map<string, BlockScored>>(new Map())
+
+  useEffect(() => {
+    if (!coaching) return
+    setCoachingByBlock((previous) => new Map(previous).set(coaching.blockId, coaching))
+  }, [coaching])
+
   useEffect(() => {
     attemptsRef.current = new Map()
     startedAtRef.current = Date.now()
+    setCoachingByBlock(new Map())
   }, [playId, act, scene, lineId])
+
+  /**
+   * Open the session before she says anything.
+   *
+   * `coaching-plan.md` §6 moved this from the end of the scene to the start,
+   * because per-block writes need somewhere to write while the scene is still
+   * running. The consequence it also fixes: abandoning a scene used to lose the
+   * entire run, and now keeps every block she actually got through.
+   *
+   * Skipped for a single-beat drill (`?line=`) — that is a practice run rather
+   * than a rehearsal of a scene — and for guests, who have no user row to hang
+   * a session on.
+   *
+   * A failure here is deliberately not surfaced. She can still rehearse, still
+   * be listened to, and still be coached; the run simply isn't remembered,
+   * which is the guest experience and not an error worth a dialog mid-scene.
+   */
+  useEffect(() => {
+    if (lineId || !user || !play || !role) return
+    let cancelled = false
+    startSession({ playId: play.id, act, scene, characterId: role.id })
+      .then((started) => {
+        if (!cancelled) setSessionId(started.sessionId)
+      })
+      .catch((err) => {
+        console.warn('This rehearsal will not be remembered:', err)
+      })
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the ids, deliberately, not the objects: `play`, `role` and `user` are re-derived every render, and depending on them would open a fresh session on each one
+  }, [play?.id, act, scene, role?.id, user?.id, lineId])
 
   // The per-beat split arrives with the capture's `complete` event. This is the
   // point where what she said stops being ephemeral — until now it was computed,
@@ -193,33 +253,34 @@ export function RehearsalPage() {
    * hang a session on.
    */
   function submitSession() {
-    if (lineId || !user || !play) return
-    const attempts = [...attemptsRef.current].map(([id, heardText]) => ({
-      lineId: id,
-      heard: heardText,
-    }))
-    // Nothing to record: she never reached one of her own lines, or the mic never
-    // worked. An empty session is not worth a row.
-    if (attempts.length === 0) return
+    // No session means a guest, a single-beat drill, or a rehearsal whose
+    // session never opened. Nothing to close in any of those cases — and
+    // nothing lost either, because there was never anything being written.
+    if (lineId || !user || !play || !sessionId) return
 
-    const result = saveSession({
-      playId: play.id,
-      act,
-      scene,
-      durationSeconds: Math.round((Date.now() - startedAtRef.current) / 1000),
-      attempts,
-    })
+    // Her beats are already stored. Each block was written as it finished, over
+    // the capture socket, which is what makes an abandoned scene keep the part
+    // she did rather than losing all of it. This call only says the run has
+    // stopped; the server decides whether it *counted* as finished, by checking
+    // that every block she meant to run has all its beats scored.
+    const result = completeSession(
+      sessionId,
+      Math.round((Date.now() - startedAtRef.current) / 1000),
+    ).then(() => ({ sessionId }))
 
-    // Handed to the wrap-up so it can read back *this* run rather than racing the
-    // write and finding the previous one. Recorded before the catch below, so
-    // what's parked is the promise that still carries the session id.
+    // Handed to the wrap-up so it reads back *this* run rather than racing the
+    // write and finding the previous one. Much less of a race than it used to
+    // be — the beats are already down — but the closing call still has to land
+    // before the summary is read, or the duration is missing.
     recordSessionSave({ playId: play.id, act, scene, result })
 
     void result.catch((err) => {
-      // Deliberately not surfaced as a blocking error — see above. Logged so a
-      // failure is diagnosable rather than silent. The wrap-up awaits the same
-      // promise and is where she's actually told the run wasn't saved.
-      console.error('Could not save this rehearsal:', err)
+      // Not surfaced as a blocking error: she has finished the scene and is on
+      // her way to the wrap-up, which is where a failure is worth mentioning.
+      // Note what is *not* lost here any more — the rehearsal itself is already
+      // stored, so this failing costs the duration and the completed_at flag,
+      // not the run.
+      console.error('Could not close this rehearsal:', err)
     })
   }
 
@@ -503,9 +564,20 @@ export function RehearsalPage() {
           if (!active) {
             // Speaker name stays even when the text is hidden — she still needs
             // to follow who's talking to know when her cue lands.
+            //
+            // Her own blocks keep their annotation after the mic has moved on,
+            // so scrolling back shows how a speech went rather than a blank.
+            // Other characters' blocks get nothing: they were never scored, and
+            // a reserved slot under every line of the scene would be a lot of
+            // empty space to buy nothing.
+            const scoredBefore = entry.isUserLine ? coachingByBlock.get(entry.blockId) : undefined
             return (
               <div key={entry.blockId} ref={ref} className={styles.lineAnchor}>
-                <DialogueLine block={entry} overrideText={showOtherLines ? undefined : ''} />
+                <DialogueLine block={entry} overrideText={showOtherLines ? undefined : ''}>
+                  {scoredBefore && (
+                    <BlockCoachingNote coaching={scoredBefore} beatCount={entry.beats.length} />
+                  )}
+                </DialogueLine>
               </div>
             )
           }
@@ -552,6 +624,15 @@ export function RehearsalPage() {
                   beatIndex={beatIndex}
                   beatCount={entry.beats.length}
                   transcript={transcript}
+                />
+                {/* Directly beneath the words it is judging, and beneath the
+                    live transcript that produced them — HeardSoFar shows what
+                    was heard, this shows what was made of it. Reserved from the
+                    moment the block becomes active, so the score landing a
+                    second later moves nothing. */}
+                <BlockCoachingNote
+                  coaching={coachingByBlock.get(entry.blockId)}
+                  beatCount={entry.beats.length}
                 />
                 <div className={styles.actions}>
                   {micState === 'cantHear' && (

@@ -95,6 +95,53 @@ export function getSessionPlan(
   return apiRequest(`/sessions/plan?${query}`)
 }
 
+/**
+ * Open a session before she says anything.
+ *
+ * `docs/coaching-plan.md` §6: the row exists from the start, because per-block
+ * coaching needs somewhere to write while the scene is still running. The id it
+ * returns is carried on the capture socket, which is what turns a rehearsal into
+ * something remembered.
+ *
+ * 401 for a guest, which is expected rather than exceptional — callers should
+ * treat a failure here as "this run won't be remembered" and carry on. Nothing
+ * about rehearsing depends on it.
+ */
+export function startSession(input: {
+  playId: string
+  act: string
+  scene: string
+  characterId: string
+  /** Defaults to the whole scene. `blocks` is a drill set — a session is a set
+   * of blocks and a scene is one kind of set (migration 008). */
+  scope?: 'scene' | 'blocks'
+  /** Required for `scope: 'blocks'`. */
+  blockIds?: string[]
+  /** Who chose them. `coach` is what later makes a recommendation checkable
+   * against what she actually ran. */
+  source?: 'user' | 'coach'
+}): Promise<{ sessionId: string }> {
+  return apiRequest('/sessions/start', { method: 'POST', body: JSON.stringify(input) })
+}
+
+/**
+ * Mark the run finished — or leave it abandoned, which is also a real outcome
+ * and no longer loses the whole rehearsal.
+ *
+ * The server decides whether it counts as complete: every block she meant to run
+ * has to have all of its beats scored. Calling this does not assert that it went
+ * well, only that it stopped.
+ */
+export function completeSession(
+  sessionId: string,
+  durationSeconds: number,
+): Promise<{ completed: boolean; beatsRun: number; beatsPlanned: number }> {
+  return apiRequest(`/sessions/${sessionId}/complete`, {
+    method: 'POST',
+    body: JSON.stringify({ durationSeconds }),
+  })
+}
+
 export function saveSession(input: {
   playId: string
   act: string

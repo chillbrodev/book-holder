@@ -114,19 +114,41 @@ export interface MicCaptureResult {
   /** Per-beat text once the block is done — the (expected, heard) pairs the
    * comparison step will score. Empty until `captured`. */
   heard: { lineId: string; beatNumber: number; heard: string }[]
+  /**
+   * How the block was judged, once the coach has answered. `undefined` until
+   * then, and possibly forever — it is a round trip that can be slow, can be
+   * the deterministic fallback, and never arrives on a socket she closed by
+   * walking away.
+   *
+   * Nothing may block on it (docs/coaching-plan.md §4). Advancing to the next
+   * block never waits for a score, and the annotation slot renders a quiet
+   * pending state rather than a hole.
+   */
+  coaching: BlockScored | undefined
 }
+
+/** The `scored` event, minus its discriminator. */
+export type BlockScored = Omit<Extract<CaptureEvent, { type: 'scored' }>, 'type'>
 
 /**
  * @param blockId       the block she is delivering, or undefined when it isn't her turn
  * @param characterId   the character she is rehearsing as
+ * @param sessionId     the open session to write this block into, or undefined
+ *                      for a guest — coaching is identical either way, only the
+ *                      memory differs (docs/coaching-plan.md §7)
  */
-export function useMicCapture(blockId: string | undefined, characterId: string | undefined): MicCaptureResult {
+export function useMicCapture(
+  blockId: string | undefined,
+  characterId: string | undefined,
+  sessionId?: string,
+): MicCaptureResult {
   const [micState, setMicState] = useState<MicState>('connecting')
   const [beatIndex, setBeatIndex] = useState(0)
   const [beatsCompleted, setBeatsCompleted] = useState(0)
   const [beatCount, setBeatCount] = useState(0)
   const [transcript, setTranscript] = useState('')
   const [heard, setHeard] = useState<MicCaptureResult['heard']>([])
+  const [coaching, setCoaching] = useState<BlockScored | undefined>(undefined)
   const [stalled, setStalled] = useState(false)
   // Bumped by retry() to re-run the effect below without changing the block.
   const [attempt, setAttempt] = useState(0)
@@ -221,6 +243,10 @@ export function useMicCapture(blockId: string | undefined, characterId: string |
     setStalled(false)
     setTranscript('')
     setHeard([])
+    // Cleared with the rest, for the same reason: a score left over from the
+    // previous block would be rendered against this one, which is worse than
+    // showing nothing — it would tell her she had a line she has not said yet.
+    setCoaching(undefined)
 
     if (!blockId || !characterId) return
 
@@ -279,6 +305,16 @@ export function useMicCapture(blockId: string | undefined, characterId: string |
                 setHeard(event.heard)
                 setMicState('captured')
                 break
+              case 'scored': {
+                // Deliberately does not touch micState. By the time this lands
+                // she has already been told the block was captured and may well
+                // be into the next one — moving the mic on the strength of a
+                // score arriving would be the app reacting to its own
+                // bookkeeping in front of her.
+                const { type: _type, ...rest } = event
+                setCoaching(rest)
+                break
+              }
               case 'error':
                 // The server has just told us precisely what went wrong, and
                 // "Can't hear you — check your mic" is the one thing it isn't:
@@ -300,7 +336,7 @@ export function useMicCapture(blockId: string | undefined, characterId: string |
             // past a speech nobody heard.
             setMicState((current) => (current === 'captured' ? current : wasClean ? current : 'cantHear'))
           },
-        })
+        }, sessionId)
         socketRef.current = socket
 
         const source = context.createMediaStreamSource(stream)
@@ -339,7 +375,11 @@ export function useMicCapture(blockId: string | undefined, characterId: string |
     }
     // scheduleSilenceCheck and teardown are stable (useCallback over refs and
     // setters only), so listing them can't restart a live capture.
-  }, [blockId, characterId, attempt, teardown, scheduleSilenceCheck])
+    // sessionId is in the deps because the socket URL carries it: a rehearsal
+    // that opened its session a moment after the first block began must not
+    // keep writing that block to nowhere. It changes at most once per
+    // rehearsal, so this cannot churn.
+  }, [blockId, characterId, sessionId, attempt, teardown, scheduleSilenceCheck])
 
   const tapMic = useCallback(() => {
     // In `connecting`, the tap is the user gesture the AudioContext was waiting
@@ -382,6 +422,7 @@ export function useMicCapture(blockId: string | undefined, characterId: string |
     stalled,
     transcript,
     heard,
+    coaching,
     setMuted,
   }
 }

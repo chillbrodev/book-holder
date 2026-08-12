@@ -28,14 +28,44 @@ export type CaptureEvent =
       heard: { lineId: string; beatNumber: number; heard: string }[]
       secondsForwarded: number
     }
+  | {
+      /**
+       * How the block was judged. Arrives after `complete`, about a second
+       * later — one Bedrock call behind.
+       *
+       * May not arrive at all: it is a round trip to another service, and a
+       * socket she closed by walking away never sees it. Nothing in the UI may
+       * wait on this (docs/coaching-plan.md §4) — the annotation slot is
+       * reserved from the start and tolerates being a block behind.
+       */
+      type: 'scored'
+      blockId: string
+      beats: { lineId: string; confidence: number; band: Band }[]
+      /** Empty when there was nothing worth saying, which is common and correct. */
+      note: string
+      /** `fallback` means Bedrock was slow or down and word recall stood in.
+       * Worth knowing: a rehearsal that quietly ran on word overlap all evening
+       * looks exactly like one that was coached. */
+      source: 'bedrock' | 'fallback'
+    }
   | { type: 'error'; name: string; msg: string }
+
+/** *solid* / *close* / *dry* — never a percentage. A grade is a teacher's
+ * register and the style guide's voice is backstage crew; "dry" is what someone
+ * in the wings actually says about a forgotten line. */
+export type Band = 'solid' | 'close' | 'dry'
 
 /** http(s) → ws(s) on the configured API origin, rather than a second env var
  * that could drift out of step with VITE_API_BASE_URL and only fail in a
  * deployed environment. */
-function captureUrl(blockId: string, characterId: string): string {
+function captureUrl(blockId: string, characterId: string, sessionId?: string): string {
   const base = API_BASE_URL.replace(/^http/, 'ws')
-  return `${base}/capture/blocks/${blockId}?characterId=${encodeURIComponent(characterId)}`
+  const query = new URLSearchParams({ characterId })
+  // Optional, and its absence is never an error. No session means a guest, or a
+  // rehearsal begun before one could be opened — she is coached either way and
+  // only the memory is missing (docs/coaching-plan.md §7).
+  if (sessionId) query.set('sessionId', sessionId)
+  return `${base}/capture/blocks/${blockId}?${query}`
 }
 
 export interface CaptureSocket {
@@ -56,8 +86,9 @@ export function openCaptureSocket(
     onEvent: (event: CaptureEvent) => void
     onClose?: (wasClean: boolean) => void
   },
+  sessionId?: string,
 ): CaptureSocket {
-  const socket = new WebSocket(captureUrl(blockId, characterId))
+  const socket = new WebSocket(captureUrl(blockId, characterId, sessionId))
   // The server reads binary frames as PCM and text frames as control messages,
   // so the frames it sends back must arrive as something we can JSON.parse
   // rather than as a Blob we'd have to await.

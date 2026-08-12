@@ -1,0 +1,93 @@
+/* The reserved slot. min-height rather than height so a long note can grow
+   downward, but an empty slot still occupies the space a filled one will —
+   which is the whole point (docs/coaching-plan.md §4). The number is the height
+   of one pill row plus the note line that usually follows it. */
+.slot {
+  min-height: 52px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--bh-border-hairline);
+}
+
+.bands,
+.pending {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px 3px 6px;
+  border-radius: var(--bh-radius-pill);
+  font-family: var(--bh-font-sans);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* The beat's position in the speech, so a note about "the third beat" has
+   something to point at. Quiet enough not to compete with the band word. */
+.pillIndex {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  border-radius: var(--bh-radius-pill);
+  background: rgb(255 255 255 / 55%);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* Gold is the app's "this is on and working" colour, so it carries solid.
+   Ash is its neutral, which is what close is — the normal case with
+   Shakespeare and explicitly not a failure (§3). Terracotta is the strongest
+   thing in the palette and there is deliberately no red: dry needs to be
+   findable at a glance without reading as an alarm. */
+.solid {
+  background: var(--bh-gold-light);
+  color: var(--bh-gold-dark);
+}
+
+.close {
+  background: var(--bh-ash-light);
+  color: var(--bh-ash-dark);
+}
+
+.dry {
+  background: var(--bh-terracotta-light);
+  color: var(--bh-terracotta-dark);
+}
+
+/* Waiting, not broken. Same footprint as the real pills so nothing shifts when
+   they arrive, and no animation — motion here would pull the eye during a
+   speech, which is the one thing this slot must never do. */
+.pendingPill {
+  width: 58px;
+  height: 22px;
+  border-radius: var(--bh-radius-pill);
+  background: var(--bh-ash-light);
+  opacity: 0.5;
+}
+
+.note {
+  margin: 10px 0 0;
+  font-family: var(--bh-font-sans);
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--bh-text-muted);
+}
+
+@media (max-width: 600px), (max-height: 500px) {
+  .slot {
+    min-height: 46px;
+    margin-top: 10px;
+    padding-top: 10px;
+  }
+
+  .note {
+    font-size: 13px;
+  }
+}
