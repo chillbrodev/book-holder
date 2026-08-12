@@ -12,8 +12,9 @@ it. This doc is about the judgement in between, and where that judgement surface
 
 ## 0. State of play — read before building
 
-Nothing in this document is wired up yet. What exists is everything *around* it,
-so the work is the middle rather than the ends.
+*Was: "nothing in this document is wired up yet."* As of August 11 2026 most of it is,
+end to end and against real services — what remains is §5's scene summary and the agent
+that reads the memory this now produces.
 
 **Built and verified against the real services:**
 
@@ -21,7 +22,7 @@ so the work is the middle rather than the ends.
 |---|---|
 | Capture | `features/capture` — WebSocket per block, Transcribe, beat cursor. `complete` already emits the (expected, heard) pairs coaching needs, with the expected text loaded server-side |
 | Scoring | `features/sessions/score.ts` — deterministic word-recall, the §5 fallback, built as the real scorer |
-| Session write | `POST /sessions` — one serializable transaction at scene end. **This is what §6 changes** |
+| Session write | `features/sessions/lifecycle.ts` — start / recordBlock / complete, written per block as it finishes. The old end-of-scene `POST /sessions` transaction is gone from the rehearsal path (§6) |
 | Wrap-up read | `GET /sessions/summary`, rendered by `WrapUpPage` with no fixtures left |
 | Bedrock | `clients/bedrock-client` — Converse, verified with a real Nova Micro call: 571 ms, forced `toolChoice` honoured (§8) |
 | Schema | Migration 006 applied; all four objects live and empty (§6) |
@@ -29,14 +30,23 @@ so the work is the middle rather than the ends.
 | Live transcript | `HeardSoFar.tsx`, in the slot the annotation will share (§4) |
 | **The judgement itself** | `features/coaching` — one call per block, per-beat band + note, `score.ts` fallback on any failure. Rubric verified against real Nova: **4/4 bands, 809 ms, 251 in / 112 out**. `deno task test-coach-block` re-runs it |
 
-**Not built — this document's actual scope:**
+**Also built since, all verified end to end against real services:**
 
-- Calling `CoachingService.coachBlock` from the capture socket at `complete`, and the `scored` event carrying it
-- The auth-aware socket (§7)
-- Incremental writes to `session_beat_score` / `block_coaching`, and the session
-  row created at rehearsal start (§6)
-- The band and note rendered under the block (§4)
-- The scene-summary call and its stored note (§5)
+- The capture socket calls `coachBlock` at `complete` and sends a `scored` event
+  (`deno task test-capture-socket`)
+- The auth-aware socket (§7) — reads the cookie if one is sent, writes only when there is a
+  session, and a guest gets identical live coaching
+- Incremental writes, and the session row created at rehearsal start
+  (`deno task test-session-lifecycle`, 17 checks)
+- The band and note rendered under the block, with the scene holding on a speech worth
+  looking at (§4, whose "never waits on a score" rule this reversed — see there)
+- `mistake_log` embedded on write, so the vector index has live content
+
+**Still not built — what remains of this document:**
+
+- The scene-summary call and its stored note (§5). The model for it is still unchosen.
+- The coach agent that reads this memory and recommends what to run next. Not in the
+  original scope of this doc; it is what `source: 'coach'` on `session_block` exists for.
 
 **Two things block the *quality* of it, not the building of it:** both threshold
 cuts in §3 are unset, and no rehearsal has ever been run to the end of a scene —

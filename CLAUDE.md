@@ -37,6 +37,14 @@ npm run db:migrate           # from repo root
 npm run import:play -- …     # from repo root
 ```
 
+```bash
+cd api                       # probes: real AWS, real DB, billed, not part of `deno task test`
+deno task test-coach-block       # rubric vs real Nova — 4 synthetic beats, one per case
+deno task test-capture-socket    # ready -> complete -> scored over the real socket
+deno task test-session-lifecycle # start/record/complete writes, then deletes what it made
+deno task embed-beats            # backfill lines.embedding; dry run unless --yes
+```
+
 `.env` lives at the **repo root** and is shared by `api/`, the importer, and the migrator.
 `api/` reads it via `../.env` — which is why its deno tasks grant `--allow-read=../.env`.
 
@@ -144,6 +152,32 @@ Consequences that bite:
 - **Bedrock pricing is separately set from first-party Anthropic pricing** and could not be
   verified from the pricing page. Don't quote first-party rates as Bedrock rates.
 
+**Titan Text Embeddings V2 (`amazon.titan-embed-text-v2:0`) is the opposite ARN shape to
+Nova and must not be pattern-matched onto it.** Titan *is* available in-region, has no
+inference profile, and takes exactly one bare foundation-model ARN. Nova needs a profile
+ARN plus foundation-model ARNs in three regions. Both grants live in
+`create-dev-user.sh` **and** `task-role-policy.sh` — adding a model is always two files.
+
+## Coaching
+
+`features/coaching` — one Bedrock call per **block**, returning a band per **beat** plus
+one note. Scored per beat, called per block; `docs/coaching-plan.md` is the design.
+
+- **It can never block a rehearsal.** Every failure path falls back to `score.ts`'s word
+  recall and says so in `source`. The socket sends `scored` after `complete`; the client
+  must never wait on it to keep rehearsing.
+- **The rubric's central job is knowing it reads a speech-to-text transcript.** Without
+  that it critiques punctuation an actor never typed. Three revisions were needed, and the
+  lesson that made them land: **a procedure works where a principle doesn't.** "Mangled
+  proper nouns are the transcriber's fault" failed twice; *"strike out every proper noun
+  and archaic word, then judge what is left"* worked immediately.
+- **Notes are filtered in code, not by the prompt.** `groundedNote` drops any note that
+  shares no three-word run with the written speech. Nova kept returning *"All beats are
+  dry"* through three rubric revisions — the rule is mechanically checkable, so it is
+  checked. Don't try to fix this in the prompt again.
+- `deno task test-coach-block` is the regression for all of it and fails on an ungrounded
+  note. Re-run it after touching the rubric.
+
 ## Database
 
 CockroachDB via `pg`. One thing bites repeatedly:
@@ -151,6 +185,32 @@ CockroachDB via `pg`. One thing bites repeatedly:
 **`pg` returns 64-bit INTs as strings**, not numbers, to avoid precision loss. Every raw
 row type reflects that (`number | string`), and the `Number()` calls at mapping
 boundaries are deliberate, not decoration. Don't "clean them up".
+
+**A vector query must bind its probe vector as a parameter, never a subquery.**
+`ORDER BY embedding <-> (SELECT …)` plans as a FULL SCAN with no error and no warning;
+`<-> $1::VECTOR` plans as `• vector search`. Both return identical rows, and at 1,705 rows
+both are fast, so only `EXPLAIN` tells them apart. Same silent failure if the operator
+doesn't match the index's op class.
+
+`lines.embedding` and `mistake_log.embedding` are `VECTOR(1024)` (Titan V2's width — the
+column and the model must agree exactly or every insert fails), indexed `vector_l2_ops` by
+migration 007. **L2 is a choice, not a constraint**: this cluster (v26.2.5) supports `<->`,
+`<=>` and `<#>`, verified directly. It is safe because Titan is invoked with
+`normalize: true`, so every vector is unit length and L2 and cosine rank identically.
+`docs/OPEN_ITEMS.md` §2 said L2 was the only option; that was wrong and is corrected there.
+
+**A session is a set of blocks; a whole scene is one kind of set** (migration 008).
+`session_history.scope` is `'scene' | 'blocks'`, and `session_block` records the blocks it
+set out to cover — for *both* scopes, so "did she finish" is one question: does every
+planned block have all its beats in `session_beat_score`. `source` (`'user' | 'coach'`) is
+what makes a coach recommendation checkable against what she actually ran.
+
+Rows are written **per block as it finishes** (`features/sessions/lifecycle.ts`), not once
+at scene end. Embedding happens *before* the transaction opens — a Titan call inside an
+open serializable transaction, per block, for a whole scene is how this starts producing
+retries. Only *dry* beats go to `mistake_log`, and only what she actually **said** is
+embedded: a blank has no content to cluster on, and embedding the expected text instead
+would mix "what she said" and "what she should have said" into one vector space.
 
 Aggregate columns shared across queries live in constants (`BEAT_COLUMNS`,
 `SPEAKER_COLUMNS` in `features/plays/service.ts`) because several queries feed one

@@ -85,12 +85,13 @@ This week is the core demo. If anything slips, it slips from week 3's stretch sc
 
 | Day | Track | Work | Status |
 |---|---|---|---|
-| 1–2 | BE (stretch) | Vector embeddings + nearest-neighbor mistake-pattern search — cut first if weeks 1–2 ran long | **Not started; decisions made, schema ready.** Titan Text Embeddings V2 (`amazon.titan-embed-text-v2:0`), 1024 dimensions, L2 (CockroachDB's only option, which is why leaving Titan's `normalize` at `true` is load-bearing), embedded per beat, ~27,000 tokens for all of Merry Wives. Both columns are already `VECTOR(1024)` after migration 004. `embedBeats.ts` isn't written, and the index migration is deliberately deferred — it isn't worth creating over an all-NULL column. Generation stays *out* of the importer so the importer remains offline, deterministic and runnable with no AWS credentials. `OPEN_ITEMS.md` §2. |
+| 1–2 | BE (stretch) | Vector embeddings + nearest-neighbor mistake-pattern search — ~~cut first if weeks 1–2 ran long~~ | **Shipped August 11 2026, and no longer cuttable — the hackathon requires two CockroachDB tools and this is one of them.** All 1,705 beats embedded (Titan Text Embeddings V2, 1024 dims, 0 failures, 113 s, $0.0006) via `deno task embed-beats`; migration 007 indexes both columns `vector_l2_ops`. Two corrections to what this row used to say: **L2 is a choice, not CockroachDB's only option** — `<->`, `<=>` and `<#>` all work on v26.2.5, verified — so normalizing is right because it makes the operator choice moot, not because there was no choice; and a probe vector passed as a subquery rather than a bound parameter silently plans as a FULL SCAN. `OPEN_ITEMS.md` §2. |
 | 3 | BE | Retry/graceful-degradation paths for Bedrock/Polly/Transcribe; re-verify the budget alert is still active and correctly thresholded | **Partly done, for Polly.** Neural throttles far harder than generative did — a first bulk pass at concurrency 6 lost 254 of 1,064 blocks to `ThrottlingException`, and the SDK's default fixed backoff retries straight into the same wall. `retryMode: "adaptive"` with `maxAttempts: 8` and low concurrency fixed it; this applies to the live endpoint too, which synthesizes on miss. Bedrock/Transcribe paths don't exist yet. Budget alert is live but still at $25 — raise to ~$40. |
 | 4 | FE | Dedicated usability/brand polish pass — contrast, tap-target, and microcopy refinement. Note: *baseline* accessibility (contrast ratios, target sizes) should already be built in from week 1 per `FE_PLAN.md` §2; this day is for the polish layer on top, not first-pass compliance | **Partly done, opportunistically rather than as a pass.** Real fixes landed as they were found (`7c04de3` part selection resizing the tile and reloading the page, `cae7500` the Continue button pinned to the viewport). Known copy debt: several screens say "lines" while counting beats — `CharacterTile.tsx`, the wrap-up's `linesRun`, `listScenes`' `totalLines` (`OPEN_ITEMS.md` §3). |
 | 5 | All | README updates, architecture diagram, demo video/script — explicitly state the "skill model, not fact memory" framing for judges (`PROJECT_PLAN.md` §2) | **Not started.** Docs are current (`PROJECT_PLAN.md`, `OPEN_ITEMS.md`, `polly-gen-issue.md`, `beats-and-blocks-plan.md`); the diagram, video and script are not. |
 
-**Cuttable if time runs short** (in priority order): vector-search mistake-pattern coaching, admin/"coach's
+**Cuttable if time runs short** (in priority order): ~~vector-search mistake-pattern coaching~~ (shipped,
+and mandatory — see the judging requirements), admin/"coach's
 notes" MCP-backed view. Both are stretch per `PROJECT_PLAN.md` §7 — cutting them doesn't break the MVP.
 
 ---
@@ -115,7 +116,8 @@ so the order matters more than it did when work could fan out:
    result of what happened.
 4. **Read memory back before a session, and a coaching note after.** Closes the loop the whole submission
    rests on (`PROJECT_PLAN.md` §2).
-5. Then, and only then, the stretch: embeddings + vector search, and the demo materials.
+5. ~~Then, and only then, the stretch: embeddings + vector search~~ — done, and it moved to the
+   critical path once the judging requirements landed. What remains here is the demo materials.
 
 Move the wrap-up and Prompt Book off `frontend/src/data/mock/*` as step 3 lands, not before — they need real
 mastery rows to read, and fabricated line ids drift further from real data with every change.
@@ -138,7 +140,8 @@ Pulled from `FE_PLAN.md` §5–6 and `BE_PLAN.md` §6–8 — check before start
   Polly duration guard. **No frontend tests exist**, so React Testing Library is still unused; axe
   DevTools / Lighthouse and the manual cross-browser mic/permissions pass are also still ahead, and the mic
   pass can't happen until capture is built.
-- **Docs confirmed already**: CockroachDB vector column/index syntax (v25.2+, preview-gated, L2-only — see
+- **Docs confirmed already**: CockroachDB vector column/index syntax (v25.2+ — and on this cluster the preview gate is already
+  open and L2 is *not* the only distance; both of those were wrong here — see
   `infra/cockroachdb/README.md`). Polly voice catalog — confirmed and assigned per character at import
   (`packages/play-importer/src/voices.ts`), Merry Wives only; a play with no list warns loudly rather than
   silently voicing every woman as a man.
