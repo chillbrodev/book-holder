@@ -112,6 +112,25 @@ export const ConfigClient = {
       "BEDROCK_MODEL_ID_EMBEDDING",
       "amazon.titan-embed-text-v2:0",
     ),
+    // Nova **Lite** for the coach agent, and the `us.` prefix for the same
+    // reason Micro carries one — it is reached through the US geo inference
+    // profile, not in-region.
+    //
+    // A step up from Micro deliberately. The comparison call is one block
+    // against a rubric and Micro does it in ~800ms; the agent has to plan over
+    // several tools, decide which of her weaknesses is worth naming, and write
+    // one sentence a person would say. Micro is not reliable at the first of
+    // those — the same limitation that made it restate the marks rather than
+    // read the speech (`groundedNote` in features/coaching).
+    //
+    // Same family, so the IAM shape is a copy of Nova Micro's rather than a new
+    // one to get wrong: profile ARN plus the foundation model in each
+    // destination region, in **both** create-dev-user.sh and
+    // task-role-policy.sh.
+    agentModelId: getDenoEnvValueOrDefault(
+      "BEDROCK_MODEL_ID_AGENT",
+      "us.amazon.nova-lite-v1:0",
+    ),
   },
   Auth: {
     sessionCookieName: "book_holder_session",

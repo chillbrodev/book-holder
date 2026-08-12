@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { SessionService } from "./service.ts";
 import { SessionLifecycle } from "./lifecycle.ts";
+import { CoachService } from "../coach/service.ts";
 import { SessionError } from "./errors.ts";
 import { sessionMiddleware } from "../auth/middleware.ts";
 import type { AppEnv } from "../../types.ts";
@@ -79,6 +80,43 @@ sessions.get("/prompt-book", async (c) => {
     characterId: c.req.query("characterId"),
   });
   return c.json(book);
+});
+
+/**
+ * What the coach thinks she should do next.
+ *
+ * `POST` rather than `GET` because it is not a read: the agent runs, spends
+ * tokens, and writes a `coach_recommendation` row it will read back next time.
+ * Idempotent it is not, and a client that retries should know that.
+ *
+ * Returns `{ recommendation: null }` when there is nothing worth saying — a
+ * clean run deserves silence rather than manufactured praise — and also when
+ * the agent failed, which the wrap-up treats identically. Never 500s: a wrap-up
+ * that will not load because the coach had an opinion it could not express is
+ * worse than a wrap-up with no coach on it.
+ */
+sessions.post("/:sessionId/coach", async (c) => {
+  const user = c.get("user");
+  const body = await c.req.json().catch(() => ({}));
+  const recommendation = await CoachService.recommend({
+    userId: user.id,
+    playId: body.playId,
+    characterId: body.characterId,
+    sessionId: c.req.param("sessionId"),
+  });
+  return c.json({ recommendation });
+});
+
+/** The recommendation already made for a session, without running the agent
+ * again — so revisiting a wrap-up costs nothing and says the same thing. */
+sessions.get("/:sessionId/coach", async (c) => {
+  const user = c.get("user");
+  const recommendation = await CoachService.latest({
+    userId: user.id,
+    playId: c.req.query("playId") ?? "",
+    sessionId: c.req.param("sessionId"),
+  });
+  return c.json({ recommendation });
 });
 
 /** What to lean on this run, read from her own history. The read half of the

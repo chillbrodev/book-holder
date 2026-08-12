@@ -195,3 +195,188 @@ function parseJsonFromText<T>(text: string): T | undefined {
     return undefined;
   }
 }
+
+/** One tool the model may call, and the function that answers it. */
+export interface AgentTool {
+  name: string;
+  description: string;
+  schema: ToolJsonSchema;
+  /** Runs server-side. Whatever it returns is JSON-encoded back to the model. */
+  run: (input: Record<string, unknown>) => Promise<unknown>;
+  /**
+   * Calling this tool *is* the answer — the loop stops and returns its input.
+   *
+   * The alternative is asking for prose that happens to be JSON on the final
+   * turn, which is where this loop first broke: Nova Lite reasoned correctly
+   * inside a `<thinking>` block and then emitted no object at all. A tool call
+   * is structured by construction, so the answer either arrives in the right
+   * shape or does not arrive.
+   *
+   * Deliberately *not* the same as `converseJson`'s forced `toolChoice`. Nothing
+   * compels the model to call this — it decides when it has seen enough — which
+   * is what keeps "I have nothing to recommend" expressible rather than
+   * something it must dress up as a recommendation.
+   */
+  terminal?: boolean;
+}
+
+export interface AgentTurn {
+  /** Which tool, and what the model asked for. Kept for the transcript — an
+   * agent whose reasoning cannot be inspected is very hard to trust or debug. */
+  tool: string;
+  input: Record<string, unknown>;
+}
+
+export interface AgentResult {
+  /** The model's final prose, once it stopped asking for tools. Empty when it
+   * answered through a terminal tool instead, which is the expected path. */
+  text: string;
+  /** The terminal tool's arguments, when one was called. */
+  final?: Record<string, unknown>;
+  /** Every tool call it made, in order. */
+  turns: AgentTurn[];
+  usage: ConverseUsage;
+  /** True when the loop hit `maxTurns` with the model still asking for tools.
+   * The text is then whatever it had said last, which may be nothing — callers
+   * must treat this as "no recommendation" rather than as an answer. */
+  exhausted: boolean;
+}
+
+/**
+ * How many tool round trips before the loop gives up.
+ *
+ * Not a budget so much as a stop: a model that has asked for eight tools and
+ * still has nothing to say is looping, not thinking, and the failure mode
+ * without this is an agent that quietly bills forever. Generous enough that a
+ * genuine plan — check her progress, look at recent misses, find what is like
+ * them, decide — never reaches it.
+ */
+const MAX_AGENT_TURNS = 8;
+
+/**
+ * A real tool-use loop: call, run whatever the model asks for, feed the results
+ * back, repeat until it answers in prose.
+ *
+ * Distinct from `converseJson` above, and the difference is the point.
+ * `converseJson` *forces* one named tool and reads its arguments as the answer —
+ * a way of getting structured output, not a way of letting a model act. This
+ * lets the model choose which tools it wants, in what order, and how many times,
+ * which is what makes the coach an agent rather than a prompt with a schema.
+ *
+ * The message history is the loop's whole state. Every assistant turn goes back
+ * verbatim, including its `toolUse` blocks, and each result is appended as a
+ * `toolResult` matching the `toolUseId` — Bedrock rejects the next call
+ * outright if a tool use has no matching result, so a tool that throws must
+ * still answer, with its error as content. A failed lookup is information the
+ * model can work around; a dropped one ends the conversation.
+ */
+export async function converseWithTools(input: {
+  modelId: string;
+  system: string;
+  userMessage: string;
+  tools: AgentTool[];
+  maxTokens: number;
+  temperature?: number;
+  maxTurns?: number;
+}): Promise<AgentResult> {
+  const byName = new Map(input.tools.map((tool) => [tool.name, tool]));
+  const toolConfig = {
+    tools: input.tools.map((tool): Tool => ({
+      toolSpec: {
+        name: tool.name,
+        description: tool.description,
+        inputSchema: { json: tool.schema },
+      },
+    })),
+    // No toolChoice: the model decides whether it needs anything at all. Forcing
+    // a tool here would defeat the purpose — and on a rehearsal with no history
+    // the right number of tool calls really is zero.
+  };
+
+  const messages: Message[] = [
+    { role: "user", content: [{ text: input.userMessage }] },
+  ];
+  const turns: AgentTurn[] = [];
+  const usage: ConverseUsage = { inputTokens: 0, outputTokens: 0 };
+  const limit = input.maxTurns ?? MAX_AGENT_TURNS;
+
+  for (let turn = 0; turn <= limit; turn++) {
+    const response = await getClient().send(
+      new ConverseCommand({
+        modelId: input.modelId,
+        system: [{ text: input.system }],
+        messages,
+        inferenceConfig: {
+          maxTokens: input.maxTokens,
+          temperature: input.temperature ?? 0,
+        },
+        toolConfig,
+      }),
+    );
+
+    usage.inputTokens += response.usage?.inputTokens ?? 0;
+    usage.outputTokens += response.usage?.outputTokens ?? 0;
+
+    const message = response.output?.message;
+    const content = message?.content ?? [];
+    const toolUses = content.filter((block) => block.toolUse).map((block) =>
+      block.toolUse!
+    );
+
+    if (toolUses.length === 0) {
+      return {
+        text: content.map((block) => block.text ?? "").join("").trim(),
+        turns,
+        usage,
+        exhausted: false,
+      };
+    }
+
+    // Verbatim, `toolUse` blocks included. Summarising or rebuilding this is
+    // how the ids stop matching.
+    messages.push({ role: "assistant", content });
+
+    const results = [];
+    for (const use of toolUses) {
+      const tool = byName.get(use.name ?? "");
+      const args = (use.input ?? {}) as Record<string, unknown>;
+      turns.push({ tool: use.name ?? "(unknown)", input: args });
+
+      // A terminal tool ends the conversation — its arguments are the answer,
+      // so there is nothing to feed back and no reason to pay for another turn.
+      if (tool?.terminal) {
+        return {
+          text: content.map((block) => block.text ?? "").join("").trim(),
+          final: args,
+          turns,
+          usage,
+          exhausted: false,
+        };
+      }
+
+      let payload: unknown;
+      try {
+        payload = tool
+          ? await tool.run(args)
+          : { error: `No tool named ${use.name}.` };
+      } catch (err) {
+        // Answered, not dropped. An unanswered toolUse makes the *next* request
+        // invalid, so a thrown tool would end the conversation rather than
+        // degrade it — and the model can usually route around a failed lookup.
+        payload = {
+          error: err instanceof Error ? err.message : "Tool failed.",
+        };
+      }
+
+      results.push({
+        toolResult: {
+          toolUseId: use.toolUseId,
+          content: [{ text: JSON.stringify(payload) }],
+        },
+      });
+    }
+    messages.push({ role: "user", content: results });
+  }
+
+  return { text: "", turns, usage, exhausted: true };
+}

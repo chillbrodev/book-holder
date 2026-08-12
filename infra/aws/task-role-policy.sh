@@ -69,7 +69,11 @@ cat <<EOF
       "arn:aws:bedrock:$AWS_REGION:$ACCOUNT_ID:inference-profile/us.amazon.nova-micro-v1:0",
       "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-micro-v1:0",
       "arn:aws:bedrock:us-east-2::foundation-model/amazon.nova-micro-v1:0",
-      "arn:aws:bedrock:us-west-2::foundation-model/amazon.nova-micro-v1:0"
+      "arn:aws:bedrock:us-west-2::foundation-model/amazon.nova-micro-v1:0",
+      "arn:aws:bedrock:$AWS_REGION:$ACCOUNT_ID:inference-profile/us.amazon.nova-lite-v1:0",
+      "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-lite-v1:0",
+      "arn:aws:bedrock:us-east-2::foundation-model/amazon.nova-lite-v1:0",
+      "arn:aws:bedrock:us-west-2::foundation-model/amazon.nova-lite-v1:0"
     ]},
     {"Sid": "BedrockInvokeTitanEmbeddings", "Effect": "Allow", "Action": "bedrock:InvokeModel", "Resource": [
       "arn:aws:bedrock:$AWS_REGION::foundation-model/amazon.titan-embed-text-v2:0"
