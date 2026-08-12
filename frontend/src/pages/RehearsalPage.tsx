@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { getPlay, getSceneDialogue, getSelectedRole, getSingleLineDialogue, setLastScene } from '../data/client'
 import { getBlockAudio } from '../data/pollyClient'
@@ -121,8 +121,21 @@ export function RehearsalPage() {
    * about *this* run, and a guest starting a new scene should be told again. */
   const [noticeDismissed, setNoticeDismissed] = useState(false)
 
-  const { micState, tapMic, retry, beatIndex, beatsCompleted, beatCount, stalled, transcript, heard, coaching, setMuted } =
-    useMicCapture(activeUserBlockId, role?.id, sessionId)
+  /**
+   * Every block's score, keyed by blockId.
+   *
+   * Filed by callback rather than read off the live block, because a score
+   * arrives about a second after `complete` and the page has usually advanced
+   * by then — the block it belongs to is no longer the active one. The event
+   * carries its own `blockId` for exactly this reason.
+   */
+  const [coachingByBlock, setCoachingByBlock] = useState<Map<string, BlockScored>>(new Map())
+  const fileScore = useCallback((scored: BlockScored) => {
+    setCoachingByBlock((previous) => new Map(previous).set(scored.blockId, scored))
+  }, [])
+
+  const { micState, tapMic, retry, beatIndex, beatsCompleted, beatCount, stalled, transcript, heard, setMuted } =
+    useMicCapture(activeUserBlockId, role?.id, sessionId, fileScore)
 
   // Every beat she's attempted this scene, keyed by lineId so a block re-entered
   // (a retry, or a re-render delivering the same `complete`) overwrites rather
@@ -131,21 +144,6 @@ export function RehearsalPage() {
   const attemptsRef = useRef(new Map<string, string>())
   // When this scene started, for session_history.duration_seconds.
   const startedAtRef = useRef(Date.now())
-
-  /**
-   * Every block's score so far, keyed by blockId.
-   *
-   * The hook only reports the most recent one, but a score belongs to its block
-   * for the rest of the scene — she should be able to scroll back and still see
-   * how the speech three blocks ago went. State rather than a ref because the
-   * annotations render from it.
-   */
-  const [coachingByBlock, setCoachingByBlock] = useState<Map<string, BlockScored>>(new Map())
-
-  useEffect(() => {
-    if (!coaching) return
-    setCoachingByBlock((previous) => new Map(previous).set(coaching.blockId, coaching))
-  }, [coaching])
 
   useEffect(() => {
     attemptsRef.current = new Map()

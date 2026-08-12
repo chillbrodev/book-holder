@@ -73,6 +73,18 @@ const SILENCE_MS = 2500
  */
 const MOSTLY_DELIVERED = 0.5
 
+/**
+ * How long a finished block's socket may stay open waiting for its score.
+ *
+ * Only a leak guard, never a deadline. The server closes the connection itself
+ * the moment it has sent `scored`, so in every normal case this timer is
+ * cleared by the socket closing under it. It is longer than the server's own 8s
+ * coaching timeout (api's `COACH_TIMEOUT_MS`) precisely so it can never be the
+ * thing that cuts a score off — if these two ever cross, the symptom is scores
+ * that vanish under load and nowhere obvious to look.
+ */
+const SCORE_GRACE_MS = 12_000
+
 export interface MicCaptureResult {
   micState: MicState
   /** Tap the dial. In `connecting` it starts capture (the gesture some browsers
@@ -114,17 +126,6 @@ export interface MicCaptureResult {
   /** Per-beat text once the block is done — the (expected, heard) pairs the
    * comparison step will score. Empty until `captured`. */
   heard: { lineId: string; beatNumber: number; heard: string }[]
-  /**
-   * How the block was judged, once the coach has answered. `undefined` until
-   * then, and possibly forever — it is a round trip that can be slow, can be
-   * the deterministic fallback, and never arrives on a socket she closed by
-   * walking away.
-   *
-   * Nothing may block on it (docs/coaching-plan.md §4). Advancing to the next
-   * block never waits for a score, and the annotation slot renders a quiet
-   * pending state rather than a hole.
-   */
-  coaching: BlockScored | undefined
 }
 
 /** The `scored` event, minus its discriminator. */
@@ -136,11 +137,17 @@ export type BlockScored = Omit<Extract<CaptureEvent, { type: 'scored' }>, 'type'
  * @param sessionId     the open session to write this block into, or undefined
  *                      for a guest — coaching is identical either way, only the
  *                      memory differs (docs/coaching-plan.md §7)
+ * @param onScored      called when the coach answers, which is after this hook
+ *                      has usually been torn down and re-created for the next
+ *                      block. The score carries its own `blockId` for that
+ *                      reason — the caller files it, rather than assuming it
+ *                      belongs to whatever is live.
  */
 export function useMicCapture(
   blockId: string | undefined,
   characterId: string | undefined,
   sessionId?: string,
+  onScored?: (scored: BlockScored) => void,
 ): MicCaptureResult {
   const [micState, setMicState] = useState<MicState>('connecting')
   const [beatIndex, setBeatIndex] = useState(0)
@@ -148,7 +155,14 @@ export function useMicCapture(
   const [beatCount, setBeatCount] = useState(0)
   const [transcript, setTranscript] = useState('')
   const [heard, setHeard] = useState<MicCaptureResult['heard']>([])
-  const [coaching, setCoaching] = useState<BlockScored | undefined>(undefined)
+
+  /** True between `complete` and `scored` — the window in which the socket has
+   * to outlive its block. */
+  const awaitingScoreRef = useRef(false)
+  /** Held in a ref so the socket's handler always calls the current one without
+   * the callback's identity re-opening the mic on every render. */
+  const onScoredRef = useRef(onScored)
+  onScoredRef.current = onScored
   const [stalled, setStalled] = useState(false)
   // Bumped by retry() to re-run the effect below without changing the block.
   const [attempt, setAttempt] = useState(0)
@@ -217,8 +231,33 @@ export function useMicCapture(
       clearTimeout(autoFinishRef.current)
       autoFinishRef.current = null
     }
-    socketRef.current?.close()
+
+    // The socket may have to outlive the block it captured.
+    //
+    // `scored` arrives after `complete` — one Bedrock call later, measured at
+    // 0.8-1.3s. The page advances 500ms after `complete`, which tears this hook
+    // down and used to close the socket immediately, so the score was sent to a
+    // connection that had already gone. It persisted server-side and never
+    // reached the screen: rows in the database, nothing under the speech.
+    //
+    // So when a score is still owed, the socket is left for the server to close
+    // — which it does, right after sending it. The grace timer is only a leak
+    // guard for a connection that never answers; it is longer than the server's
+    // own 8s coaching timeout so it can never be the thing that cuts a score
+    // off.
+    //
+    // The microphone itself is released immediately regardless, below. Nothing
+    // here keeps the recording indicator lit or the audio context open — what
+    // lingers is one idle WebSocket waiting for a sentence.
+    const socket = socketRef.current
     socketRef.current = null
+    if (socket) {
+      if (awaitingScoreRef.current) {
+        setTimeout(() => socket.close(), SCORE_GRACE_MS)
+      } else {
+        socket.close()
+      }
+    }
     // Stopping the tracks is what turns the browser's recording indicator off.
     // Leaving them live between blocks would leave it lit through the whole
     // rehearsal, which reads as the app listening when it isn't.
@@ -243,10 +282,6 @@ export function useMicCapture(
     setStalled(false)
     setTranscript('')
     setHeard([])
-    // Cleared with the rest, for the same reason: a score left over from the
-    // previous block would be rendered against this one, which is worse than
-    // showing nothing — it would tell her she had a line she has not said yet.
-    setCoaching(undefined)
 
     if (!blockId || !characterId) return
 
@@ -303,16 +338,27 @@ export function useMicCapture(
                 break
               case 'complete':
                 setHeard(event.heard)
+                // From here a score is owed, and teardown must leave the socket
+                // open until it arrives.
+                awaitingScoreRef.current = true
                 setMicState('captured')
                 break
               case 'scored': {
-                // Deliberately does not touch micState. By the time this lands
-                // she has already been told the block was captured and may well
-                // be into the next one — moving the mic on the strength of a
-                // score arriving would be the app reacting to its own
-                // bookkeeping in front of her.
+                // **Deliberately outside the `cancelled` guard.** By the time
+                // this lands the page has advanced, this effect has been cleaned
+                // up and `cancelled` is true — which is precisely the situation
+                // the score has to survive, not a reason to drop it. It belongs
+                // to the block that produced it rather than to whichever block
+                // is live now, so it leaves through a ref that teardown cannot
+                // revoke.
+                //
+                // It also deliberately does not touch micState: she may already
+                // be mid-speech somewhere else, and moving the mic on the
+                // strength of a score arriving would be the app reacting to its
+                // own bookkeeping in front of her.
+                awaitingScoreRef.current = false
                 const { type: _type, ...rest } = event
-                setCoaching(rest)
+                onScoredRef.current?.(rest)
                 break
               }
               case 'error':
@@ -422,7 +468,6 @@ export function useMicCapture(
     stalled,
     transcript,
     heard,
-    coaching,
     setMuted,
   }
 }
