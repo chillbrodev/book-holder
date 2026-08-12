@@ -1,7 +1,11 @@
 import { Hono } from "hono";
 import { CaptureSession } from "./service.ts";
 import { CaptureError } from "./errors.ts";
+import { getCookie } from "hono/cookie";
 import { CoachingService } from "../coaching/service.ts";
+import { AuthService } from "../auth/service.ts";
+import { SessionLifecycle } from "../sessions/lifecycle.ts";
+import { ConfigClient } from "../../clients/config-client/configClient.ts";
 import type { AppEnv } from "../../types.ts";
 
 const capture = new Hono<AppEnv>();
@@ -38,6 +42,10 @@ capture.get("/blocks/:blockId", (c) => {
 
   const blockId = c.req.param("blockId");
   const characterId = c.req.query("characterId");
+  // Optional. Present when a signed-in actor started a session; absent for a
+  // guest, and absent for anyone rehearsing before the client has been taught
+  // to open one. Its absence is never an error — see the persistence step below.
+  const sessionId = c.req.query("sessionId");
 
   const { socket, response } = Deno.upgradeWebSocket(c.req.raw);
 
@@ -66,6 +74,13 @@ capture.get("/blocks/:blockId", (c) => {
 
   socket.onopen = async () => {
     try {
+      // Resolved here rather than by middleware, because this route must work
+      // for nobody as well as for someone. `findSessionUser` is the non-throwing
+      // half of `getSessionUser` for exactly this caller.
+      const user = await AuthService.findSessionUser(
+        getCookie(c, ConfigClient.Auth.sessionCookieName),
+      );
+
       session = await CaptureSession.open({ blockId, characterId }, send);
       for (const chunk of early) session.pushAudio(chunk);
       early.length = 0;
@@ -92,6 +107,37 @@ capture.get("/blocks/:blockId", (c) => {
       if (result) {
         const coaching = await CoachingService.coachBlock(result);
         send({ type: "scored", ...coaching });
+
+        // Persist, if there is anywhere to persist to.
+        //
+        // This is `coaching-plan.md` §7's "auth-aware but not auth-gated" in
+        // its entirety: the socket read a cookie if one was sent, and a guest
+        // simply has no session to write into. She got the mic, the other
+        // parts, and the same live coaching a signed-in actor got — only the
+        // memory is missing, which is exactly what "Save Progress" offers.
+        //
+        // After `send`, never before. The annotation is what she is waiting
+        // for; a database round trip in front of it would delay the visible
+        // half of this for the sake of the invisible half. And it is
+        // deliberately outside the send's control flow — a write that fails
+        // must not cost her the coaching she can already see.
+        if (sessionId && user) {
+          try {
+            await SessionLifecycle.recordBlock({
+              sessionId,
+              userId: user.id,
+              coaching,
+              heardByLineId: new Map(
+                result.beats.map((beat) => [beat.lineId, beat.heard]),
+              ),
+            });
+          } catch (err) {
+            console.error(
+              `Failed to persist block ${result.blockId} for session ${sessionId}:`,
+              err,
+            );
+          }
+        }
       }
 
       // Transcribe has closed and both events have been sent, so there is

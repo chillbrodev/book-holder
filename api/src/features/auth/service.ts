@@ -164,9 +164,29 @@ export const AuthService = {
   },
 
   async getSessionUser(token: string | undefined): Promise<AuthUser> {
-    if (!token) {
+    const user = await AuthService.findSessionUser(token);
+    if (!user) {
       throw new AuthError("UNAUTHENTICATED", "Not logged in.");
     }
+    return user;
+  },
+
+  /**
+   * Who this cookie belongs to, or `null` for nobody.
+   *
+   * The same lookup as `getSessionUser` without the throw, for the one caller
+   * that needs to know who she is without requiring her to be anyone: the
+   * capture socket. `coaching-plan.md` §7 makes that socket **auth-aware but
+   * not auth-gated** — a guest gets the mic, the other parts, and the same live
+   * coaching, and only the *memory* is withheld, which is exactly what "Save
+   * Progress" has always been offering.
+   *
+   * Split rather than duplicated so there is one definition of a valid session:
+   * an unexpired row whose token hash matches. A second copy of that query is
+   * how the two drift when the expiry rule changes.
+   */
+  async findSessionUser(token: string | undefined): Promise<AuthUser | null> {
+    if (!token) return null;
 
     const tokenHash = await hashSessionToken(token);
     const result = await DbClient.getPool().query(
@@ -177,10 +197,6 @@ export const AuthService = {
       [tokenHash],
     );
 
-    if (result.rows.length === 0) {
-      throw new AuthError("UNAUTHENTICATED", "Not logged in.");
-    }
-
-    return result.rows[0];
+    return result.rows[0] ?? null;
   },
 };

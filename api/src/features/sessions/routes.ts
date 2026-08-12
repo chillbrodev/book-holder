@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { SessionService } from "./service.ts";
+import { SessionLifecycle } from "./lifecycle.ts";
 import { SessionError } from "./errors.ts";
 import { sessionMiddleware } from "../auth/middleware.ts";
 import type { AppEnv } from "../../types.ts";
@@ -21,6 +22,48 @@ const sessions = new Hono<AppEnv>();
  * rather than as a failure.
  */
 sessions.use("*", sessionMiddleware);
+
+/**
+ * Open a session before she says anything.
+ *
+ * `coaching-plan.md` §6: the row is created at rehearsal start, not at save,
+ * because per-block coaching needs somewhere to write while the scene is still
+ * running. Returns the id the capture socket then carries.
+ *
+ * Body: { playId, act, scene, characterId, scope?, blockIds?, source? }
+ */
+sessions.post("/start", async (c) => {
+  const user = c.get("user");
+  const body = await c.req.json().catch(() => ({}));
+  const started = await SessionLifecycle.start({
+    userId: user.id,
+    playId: body.playId,
+    act: body.act,
+    scene: body.scene,
+    characterId: body.characterId,
+    scope: body.scope,
+    blockIds: body.blockIds,
+    source: body.source,
+  });
+  return c.json(started, 201);
+});
+
+/**
+ * Mark a run finished — or leave it abandoned, which is also a real outcome.
+ *
+ * `completed_at` is set only when every block in `session_block` has all of its
+ * beats scored, which is one question for a scene run and a drill set alike.
+ */
+sessions.post("/:sessionId/complete", async (c) => {
+  const user = c.get("user");
+  const body = await c.req.json().catch(() => ({}));
+  const result = await SessionLifecycle.complete({
+    sessionId: c.req.param("sessionId"),
+    userId: user.id,
+    durationSeconds: Number(body.durationSeconds ?? 0),
+  });
+  return c.json(result);
+});
 
 /** What to lean on this run, read from her own history. The read half of the
  * read-decide-act-write loop. */
