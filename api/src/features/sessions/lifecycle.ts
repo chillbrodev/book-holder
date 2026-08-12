@@ -203,24 +203,40 @@ export const SessionLifecycle = {
         const said = heardByLineId.get(beat.lineId) ?? "";
 
         await client.query(
-          `INSERT INTO session_beat_score (session_id, line_id, confidence_score, heard)
-           VALUES ($1, $2, $3, $4)
+          `INSERT INTO session_beat_score (session_id, line_id, confidence_score, heard, band)
+           VALUES ($1, $2, $3, $4, $5)
            ON CONFLICT (session_id, line_id) DO UPDATE
-             SET confidence_score = $3, heard = $4, created_at = now()`,
-          [sessionId, beat.lineId, beat.confidence, said],
+             SET confidence_score = $3, heard = $4, band = $5, created_at = now()`,
+          // NULL when the fallback scored this beat: word recall can see solid
+          // and dry and is blind to *close*, so it must not assert a band it
+          // cannot know (migration 009).
+          [
+            sessionId,
+            beat.lineId,
+            beat.confidence,
+            said,
+            bandOrNull(coaching, beat),
+          ],
         );
 
         // confidence_score is the *latest* judgement, not a running average: it
         // answers "how well does she know this now". The history lives in
         // mistake_count, which only accumulates. Two columns, two questions.
         await client.query(
-          `INSERT INTO line_mastery (user_id, line_id, confidence_score, last_practiced_at, mistake_count)
-           VALUES ($1, $2, $3, now(), $4)
+          `INSERT INTO line_mastery (user_id, line_id, confidence_score, last_practiced_at, mistake_count, band)
+           VALUES ($1, $2, $3, now(), $4, $5)
            ON CONFLICT (user_id, line_id) DO UPDATE
              SET confidence_score = $3,
                  last_practiced_at = now(),
-                 mistake_count = line_mastery.mistake_count + $4`,
-          [userId, beat.lineId, beat.confidence, beat.band === "dry" ? 1 : 0],
+                 mistake_count = line_mastery.mistake_count + $4,
+                 band = $5`,
+          [
+            userId,
+            beat.lineId,
+            beat.confidence,
+            beat.band === "dry" ? 1 : 0,
+            bandOrNull(coaching, beat),
+          ],
         );
       }
 
@@ -316,4 +332,24 @@ async function refreshBeatsRun(
       WHERE id = $1`,
     [sessionId],
   );
+}
+
+/**
+ * The model's band, or NULL when it wasn't the model that decided.
+ *
+ * `BlockCoaching.band` is always one of the three, because the deterministic
+ * fallback has to answer something — but word recall can only see *solid* and
+ * *dry*, and is structurally blind to *close*, which is the semantic case and
+ * the whole reason for using a model. Storing its guess would put a judgement in
+ * the database that nothing actually made, and the mastery bar would then count
+ * beats as known on the strength of word overlap.
+ *
+ * NULL means "not banded", never "not solid" — so anything counting mastery
+ * counts `band = 'solid'` rather than `band <> 'dry'`.
+ */
+function bandOrNull(
+  coaching: BlockCoaching,
+  beat: BlockCoaching["beats"][number],
+): string | null {
+  return coaching.source === "bedrock" ? beat.band : null;
 }

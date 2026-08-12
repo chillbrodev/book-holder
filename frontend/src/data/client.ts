@@ -7,7 +7,8 @@
  * knowing because the shapes here look over-engineered for a mock and weren't.
  *
  * Still mock/localStorage-backed, on purpose: getSelectedRole/selectRole's
- * persistence, and getPromptBookSummary.
+ * persistence. Nothing else — the Prompt Book came off fixtures on August 12
+ * 2026 and reads `sessions/prompt-book`.
  *
  * The wrap-up used to be here too. It now reads the real session from
  * `sessionClient.getSessionSummary` — `session_history` and `line_mastery` do
@@ -15,9 +16,8 @@
  * missing, it was just a wrong number.
  */
 import type { Play, Character } from '../types/domain'
-import type { PlaySummary, SceneSummary, DialogueBlock, DialogueItem, FlaggedLine, PromptBookSummary } from '../types/views'
+import type { PlaySummary, SceneSummary, DialogueBlock, DialogueItem } from '../types/views'
 import { apiRequest } from './apiClient'
-import { MOCK_FLAGGED_LINES, findLineById } from './mock/promptBook'
 import { MOCK_USER_ID } from './mock/roles'
 
 const FOCUS_PLAY_ID = 'merry-wives-of-windsor'
@@ -63,18 +63,6 @@ function getEffectiveCharacterId(playId: string): string {
   return localStorage.getItem(roleStorageKey(playId)) ?? ''
 }
 
-function buildFlaggedLine(entry: { lineId: string; mistakeCount: number; lastPracticedAt: string }): FlaggedLine | undefined {
-  const line = findLineById(entry.lineId)
-  if (!line) return undefined
-  return {
-    lineId: line.id,
-    text: line.text,
-    act: line.act,
-    scene: line.scene,
-    mistakeCount: entry.mistakeCount,
-    lastPracticedAt: entry.lastPracticedAt,
-  }
-}
 
 interface RawPlay {
   id: string
@@ -251,17 +239,6 @@ export async function getSingleLineDialogue(playId: string, lineId: string): Pro
   return toDialogueItems(raw, userCharacterId)
 }
 
-export function getPromptBookSummary(playId: string): Promise<PromptBookSummary> {
-  const needsAnotherLook = MOCK_FLAGGED_LINES.map(buildFlaggedLine).filter((entry): entry is FlaggedLine => entry !== undefined)
 
-  return Promise.resolve({
-    playId,
-    playTitle: 'The Merry Wives of Windsor',
-    characterName: 'Mistress Ford',
-    mastered: 71,
-    total: 96,
-    needsAnotherLook,
-  })
-}
 
 export { FOCUS_PLAY_ID, MOCK_USER_ID }

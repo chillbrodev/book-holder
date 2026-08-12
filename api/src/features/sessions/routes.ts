@@ -65,6 +65,22 @@ sessions.post("/:sessionId/complete", async (c) => {
   return c.json(result);
 });
 
+/**
+ * Her whole part: how much of it she has, and what she still hasn't.
+ *
+ * Deliberately not scene-scoped. The wrap-up answers "how did that run go";
+ * this answers "where am I with this part", which no single session can.
+ */
+sessions.get("/prompt-book", async (c) => {
+  const user = c.get("user");
+  const book = await SessionService.getPromptBook({
+    userId: user.id,
+    playId: c.req.query("playId"),
+    characterId: c.req.query("characterId"),
+  });
+  return c.json(book);
+});
+
 /** What to lean on this run, read from her own history. The read half of the
  * read-decide-act-write loop. */
 sessions.get("/plan", async (c) => {

@@ -9,7 +9,8 @@
     "test-coach-block": "deno run --allow-net --allow-env --allow-read=../.env --allow-sys=osRelease src/scripts/testCoachBlock.ts",
     "embed-beats": "deno run --allow-net --allow-env --allow-read=../.env --allow-sys=osRelease src/scripts/embedBeats.ts",
     "test-capture-socket": "deno run --allow-net --allow-env --allow-read=../.env --allow-sys=osRelease src/scripts/testCaptureSocket.ts",
-    "test-session-lifecycle": "deno run --allow-net --allow-env --allow-read=../.env --allow-sys=osRelease src/scripts/testSessionLifecycle.ts"
+    "test-session-lifecycle": "deno run --allow-net --allow-env --allow-read=../.env --allow-sys=osRelease src/scripts/testSessionLifecycle.ts",
+    "backfill-bands": "deno run --allow-net --allow-env --allow-read=../.env --allow-sys=osRelease src/scripts/backfillBands.ts"
   },
   "imports": {
     "hono": "jsr:@hono/hono",

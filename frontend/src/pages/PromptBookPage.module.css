@@ -25,3 +25,20 @@
   border-radius: var(--bh-radius-md);
   overflow: hidden;
 }
+
+/* Sits under the bar rather than inside it: the bar is the glanceable thing and
+   the numbers are the detail behind it. */
+.masteryMeta {
+  margin: 8px 0 0;
+}
+
+/* Every empty state on this screen. Muted and unadorned — "nothing here yet" is
+   an ordinary condition on a part she has just started, not a problem. */
+.empty {
+  font-family: var(--bh-font-sans);
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--bh-text-muted);
+  max-width: 46ch;
+  margin: 0 0 20px;
+}

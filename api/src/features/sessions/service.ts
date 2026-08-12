@@ -160,6 +160,123 @@ export const SessionService = {
    * practised, and those are the majority on any early run. An inner join would
    * silently return an empty plan and look like "nothing to work on".
    */
+  /**
+   * Her whole part, and what she still hasn't got.
+   *
+   * The Prompt Book answers a different question from the wrap-up. The wrap-up
+   * is "how did that run go"; this is "where am I with this part", which no
+   * single session can answer — so it reads `line_mastery`, which is keyed
+   * (user, line) and has no concept of a session at all.
+   *
+   * Three numbers, deliberately distinct:
+   *
+   *   totalBeats      every beat of the part, run or not
+   *   practisedBeats  beats she has attempted — how far in she is
+   *   solidBeats      beats she currently *has* — the mastery bar
+   *
+   * `solidBeats` counts `band = 'solid'` and never `band <> 'dry'`, because NULL
+   * means the deterministic fallback scored the beat and no band was ever judged
+   * (migration 009). Counting NULL as known would let a Bedrock outage inflate
+   * her mastery.
+   */
+  async getPromptBook(
+    input: { userId: string; playId?: string; characterId?: string },
+  ): Promise<PromptBook> {
+    const { userId, playId, characterId } = input;
+    if (!playId?.trim() || !characterId?.trim()) {
+      throw new SessionError(
+        "VALIDATION_ERROR",
+        "playId and characterId are both required.",
+      );
+    }
+
+    const head = await DbClient.getPool().query(
+      `SELECT p.title AS play_title, c.name AS character_name
+         FROM plays p JOIN characters c ON c.play_id = p.id
+        WHERE p.id = $1 AND c.id = $2`,
+      [playId, characterId],
+    );
+    if (head.rows.length === 0) {
+      throw new SessionError(
+        "SCENE_NOT_FOUND",
+        `No character ${characterId} in play ${playId}.`,
+      );
+    }
+
+    // LEFT JOIN for the same reason getSessionPlan uses one: most of a part has
+    // never been run, and an inner join would report a 40-beat role as a 3-beat
+    // one on her second day.
+    const totals = await DbClient.getPool().query(
+      `SELECT count(*) AS total,
+              count(m.line_id) AS practised,
+              count(*) FILTER (WHERE m.band = 'solid') AS solid
+         FROM lines l
+         JOIN line_speakers ls ON ls.line_id = l.id AND ls.character_id = $2
+         LEFT JOIN line_mastery m ON m.line_id = l.id AND m.user_id = $3
+        WHERE l.play_id = $1`,
+      [playId, characterId, userId],
+    );
+
+    // Worst first — most-missed, then least confident, then most recent. Only
+    // beats she has actually got wrong: an unpractised beat is not a weakness,
+    // it is just unvisited, and listing it here would bury the real notes under
+    // the whole part.
+    //
+    // `what_was_said` is her most recent attempt at that beat, not any older
+    // one — a lateral join rather than a join to mistake_log, which holds every
+    // miss ever and would multiply the rows.
+    const flagged = await DbClient.getPool().query(
+      `SELECT l.id AS line_id, l.block_id, l.act, l.scene, l.text,
+              m.mistake_count, m.band, m.confidence_score, m.last_practiced_at,
+              coalesce(recent.what_was_said, '') AS what_was_said
+         FROM line_mastery m
+         JOIN lines l ON l.id = m.line_id
+         JOIN line_speakers ls ON ls.line_id = l.id AND ls.character_id = $2
+         LEFT JOIN LATERAL (
+           SELECT ml.what_was_said
+             FROM mistake_log ml
+            WHERE ml.line_id = m.line_id AND ml.user_id = m.user_id
+            ORDER BY ml.created_at DESC
+            LIMIT 1
+         ) recent ON true
+        WHERE m.user_id = $3 AND l.play_id = $1 AND m.mistake_count > 0
+        ORDER BY m.mistake_count DESC, m.confidence_score ASC, m.last_practiced_at DESC
+        LIMIT $4`,
+      [playId, characterId, userId, PROMPT_BOOK_LIMIT],
+    );
+
+    return {
+      playId,
+      playTitle: head.rows[0].play_title,
+      characterId,
+      characterName: head.rows[0].character_name,
+      totalBeats: Number(totals.rows[0].total),
+      practisedBeats: Number(totals.rows[0].practised),
+      solidBeats: Number(totals.rows[0].solid),
+      needsAnotherLook: flagged.rows.map((
+        row: RawMasteryRow & {
+          act: string;
+          scene: string;
+          band: string | null;
+          what_was_said: string;
+        },
+      ) => ({
+        lineId: row.line_id,
+        blockId: row.block_id,
+        act: row.act,
+        scene: row.scene,
+        text: row.text,
+        mistakeCount: Number(row.mistake_count ?? 0),
+        band: row.band,
+        confidenceScore: Number(row.confidence_score ?? 0),
+        whatWasSaid: row.what_was_said,
+        lastPractisedAt: row.last_practiced_at === null
+          ? null
+          : new Date(row.last_practiced_at).toISOString(),
+      })),
+    };
+  },
+
   async getSessionPlan(
     input: {
       userId: string;
@@ -516,3 +633,48 @@ async function loadExpectedText(
     result.rows.map((row: { id: string; text: string }) => [row.id, row.text]),
   );
 }
+
+/** One beat she has missed, with what she actually said the last time. */
+export type PromptBookBeat = {
+  lineId: string;
+  blockId: string;
+  act: string;
+  scene: string;
+  text: string;
+  /** How many times she has missed it, ever — `line_mastery.mistake_count`,
+   * which only accumulates. Worst-first ordering keys on this. */
+  mistakeCount: number;
+  /** The latest attempt's band, or null when only the deterministic fallback
+   * has scored it (migration 009). */
+  band: string | null;
+  confidenceScore: number;
+  /** Empty when she said nothing at all — the most useful thing to show. */
+  whatWasSaid: string;
+  lastPractisedAt: string | null;
+};
+
+export type PromptBook = {
+  playId: string;
+  playTitle: string;
+  characterId: string;
+  characterName: string;
+  /** Every beat of the part, whether or not she has ever run it. */
+  totalBeats: number;
+  /** Beats she has attempted at all — the honest denominator for "how far
+   * through the part am I", and deliberately separate from `solidBeats`. */
+  practisedBeats: number;
+  /** Beats whose latest band is *solid*. **`band = 'solid'`, never
+   * `band <> 'dry'`** — NULL means the fallback scored it and no band was ever
+   * judged (migration 009), which must not count as known. */
+  solidBeats: number;
+  /** Worst first. Her whole part, not one scene — this is the screen for "what
+   * do I still not have", which a per-scene wrap-up cannot answer. */
+  needsAnotherLook: PromptBookBeat[];
+};
+
+/**
+ * How many notes to carry. A prompt book that lists forty lines is a list, not
+ * a prompt book — `OPEN_ITEMS.md` §1c's "a director gives two or three" applied
+ * one level up, to the part rather than the speech.
+ */
+const PROMPT_BOOK_LIMIT = 12;

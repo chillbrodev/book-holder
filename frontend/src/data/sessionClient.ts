@@ -173,3 +173,46 @@ export function saveSession(input: {
 }): Promise<SavedSession> {
   return apiRequest('/sessions', { method: 'POST', body: JSON.stringify(input) })
 }
+
+/** One beat she still hasn't got, with what she last said instead. */
+export interface PromptBookBeat {
+  lineId: string
+  blockId: string
+  act: string
+  scene: string
+  text: string
+  /** Every miss ever, not this run's — `mistake_count` only accumulates. */
+  mistakeCount: number
+  /** Her latest band, or null when only the deterministic fallback has ever
+   * scored it. **Null is "not judged", never "not solid"** — see migration 009. */
+  band: 'solid' | 'close' | 'dry' | null
+  confidenceScore: number
+  /** Empty when she said nothing at all, which is the most useful case to show. */
+  whatWasSaid: string
+  lastPractisedAt: string | null
+}
+
+export interface PromptBook {
+  playId: string
+  playTitle: string
+  characterId: string
+  characterName: string
+  totalBeats: number
+  /** Beats she has attempted at all — how far into the part she is. */
+  practisedBeats: number
+  /** Beats whose latest band is *solid*. The mastery bar's numerator. */
+  solidBeats: number
+  needsAnotherLook: PromptBookBeat[]
+}
+
+/**
+ * Her whole part: how much of it she has, and what she still doesn't.
+ *
+ * Deliberately not scene-scoped. The wrap-up answers "how did that run go";
+ * this answers "where am I with this part", which reads `line_mastery` — keyed
+ * (user, line), with no concept of a session at all.
+ */
+export function getPromptBook(playId: string, characterId: string): Promise<PromptBook> {
+  const query = new URLSearchParams({ playId, characterId })
+  return apiRequest(`/sessions/prompt-book?${query}`)
+}
