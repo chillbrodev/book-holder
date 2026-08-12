@@ -17,6 +17,10 @@ const MAX_BEAT_CHARS = 200;
  * forward. Ending in `.`/`?` it does not — see mergeInterjections. */
 const INTERJECTION_MAX_CHARS = 40;
 
+/** A fragment that begins with a lowercase letter is a continuation of the
+ * sentence before it, not a new thought — see mergeContinuations. */
+const STARTS_LOWERCASE = /^[a-z]/;
+
 /** Sentence end: terminal punctuation plus any closing quotes/brackets. No
  * abbreviation defense — the Shakespeare corpus has no "Mr."/"Mrs."/"St.". */
 const SENTENCE_BOUNDARY = /(?<=[.!?]["'’)\]]*)\s+/;
@@ -95,6 +99,56 @@ function mergeInterjections(sentences: string[]): string[] {
   return merged;
 }
 
+/**
+ * Merges a fragment back into the sentence it continues.
+ *
+ * `SENTENCE_BOUNDARY` splits on terminal punctuation, which in Shakespeare is
+ * not reliably the end of a thought — a question mid-utterance ends in `?` and
+ * the rest of the utterance carries straight on. The tell is capitalisation:
+ * the Moby text capitalises a genuinely new sentence, so **a fragment starting
+ * lowercase is a continuation**, and splitting there produces beats nobody
+ * would deliver separately.
+ *
+ * From a real rehearsal, which is how this was found — Fenton in I.iv came out
+ * as four two-beat speeches where every second beat began lowercase:
+ *
+ *   "Who's within there?"           | "ho!"
+ *   "How now, good woman?"          | "how dost thou?"
+ *   "What news?"                    | "how does pretty Mistress Anne?"
+ *   "Shall I do any good, thinkest thou?" | "shall I not lose my suit?"
+ *
+ * "ho!" is not a thought. Scored on its own it is almost unscoreable, and in the
+ * rehearsal UI it cost her a "Next bit?" tap to reveal two syllables.
+ *
+ * This is the mirror of `mergeInterjections`, which merges a short exclamation
+ * *forward*; this merges a continuation *backward*, and the two compose.
+ *
+ * Measured over Merry Wives: 69 merges across 56 blocks, 1,705 beats → 1,636.
+ * Every sampled result reads as one utterance ("Why do your dogs bark so? be
+ * there bears i' the town?"). A further 74 lowercase fragments are left split
+ * because absorbing them would exceed `MAX_BEAT_CHARS` — the same guard, and the
+ * same tradeoff, as the interjection rule: a beat has to stay short enough to
+ * deliver and to score.
+ *
+ * **This does not invalidate the Polly cache.** `blockId` hashes the block's
+ * joined text, which is computed before segmentation and is unchanged by moving
+ * a beat boundary; only `beatId` moves, resetting the practice history it should
+ * reset (`ids.ts`).
+ */
+function mergeContinuations(sentences: string[]): string[] {
+  const merged: string[] = [];
+  for (const sentence of sentences) {
+    const previous = merged[merged.length - 1];
+    const absorbs = previous !== undefined &&
+      STARTS_LOWERCASE.test(sentence) &&
+      previous.length + 1 + sentence.length <= MAX_BEAT_CHARS;
+
+    if (absorbs) merged[merged.length - 1] = `${previous} ${sentence}`;
+    else merged.push(sentence);
+  }
+  return merged;
+}
+
 /** Splits an over-long sentence at `;`/`:`, accumulating clauses greedily
  * rather than splitting at every one — Shakespeare's colons and semicolons are
  * rhetorical turns, so these land where an actor breathes. A sentence with no
@@ -126,7 +180,13 @@ function splitLongSentence(sentence: string): string[] {
 export function splitIntoBeats(text: string): string[] {
   if (text.trim() === "") return [];
   const sentences = text.split(SENTENCE_BOUNDARY);
-  return mergeInterjections(sentences).flatMap(splitLongSentence);
+  // Interjections merge forward, continuations merge backward, and then what
+  // survives as one over-long thought is clause-split. Continuations run second
+  // so that a merged interjection is one candidate rather than two, and both
+  // run before the length split so nothing is joined past MAX_BEAT_CHARS only
+  // to be cut again.
+  const thoughts = mergeContinuations(mergeInterjections(sentences));
+  return thoughts.flatMap(splitLongSentence);
 }
 
 export const SEGMENT_LIMITS = { MAX_BEAT_CHARS, INTERJECTION_MAX_CHARS };
