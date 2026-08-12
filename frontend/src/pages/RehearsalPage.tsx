@@ -24,7 +24,24 @@ import { toDisplayName } from '../utils/format'
 import styles from './RehearsalPage.module.css'
 
 const AUTO_ADVANCE_DELAY_MS = 650
-const CAPTURED_ADVANCE_DELAY_MS = 500
+
+/**
+ * How long her finished speech stays on screen once the coach has answered.
+ *
+ * Long enough to register that the pills arrived and read a short note, short
+ * enough that it reads as a beat between speeches rather than a wait.
+ */
+const SCORE_SEEN_MS = 900
+
+/**
+ * The longest the scene will hold for a score that hasn't come.
+ *
+ * Measured coaching latency is 0.8-1.3s, so this usually expires unused — the
+ * score lands first and `SCORE_SEEN_MS` takes over. It exists for the cases
+ * where nothing is coming at all: Bedrock unreachable, the socket lost, a guest
+ * whose connection dropped. The scene must never stall on feedback.
+ */
+const SCORE_WAIT_CAP_MS = 1500
 const AUTO_SCROLL_STORAGE_KEY = 'bh:autoScroll'
 
 export function RehearsalPage() {
@@ -134,8 +151,18 @@ export function RehearsalPage() {
     setCoachingByBlock((previous) => new Map(previous).set(scored.blockId, scored))
   }, [])
 
+  /** When the current block finished capturing, so the wait for its score can be
+   * capped from that moment rather than from whenever the effect last re-ran. */
+  const capturedAtRef = useRef<number | null>(null)
+
   const { micState, tapMic, retry, beatIndex, beatsCompleted, beatCount, stalled, transcript, heard, setMuted } =
     useMicCapture(activeUserBlockId, role?.id, sessionId, fileScore)
+
+  // Stamped on the transition into `captured`, cleared on the way out, so the
+  // cap above measures the wait for *this* block's score.
+  useEffect(() => {
+    capturedAtRef.current = micState === 'captured' ? Date.now() : null
+  }, [micState, activeUserBlockId])
 
   // Every beat she's attempted this scene, keyed by lineId so a block re-entered
   // (a retry, or a re-render delivering the same `complete`) overwrites rather
@@ -375,19 +402,42 @@ export function RehearsalPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- advance() closes over cursor/dialogue, re-derived every render
   }, [cursor, dialogue, done, readingPaused, playbackAttempt])
 
-  // Her speech is captured, so move on. Previously this needed a second tap,
-  // which was pure friction: the app already knew the block was done, and asking
-  // her to confirm it made the end of every line a small piece of admin. The
-  // delay is just long enough to see the confirmation land.
+  /**
+   * Her speech is captured, so move on — but not before she has seen how it
+   * went.
+   *
+   * **This reverses `coaching-plan.md` §4's "advancing to the next block never
+   * waits on a score".** That rule was right about the danger and wrong about
+   * the arithmetic. It assumed the annotation could land late and still be read,
+   * because she would be listening to the next character and could glance back.
+   * With auto-scroll on there is nothing to glance at: the score arrives ~1s
+   * after `complete`, the page advanced 500ms after it, and the pills rendered
+   * under a speech that had already left the screen. Non-interruptive was
+   * satisfied; the intent behind it wasn't. Coaching she never sees is coaching
+   * that isn't happening.
+   *
+   * So the scene waits for the score, and then for a moment longer — capped, so
+   * it can never stall on feedback that isn't coming. The delay is smaller than
+   * it sounds: advancing is what triggers `getBlockAudio` for the next
+   * character, so part of this overlaps a gap that already existed.
+   */
   useEffect(() => {
     // `activeUserBlockId` is in the condition as well as the state: without it, a
     // `captured` left over from a previous line could advance the scene while
     // somebody else is speaking.
     if (!activeUserBlockId || micState !== 'captured' || done || readingPaused) return
-    const timer = setTimeout(() => advance(), CAPTURED_ADVANCE_DELAY_MS)
+
+    const scored = coachingByBlock.has(activeUserBlockId)
+    // Measured from when the capture completed, not from when this effect last
+    // ran. The effect re-runs when the score lands, and a cap restarted from
+    // there would be a second full wait rather than the remainder of the first.
+    const waitedFor = capturedAtRef.current === null ? 0 : Date.now() - capturedAtRef.current
+    const delay = scored ? SCORE_SEEN_MS : Math.max(0, SCORE_WAIT_CAP_MS - waitedFor)
+
+    const timer = setTimeout(() => advance(), delay)
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- advance() closes over cursor/dialogue, re-derived every render
-  }, [activeUserBlockId, micState, done, readingPaused])
+  }, [activeUserBlockId, micState, done, readingPaused, coachingByBlock])
 
   /**
    * Plays her own line back to her.

@@ -123,7 +123,25 @@ that never reflows.
 **Non-interruptive, but not invisible.** This is the point on which the style
 guide §9 changes, so the reasoning belongs here:
 
-- Nothing blocks. Advancing to the next block never waits on a score.
+- ~~Nothing blocks. Advancing to the next block never waits on a score.~~
+  **Reversed August 11 2026, from watching a real rehearsal.** The rule was
+  right about the danger and wrong about the arithmetic. It assumed a late
+  annotation could still be read, because she would be listening to the next
+  character and could glance back — but with auto-scroll on there is nothing to
+  glance at. Measured: `complete` at t=0, the page advanced at t=500ms, the
+  score arrived at t≈1000ms and rendered its pills under a speech that had
+  already left the screen. Non-interruptive was satisfied and the intent behind
+  it was not. Coaching she never sees is coaching that isn't happening.
+
+  The scene now waits for the score and then a moment longer, **capped at 1.5s**
+  so it can never stall on feedback that isn't coming (Bedrock down, socket
+  lost). The cost is smaller than it reads: advancing is what triggers
+  `getBlockAudio` for the next character, so part of the wait overlaps a gap
+  that already existed.
+
+  What the original rule was protecting — that she is never *asked* to do
+  anything, that nothing demands a response, that no sound or motion pulls the
+  eye — is unchanged and still holds.
 - Nothing demands a response. She can ignore the entire column of annotations and
   the rehearsal is identical.
 - No sound, and no motion that pulls the eye.
