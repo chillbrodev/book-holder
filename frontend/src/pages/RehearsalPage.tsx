@@ -739,6 +739,7 @@ export function RehearsalPage() {
                     beatsCompleted={beatsCompleted}
                     beatCount={beatCount}
                     stalled={stalled}
+                    holding={holdingForScore}
                   />
                 </div>
                 {/* Her words in production; the cursor/mic diagnostics only in

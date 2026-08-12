@@ -15,6 +15,16 @@ export interface MicStateIndicatorProps {
    * claim "Listening" when the app has lost her is the thing that left her with
    * no idea what it wanted. */
   stalled?: boolean
+  /**
+   * The scene is holding on this speech because there was something worth
+   * reading (`RehearsalPage.worthAPause`).
+   *
+   * Same reason `stalled` exists: "Captured — moving on…" beside a Continue
+   * button and a scene that is deliberately standing still is the app narrating
+   * behaviour it no longer has. Small, and exactly the kind of small that makes
+   * an interface feel like it isn't paying attention.
+   */
+  holding?: boolean
 }
 
 const COPY: Record<MicState, { label: string; hint: string }> = {
@@ -35,11 +45,16 @@ export function MicStateIndicator({
   beatsCompleted = 0,
   beatCount = 0,
   stalled = false,
+  holding = false,
 }: MicStateIndicatorProps) {
   // Stalled is a shading of `listening`, not a sixth state: the mic really is
-  // still open and she can still carry on. Only what it says changes.
+  // still open and she can still carry on. `holding` is the same kind of
+  // shading over `captured` — the speech is caught either way, and the only
+  // difference is whether the scene is waiting on her to read something.
   const copy = stalled && state === 'listening'
     ? { label: 'Still listening — lost your thread', hint: 'Carry on, call for the line, or say you’re done.' }
+    : holding && state === 'captured'
+    ? { label: 'Captured', hint: 'Have a look — then carry on.' }
     : COPY[state]
   const isQuiet = state === 'connecting' || state === 'cantHear'
   // Only worth showing on a speech with several thoughts in it — on a one-beat
