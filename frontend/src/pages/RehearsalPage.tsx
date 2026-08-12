@@ -81,13 +81,41 @@ export function RehearsalPage() {
   const [searchParams] = useSearchParams()
   const lineId = searchParams.get('line')
   const backTo = searchParams.get('back')
+  /**
+   * A drill over a chosen set of speeches, rather than the whole scene.
+   *
+   * This is migration 008's block-scoped session reaching the UI: a session is a
+   * set of blocks and a scene is only one kind of set, so running three speeches
+   * is a rehearsal that can be *finished* rather than a scene abandoned after
+   * three. The wrap-up's "Practice these lines" is the first caller; the coach
+   * agent will be the second, with `source: 'coach'` so its recommendation can
+   * be checked against what she actually ran.
+   *
+   * Distinct from `?line=`, which drills a single speech and deliberately saves
+   * nothing.
+   */
+  const drillBlockIds = (searchParams.get('blocks') ?? '')
+    .split(',')
+    .map((id) => id.trim())
+    .filter(Boolean)
+  const isDrill = drillBlockIds.length > 0
   const navigate = useNavigate()
   // Only a signed-in user has anywhere to save a session to (sessionClient.ts).
   const { user } = useAuth()
 
   const { data: dialogue, loading, error } = useAsync(
-    () => (lineId ? getSingleLineDialogue(playId, lineId) : getSceneDialogue(playId, act, scene)),
-    [playId, act, scene, lineId],
+    async () => {
+      if (lineId) return await getSingleLineDialogue(playId, lineId)
+      const full = await getSceneDialogue(playId, act, scene)
+      if (!isDrill) return full
+      // Only the chosen speeches. Stage directions and the other characters'
+      // lines are dropped: a drill is a run at the speeches themselves, and
+      // playing the scene around them would make a three-speech practice take
+      // as long as the scene it came from.
+      const wanted = new Set(drillBlockIds)
+      return full.filter((entry) => entry.type === 'speech' && wanted.has(entry.blockId))
+    },
+    [playId, act, scene, lineId, drillBlockIds.join(',')],
   )
   const { data: play } = useAsync(() => getPlay(playId), [playId])
   const { data: role } = useAsync(() => getSelectedRole(playId), [playId])
@@ -234,7 +262,18 @@ export function RehearsalPage() {
   useEffect(() => {
     if (lineId || !user || !play || !role) return
     let cancelled = false
-    startSession({ playId: play.id, act, scene, characterId: role.id })
+    startSession({
+      playId: play.id,
+      act,
+      scene,
+      characterId: role.id,
+      // A drill records exactly the speeches it set out to run, so finishing it
+      // is a real completion rather than a scene abandoned early. `source` is
+      // 'user' because she chose these from her own flagged lines; the coach
+      // agent will pass 'coach', which is what makes its recommendations
+      // checkable against what she actually ran.
+      ...(isDrill ? { scope: 'blocks' as const, blockIds: drillBlockIds, source: 'user' as const } : {}),
+    })
       .then((started) => {
         if (!cancelled) setSessionId(started.sessionId)
       })
@@ -249,7 +288,7 @@ export function RehearsalPage() {
       cancelled = true
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the ids, deliberately, not the objects: `play`, `role` and `user` are re-derived every render, and depending on them would open a fresh session on each one
-  }, [play?.id, act, scene, role?.id, user?.id, lineId])
+  }, [play?.id, act, scene, role?.id, user?.id, lineId, drillBlockIds.join(',')])
 
   // The per-beat split arrives with the capture's `complete` event. This is the
   // point where what she said stops being ephemeral — until now it was computed,

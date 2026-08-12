@@ -58,6 +58,7 @@ async function main() {
   console.log(`throwaway user ${userId}\n`);
 
   let sessionId: string | undefined;
+  let drillSessionId: string | undefined;
   try {
     // --- start ---------------------------------------------------------
     const started = await SessionLifecycle.start({
@@ -208,24 +209,76 @@ async function main() {
       `complete   ran=${completed.beatsRun}/${completed.beatsPlanned} ` +
         `completed=${completed.completed}`,
     );
+    // --- a block-scoped drill ----------------------------------------
+    // What "Practice these lines" now starts: a session over a chosen subset of
+    // her speeches rather than the whole scene. The point of migration 008 —
+    // finishing three speeches is a completed rehearsal, not a scene abandoned
+    // after three.
+    const drill = await SessionLifecycle.start({
+      userId,
+      playId: play_id,
+      act,
+      scene,
+      characterId: character_id,
+      scope: "blocks",
+      blockIds: [block_id],
+      source: "user",
+    });
+    drillSessionId = drill.sessionId;
+
+    const drillRow = await pool.query(
+      `SELECT scope FROM session_history WHERE id = $1`,
+      [drillSessionId],
+    );
+    const drillBlocks = await pool.query(
+      `SELECT block_id, source FROM session_block WHERE session_id = $1`,
+      [drillSessionId],
+    );
+    check("a drill is scoped to blocks", drillRow.rows[0]?.scope === "blocks");
+    check(
+      "a drill records only the blocks it was given",
+      drillBlocks.rows.length === 1 &&
+        drillBlocks.rows[0].block_id === block_id,
+    );
+    check("who chose them is recorded", drillBlocks.rows[0]?.source === "user");
+
+    // A block she doesn't speak must be refused rather than dropped — a session
+    // whose intent quietly shrank would report itself finished having run less
+    // than it was asked to.
+    let refused = false;
+    try {
+      await SessionLifecycle.start({
+        userId,
+        playId: play_id,
+        act,
+        scene,
+        characterId: character_id,
+        scope: "blocks",
+        blockIds: [crypto.randomUUID()],
+        source: "user",
+      });
+    } catch {
+      refused = true;
+    }
+    check("a block she doesn't speak is refused, not dropped", refused);
+    console.log(`drill       scope=blocks blocks=${drillBlocks.rows.length}`);
   } finally {
-    // FK order matters: children before parents.
-    if (sessionId) {
-      await pool.query(`DELETE FROM mistake_log WHERE session_id = $1`, [
-        sessionId,
-      ]);
+    // Children before parents, and both sessions before either parent row —
+    // getting this backwards is what the failed first run of this probe proved,
+    // by leaving a session behind that its own mistake_log rows still pointed at.
+    const sessions = [drillSessionId, sessionId].filter(Boolean) as string[];
+    for (const id of sessions) {
+      await pool.query(`DELETE FROM mistake_log WHERE session_id = $1`, [id]);
       await pool.query(`DELETE FROM session_beat_score WHERE session_id = $1`, [
-        sessionId,
+        id,
       ]);
       await pool.query(`DELETE FROM block_coaching WHERE session_id = $1`, [
-        sessionId,
+        id,
       ]);
-      await pool.query(`DELETE FROM session_block WHERE session_id = $1`, [
-        sessionId,
-      ]);
-      await pool.query(`DELETE FROM session_history WHERE id = $1`, [
-        sessionId,
-      ]);
+      await pool.query(`DELETE FROM session_block WHERE session_id = $1`, [id]);
+    }
+    for (const id of sessions) {
+      await pool.query(`DELETE FROM session_history WHERE id = $1`, [id]);
     }
     await pool.query(`DELETE FROM line_mastery WHERE user_id = $1`, [userId]);
     await pool.query(`DELETE FROM users WHERE id = $1`, [userId]);

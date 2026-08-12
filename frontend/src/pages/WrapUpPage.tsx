@@ -1,5 +1,7 @@
 import { useNavigate, useParams } from 'react-router-dom'
 import { getScenesSummary, getSelectedRole } from '../data/client'
+import { getBlockAudio } from '../data/pollyClient'
+import { playUrl, unlockPlayback } from '../utils/audioPlayback'
 import { getSessionSummary, type SessionSummary } from '../data/sessionClient'
 import { pendingSessionSave } from '../data/pendingSessionSave'
 import { ApiError } from '../data/apiClient'
@@ -74,6 +76,44 @@ export function WrapUpPage() {
   // blank rows would suggest something failed rather than that a speech went
   // fine.
   const notedSpeeches = summary?.speeches.filter((speech) => speech.note.length > 0) ?? []
+
+  /**
+   * Play the speech a flagged beat belongs to, in her own part's voice.
+   *
+   * The block rather than the beat, because that is the unit Polly renders —
+   * asking for a beat would mean a synthesis that exists nowhere and matches no
+   * cache key. Hearing the run-up is also what makes the flagged line locatable;
+   * a beat with no lead-in is hard to place in a speech you half know.
+   *
+   * The button existed and did nothing before this: `FlaggedLineRow` has always
+   * taken an `onReplay`, and the wrap-up never passed one, so it rendered with
+   * `onClick={undefined}`.
+   */
+  async function replay(blockId: string) {
+    if (!role) return
+    // Synchronous, before the await, while this click's activation is alive —
+    // see utils/audioPlayback.ts for why that ordering is the whole ballgame on
+    // iOS Safari.
+    unlockPlayback()
+    try {
+      const { audioUrl } = await getBlockAudio(blockId, role.id)
+      await new Promise<void>((resolve) => {
+        const session = playUrl(audioUrl, { onEnded: resolve, onError: resolve })
+        void session.started.catch(() => resolve())
+      })
+    } catch (err) {
+      // A cue that won't play is not worth interrupting the wrap-up over.
+      console.error('Could not replay that line:', err)
+    }
+  }
+
+  /**
+   * The blocks behind the flagged beats, in the order she spoke them.
+   *
+   * Distinct, because several flagged beats commonly live in one speech and
+   * drilling it twice would be busywork.
+   */
+  const flaggedBlockIds = [...new Set(summary?.flagged.map((beat) => beat.blockId) ?? [])]
   const backParam = encodeURIComponent(`/play/${playId}/wrap-up/${act}/${scene}`)
   const { playRow, roleRow } = describeNeighbours(findSceneNeighbours(scenes ?? [], act, scene))
 
@@ -181,6 +221,7 @@ export function WrapUpPage() {
                     text={beat.text}
                     trailing="replay"
                     isLast={i === summary.flagged.length - 1}
+                    onReplay={() => void replay(beat.blockId)}
                   />
                 ))}
               </div>
@@ -199,7 +240,16 @@ export function WrapUpPage() {
           className={styles.actionButton}
           disabled={!summary || summary.flagged.length === 0}
           onClick={() =>
-            summary && navigate(`/play/${playId}/rehearse/${act}/${scene}?line=${summary.flagged[0].lineId}&back=${backParam}`)}
+            summary &&
+            // Every flagged speech, not just the first — which is what this
+            // button said and did not do. `?blocks=` starts a block-scoped
+            // session (migration 008): a session is a set of blocks, and a
+            // scene is only one kind of set, so a three-speech drill is a real
+            // rehearsal that can be finished rather than a scene abandoned
+            // after three speeches.
+            navigate(
+              `/play/${playId}/rehearse/${act}/${scene}?blocks=${flaggedBlockIds.join(',')}&back=${backParam}`,
+            )}
         >
           Practice these lines
         </Button>
