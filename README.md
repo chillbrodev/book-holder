@@ -68,18 +68,15 @@ The honest counter-argument is written up in `docs/OPEN_ITEMS.md` §1e: recordin
 
 The design principle behind every technical decision here: **the agent reads memory to decide what happens next, and writes memory as a direct result of what happened.** Not logging. Not a dashboard. The read changes the behavior.
 
-```
-  ┌──────────────────────────────────────────────────────────────┐
-  │                                                              │
-  │   READ            DECIDE           ACT             WRITE     │
-  │                                                              │
-  │  mastery    →   what to      →  rehearse    →   scores,      │
-  │  history        emphasize       the block       bands,       │
-  │  mistakes                                       mistakes     │
-  │     ↑                                              │         │
-  │     └──────────────────────────────────────────────┘         │
-  │                                                              │
-  └──────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+    READ["READ<br/>mastery, past sessions,<br/>mistake history"]
+    DECIDE["DECIDE<br/>what to emphasize,<br/>what to recommend"]
+    ACT["ACT<br/>rehearse the block,<br/>hear and score it"]
+    WRITE["WRITE<br/>scores, bands, mastery,<br/>embedded mistakes"]
+
+    READ --> DECIDE --> ACT --> WRITE
+    WRITE -->|"next session reads what this one wrote"| READ
 ```
 
 **Before a session.** The agent reads per-*beat* mastery for the chosen scene. A beat is one thought, and it is the unit of scoring throughout (see "Beats and blocks" below; it is not a line of verse).
@@ -111,6 +108,117 @@ Three choices worth defending:
 **Its reasoning is inspectable.** `tool_calls JSONB` exists for exactly one reason: being able to answer "why did it say that" without re-running it. An agent whose reasoning cannot be audited is very hard to trust and harder to debug.
 
 Full design: `docs/coaching-plan.md`.
+
+### One block, end to end
+
+The loop above, with the actual services in it. This is the whole product in one picture: everything before
+"THE AGENT" happens while she is still in the room, and everything in it happens because the previous
+sessions were written down.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Her as Actor
+    participant FE as Browser
+    participant API as API
+    participant DB as CockroachDB
+    participant TR as Transcribe
+    participant BR as Bedrock
+
+    Note over API,DB: READ
+    FE->>API: start session, scene or a set of blocks
+    API->>DB: per-beat mastery for this part
+    DB-->>API: what she already has
+    API->>DB: record intent in session_block
+
+    Note over Her,TR: ACT
+    API-->>FE: cue audio for other characters, cached per block
+    Her->>FE: speaks her block
+    FE->>API: PCM frames over WebSocket
+    API->>TR: audio stream
+    TR-->>API: partial then final transcript
+    API-->>FE: live transcript, beat cursor advances
+
+    Note over API,BR: DECIDE
+    API->>BR: one Nova Micro call for the whole block
+    BR-->>API: band and confidence per beat, one grounded note
+
+    Note over API,DB: WRITE
+    API->>BR: Titan embeds what she said, dry beats only
+    API->>DB: scores, bands, mastery, mistakes in one transaction
+
+    Note over API,BR: THE AGENT
+    API->>BR: hand the run to Nova Lite
+    BR-->>API: get_part_progress
+    BR-->>API: get_recent_misses
+    BR-->>API: find_similar_beats
+    API->>DB: history and vector queries
+    DB-->>API: rows
+    API-->>BR: tool results
+    BR-->>API: submit_recommendation, terminal
+    API->>DB: coach_recommendation with its tool_calls
+    API-->>FE: wrap-up, and what to run next time
+```
+
+---
+
+## Architecture
+
+```mermaid
+flowchart TB
+    subgraph client["Browser"]
+        UI["React 19 + Vite<br/>rehearsal UI, prompt book"]
+        MIC["Mic capture<br/>AudioWorklet, 16 kHz PCM"]
+    end
+
+    subgraph run["AWS ECS Express Mode · Fargate + ALB"]
+        API["Deno + Hono API<br/>capture · coaching · coach · sessions"]
+    end
+
+    subgraph br["Amazon Bedrock"]
+        MICRO["Nova Micro<br/>scores one block, per beat"]
+        LITE["Nova Lite<br/>coach agent, multi-turn tools"]
+        TITAN["Titan Embed V2<br/>1024-dim, normalized"]
+    end
+
+    subgraph db["CockroachDB Cloud · Serverless"]
+        CORPUS[("corpus<br/>plays, lines, characters")]
+        MEM[("memory<br/>sessions, mastery, mistakes,<br/>recommendations")]
+        VEC["vector_l2_ops indexes"]
+    end
+
+    TR["Amazon Transcribe<br/>streaming STT"]
+    POLLY["Amazon Polly<br/>neural engine"]
+    S3[("Amazon S3<br/>block audio cache")]
+    AMP["AWS Amplify Hosting"]
+
+    AMP -.serves.-> UI
+    UI -->|"HTTPS / REST"| API
+    MIC -->|"WebSocket, PCM frames"| API
+    API <-->|"audio out, transcript back"| TR
+    API --> MICRO
+    API --> LITE
+    API --> TITAN
+    API -->|"on cache miss"| POLLY
+    POLLY --> S3
+    S3 -->|"signed GET"| API
+    API <--> CORPUS
+    API <--> MEM
+    MEM -.indexed by.-> VEC
+    LITE -.->|"tool calls read memory"| API
+```
+
+Three things this is meant to make obvious:
+
+- **No AWS credential ever reaches the browser.** Every Bedrock, Polly, Transcribe and S3 call routes through
+  the API, which holds an ECS task role in production and a scoped IAM user locally. The same client code
+  runs in both; nothing branches on environment.
+- **The corpus and the memory are the same database but not the same thing.** The corpus is derived from
+  public-domain text and is identical for everyone. The memory is hers, and it is the only part that makes
+  the second session differ from the first.
+- **The agent's arrow points back at the API.** Nova Lite does not receive a prepared summary; it calls tools
+  that query CockroachDB, and decides for itself what to look up. That arrow is the difference between an
+  agent and a prompt with a database attached.
 
 ---
 
