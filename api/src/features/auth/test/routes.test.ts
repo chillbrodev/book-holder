@@ -1,10 +1,10 @@
 // Route-level tests via Hono's app.request(). AuthService is a plain
 // exported object (like DbClient/ConfigClient), so tests fake it by
-// swapping a method for the duration of the test and restoring it after —
+// swapping a method for the duration of the test and restoring it after,
 // no DB, no real business logic, just verifying the HTTP wiring: status
 // codes, cookie-setting, response shape, and that thrown AuthErrors reach
 // the client via app.ts's onError. Business-logic behavior (validation
-// rules, lockout counting, etc.) is AuthService's own concern — see
+// rules, lockout counting, etc.) is AuthService's own concern. See
 // service.test.ts.
 import { assertEquals, assertMatch } from "@std/assert";
 import { app } from "../../app/app.ts";

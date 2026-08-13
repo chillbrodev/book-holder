@@ -34,7 +34,7 @@ export interface Line {
   lineNumber: number
   text: string
   stageDirection?: string
-  /** Resolved from line_speakers — a line can have more than one speaker, never assume a single one. */
+  /** Resolved from line_speakers; a line can have more than one speaker, never assume a single one. */
   speakerIds: string[]
 }
 

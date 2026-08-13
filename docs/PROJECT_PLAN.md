@@ -155,7 +155,7 @@ Key implementation notes:
   `beats-and-blocks-plan.md`). The beat is what the coach scores and what `line_mastery` keys on. The unit of
   *display* and of a *single Polly render* is the **block**: one speech, cut wherever a stage direction falls
   inside it, grouped by `block_id`. Score per beat; render and display per block. Merry Wives went from 2,610
-  verse-line rows to 1,705 beats in ~1,060 blocks, so any count derived from this table changed meaning as
+  verse-line rows to 1,705 beats in 1,060 blocks (1,636 after later segmentation tuning), so any count derived from this table changed meaning as
   well as value.
 - **`lines.line_number` is the scene-local *beat* sequence despite the name**, and
   `stage_directions.after_line_number` anchors to a beat. The name stayed because renaming it would churn
@@ -179,9 +179,10 @@ Key implementation notes:
   column.
 - Every session write (session_history + line_mastery updates + mistake_log inserts) happens in **one
   serializable transaction**, with retry-on-conflict handled explicitly (standard Cockroach pattern, don't skip it
-  — this is a production-readiness signal, not boilerplate). Not built yet — the live session write path
-  doesn't exist. The importer's transaction in `packages/play-importer/src/ingest.ts` is the working
-  reference for the retry idiom, not a copy-paste source (`BE_PLAN.md` §3).
+  — this is a production-readiness signal, not boilerplate). Built, in
+  `features/sessions/lifecycle.ts`, and written **per block as it finishes** rather than once at scene end.
+  Embedding happens *before* the transaction opens: a Titan call inside an open serializable transaction,
+  per block, for a whole scene is how this starts producing retries.
 - Index `line_mastery` on `(user_id, line_id)` — done. `lines` is indexed on
   `(play_id, act_order, scene_order, line_number)` rather than `(play_id, act, scene)`, because document
   order is what every query sorts by, plus `(block_id, beat_number)` for "give me this block's beats in
@@ -300,7 +301,8 @@ running record of what's knowingly unfinished and what's already settled about i
 ## 8. Timeline (2-3 weeks, part-time, solo)
  
 **Week 1 — foundation**
-CockroachDB Serverless cluster provisioned via ccloud CLI (scripted, in-repo); schema created; Moby/Bosak text
+CockroachDB Serverless cluster (planned as a scripted `ccloud` provision; in the event the cluster already
+existed and was connected to directly, so no provisioning script was written — see §4); schema created; Moby/Bosak text
 parsed and imported for Merry Wives of Windsor; basic React picker (play → role → act/scene); Amplify + ECS/Fargate
 deployed end-to-end on day one, even with nothing in it yet.
 

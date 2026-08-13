@@ -13,7 +13,7 @@ export interface CaptureDebugInfoProps {
  *
  * The counterpart to BlockDebugInfo: that one answers "why does this line sound
  * wrong", this one answers "why did it think I said that". Both questions are
- * otherwise only answerable by tracing a request — and this one is about to
+ * otherwise only answerable by tracing a request, and this one is about to
  * matter a great deal, because the fuzzy-match threshold (docs/OPEN_ITEMS.md §1a)
  * is the biggest open question in the product and it can only be settled by
  * watching real transcripts of real Shakespeare against the expected text.

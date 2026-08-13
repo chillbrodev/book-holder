@@ -7,7 +7,7 @@ import { ingestPlay } from "./ingest.js";
 import { parsePlayXml } from "./parseXml.js";
 import { renderBeats, renderBeatSummary, renderCharacterSummary, renderScript } from "./render.js";
 
-// fileURLToPath + dirname rather than import.meta.dirname — the latter needs
+// fileURLToPath + dirname rather than import.meta.dirname, the latter needs
 // Node 20.11+/21.2+ specifically, not just >=20.
 const __dirname = dirname(fileURLToPath(import.meta.url));
 

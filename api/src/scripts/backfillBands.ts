@@ -6,16 +6,16 @@
 // unset (`OPEN_ITEMS.md` §1a). Rows written before that migration have the
 // score and not the judgement.
 //
-// This is a **re-score, not a reconstruction**. `session_beat_score.heard` holds
+// This is a re-score, not a reconstruction. `session_beat_score.heard` holds
 // exactly what she said, and `lines.text` holds what was written, so the same
 // (expected, heard) pairs go back through the same rubric and the same model.
-// Nothing is inferred from the stored number — deriving a band from
+// Nothing is inferred from the stored number, deriving a band from
 // `confidence_score` is precisely the thing that would require inventing the
 // cuts, and is why this script exists instead.
 //
 // Safe to re-run: it only selects rows where `band IS NULL`, and only where a
 // transcript was stored. A beat she was silent through has nothing to re-score
-// and is left alone — it is already `dry` at confidence 0 by the rule in
+// and is left alone; it is already `dry` at confidence 0 by the rule in
 // `coaching/service.ts`, and its band is filled from that below rather than by
 // asking the model to judge an empty string.
 //
@@ -61,7 +61,7 @@ if (import.meta.main) {
   const rows = result.rows as Row[];
 
   // Grouped by (session, block) because that is the unit the coach is called
-  // on — a beat judged without the rest of its speech is the thing
+  // on, a beat judged without the rest of its speech is the thing
   // `coaching-plan.md` §2 exists to avoid.
   const blocks = new Map<string, Row[]>();
   for (const row of rows) {
@@ -107,7 +107,7 @@ if (import.meta.main) {
 
     if (coaching.source === "fallback") {
       // The fallback cannot see *close*, so writing its band would put a
-      // judgement in the column that nothing actually made — the same reason
+      // judgement in the column that nothing actually made, the same reason
       // `lifecycle.ts` writes NULL for it. Leave the rows and say so.
       failed += beats.length;
       console.error(
@@ -132,7 +132,7 @@ if (import.meta.main) {
   }
 
   // `line_mastery.band` is the *latest* judgement for a beat, matching
-  // `confidence_score` on the same row — so it takes the band from the most
+  // `confidence_score` on the same row, so it takes the band from the most
   // recent session that scored it, not from whichever block happened to be
   // processed last above.
   const propagated = await pool.query(

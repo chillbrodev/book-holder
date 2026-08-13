@@ -2,7 +2,7 @@ import type { BlockScored } from '../../hooks/useMicCapture'
 import styles from './BlockCoachingNote.module.css'
 
 export interface BlockCoachingNoteProps {
-  /** Undefined while the coach hasn't answered — which includes "never will",
+  /** Undefined while the coach hasn't answered, which includes "never will",
    * on a socket she closed by walking away. */
   coaching: BlockScored | undefined
   /** How many beats this block has, so the slot can be the right height before
@@ -15,17 +15,17 @@ export interface BlockCoachingNoteProps {
  *
  * `docs/coaching-plan.md` §4, and the two rules that shape it:
  *
- * **The slot is reserved from the start.** It renders at its full height while
+ * The slot is reserved from the start. It renders at its full height while
  * empty, so the score arriving never pushes the speech she is currently reading
  * down the page. Text moving under an actor mid-scene reads as a bug. The cost
  * is some vertical space on an unscored block; the benefit is a script that
  * never reflows.
  *
- * **Nothing here interrupts.** No sound, no motion that pulls the eye, nothing
+ * Nothing here interrupts. No sound, no motion that pulls the eye, nothing
  * to dismiss, and nothing that has to be read. She can ignore this column
  * entirely and the rehearsal is identical.
  *
- * Bands, never percentages — *solid* / *close* / *dry*. A number is a grade,
+ * Bands, never percentages, *solid* / *close* / *dry*. A number is a grade,
  * and the style guide's voice is backstage crew rather than a teacher. Each band
  * carries its own word as well as its colour, per the redundant-encoding rule;
  * the colour alone is never the message.

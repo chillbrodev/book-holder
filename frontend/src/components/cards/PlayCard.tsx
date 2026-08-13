@@ -22,7 +22,7 @@ const BAR_CLASS: Record<PlayStatus, string> = {
   locked: styles.barAsh,
 }
 
-/** The "book spine" play card — solid color bar signals status, 2px gold border reserved for the one focus play at a time. */
+/** The "book spine" play card, solid color bar signals status, 2px gold border reserved for the one focus play at a time. */
 export function PlayCard({ title, status = 'neutral', locked = false, favorite = false, mastered = 0, total = 0, onClick }: PlayCardProps) {
   const effectiveStatus = locked ? 'locked' : status
 

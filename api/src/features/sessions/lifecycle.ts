@@ -1,5 +1,5 @@
 /**
- * The session as a thing with a beginning, a middle and an end — rather than a
+ * The session as a thing with a beginning, a middle and an end, rather than a
  * single write at the end of a scene.
  *
  * `docs/coaching-plan.md` §6, amended by migration 008. Three moments:
@@ -13,7 +13,7 @@
  *
  * That is what `SessionService.saveSession` does today, and coaching cannot use
  * it. Scores arrive per block, seconds apart, and each one now carries a
- * Bedrock round trip behind it — so the end-of-scene shape was about to become
+ * Bedrock round trip behind it, so the end-of-scene shape was about to become
  * a loop of network calls inside an open serializable transaction, on a
  * database where serializable is the only level there is.
  *
@@ -49,7 +49,7 @@ export interface StartSessionInput {
   /** Required for `scope: "blocks"`, ignored otherwise. */
   blockIds?: string[];
   /** Who chose these blocks. `coach` is what makes a recommendation checkable
-   * later — see migration 008. */
+   * later. See migration 008. */
   source?: "user" | "coach";
 }
 
@@ -83,7 +83,7 @@ export const SessionLifecycle = {
 
     // Ordered by where the block first appears in the scene, so `ordinal`
     // matches reading order for a scene run. A drill set keeps the order the
-    // caller asked for instead — worst-first is a legitimate thing for the
+    // caller asked for instead, worst-first is a legitimate thing for the
     // coach to want, and re-sorting it into script order would throw that away.
     const blocks = await DbClient.getPool().query(
       `SELECT l.block_id, min(l.line_number) AS first_line
@@ -152,7 +152,7 @@ export const SessionLifecycle = {
    * One block's judgement, written as it happens.
    *
    * Called from the capture socket after coaching. Returns silently for a
-   * session that isn't hers or doesn't exist — the socket is auth-aware but not
+   * session that isn't hers or doesn't exist; the socket is auth-aware but not
    * auth-gated (§7), so "no session to write to" is the guest's normal path and
    * not an error worth failing a rehearsal over.
    */
@@ -160,7 +160,7 @@ export const SessionLifecycle = {
     sessionId: string;
     userId: string;
     coaching: BlockCoaching;
-    /** What she actually said, per beat. Index-independent — keyed by lineId. */
+    /** What she actually said, per beat. Index-independent, keyed by lineId. */
     heardByLineId: Map<string, string>;
   }): Promise<void> {
     const { sessionId, userId, coaching, heardByLineId } = input;
@@ -171,8 +171,8 @@ export const SessionLifecycle = {
     );
     if (owned.rows.length === 0) return;
 
-    // Only *dry* beats are logged as mistakes. §3 is explicit that *close* —
-    // "she had the sense of it, not the words" — is the normal case with
+    // Only *dry* beats are logged as mistakes. §3 is explicit that *close*,
+    // "she had the sense of it, not the words", is the normal case with
     // Shakespeare and is not a failure; logging it would bury the signal
     // mistake_log exists for under the thing that happens most.
     const dryBeats = coaching.beats.filter((beat) => beat.band === "dry");
@@ -181,7 +181,7 @@ export const SessionLifecycle = {
     // Only what she actually *said* is embedded: a blank has no content to
     // cluster on, and embedding the expected text instead would mix "what she
     // said" and "what she should have said" into one vector space and return
-    // misleading neighbours. Blanks are still findable — `what_was_said = ''` —
+    // misleading neighbours. Blanks are still findable, `what_was_said = ''`,
     // and the "what kind of line does she dry on" question is answered by
     // `lines.embedding`, which is populated for every beat.
     const embeddings = new Map<string, string>();
@@ -293,7 +293,7 @@ export const SessionLifecycle = {
     const result = await DbClient.getPool().query(
       // completed_at is only ever set, never cleared, and only when she got
       // through what she set out to do. An abandoned session keeps its rows and
-      // its NULL — a partial rehearsal is still a rehearsal (§6), it just isn't
+      // its NULL; a partial rehearsal is still a rehearsal (§6), it just isn't
       // a finished one.
       `UPDATE session_history
           SET duration_seconds = $3,
@@ -317,7 +317,7 @@ export const SessionLifecycle = {
  * `beats_run` recomputed from `session_beat_score` rather than incremented.
  *
  * An increment would drift the moment a block is re-run inside the same session
- * — `session_beat_score` upserts on (session_id, line_id), so re-delivering a
+ * , `session_beat_score` upserts on (session_id, line_id), so re-delivering a
  * speech replaces its scores rather than adding to them, and a counter that
  * only ever went up would disagree with the rows underneath it. Counting is
  * cheap and cannot be wrong.
@@ -338,13 +338,13 @@ async function refreshBeatsRun(
  * The model's band, or NULL when it wasn't the model that decided.
  *
  * `BlockCoaching.band` is always one of the three, because the deterministic
- * fallback has to answer something — but word recall can only see *solid* and
+ * fallback has to answer something, but word recall can only see *solid* and
  * *dry*, and is structurally blind to *close*, which is the semantic case and
  * the whole reason for using a model. Storing its guess would put a judgement in
  * the database that nothing actually made, and the mastery bar would then count
  * beats as known on the strength of word overlap.
  *
- * NULL means "not banded", never "not solid" — so anything counting mastery
+ * NULL means "not banded", never "not solid", so anything counting mastery
  * counts `band = 'solid'` rather than `band <> 'dry'`.
  */
 function bandOrNull(

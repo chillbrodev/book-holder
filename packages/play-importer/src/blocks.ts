@@ -20,12 +20,12 @@ export function groupIntoBlocks(lines: LineRow[]): LineRow[][] {
 }
 
 /**
- * A block's verse lines, each exactly once, in order — what a verse display
+ * A block's verse lines, each exactly once, in order, what a verse display
  * renders.
  *
  * Beats carry the lines they *span*, so when a beat boundary falls mid-line
  * that line is the last entry of one beat and the first of the next.
- * `shares_first_source_line` marks exactly that — see the field's note on why
+ * `shares_first_source_line` marks exactly that. See the field's note on why
  * comparing the text instead would break on song refrains.
  */
 export function blockVerseLines(beats: LineRow[]): string[] {
@@ -42,7 +42,7 @@ export function blockVerseLines(beats: LineRow[]): string[] {
  * wrapped to a fixed measure and its continuations start mid-sentence in
  * lowercase.
  *
- * A one-line block carries no continuation to judge, hence `null` — resolved by
+ * A one-line block carries no continuation to judge, hence `null`, resolved by
  * the play's dominant mode in assignVerseFlags, since a one-line speech in an
  * all-verse play is still verse.
  */
@@ -56,10 +56,10 @@ export function detectVerse(verseLines: string[]): boolean | null {
 /**
  * Sets `is_verse` on every row, in place.
  *
- * A one-line block carries no lineation to read, and there are a lot of them —
+ * A one-line block carries no lineation to read, and there are a lot of them,
  * half of Richard II's blocks, and it is an all-verse play, so defaulting them
- * to prose would be wrong far more often than not. They inherit **their
- * scene's** dominant mode: Shakespeare switches between verse and prose at
+ * to prose would be wrong far more often than not. They inherit their
+ * scene's dominant mode: Shakespeare switches between verse and prose at
  * scene and character boundaries, not line by line, so the surrounding scene is
  * a much better witness than the play. A scene with nothing decidable in it
  * falls back to the play.

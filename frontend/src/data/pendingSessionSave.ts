@@ -1,7 +1,7 @@
 /**
  * Hands the in-flight session save from the rehearsal page to the wrap-up page.
  *
- * The rehearsal deliberately does not await the save before navigating — a slow
+ * The rehearsal deliberately does not await the save before navigating, a slow
  * or failed write must not trap her on the rehearsal screen after she has
  * finished the scene (see `RehearsalPage.submitSession`). But the wrap-up then
  * mounts and immediately asks the API how the run went, and the write is a

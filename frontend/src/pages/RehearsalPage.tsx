@@ -36,7 +36,7 @@ const SCORE_SEEN_MS = 900
 /**
  * The longest the scene will hold for a score that hasn't come.
  *
- * Measured coaching latency is 0.8-1.3s, so this usually expires unused — the
+ * Measured coaching latency is 0.8-1.3s, so this usually expires unused, the
  * score lands first and `SCORE_SEEN_MS` takes over. It exists for the cases
  * where nothing is coming at all: Bedrock unreachable, the socket lost, a guest
  * whose connection dropped. The scene must never stall on feedback.
@@ -46,7 +46,7 @@ const SCORE_WAIT_CAP_MS = 1500
 /**
  * How long a speech worth looking at stays up before the scene moves on itself.
  *
- * The backstop behind the Continue button, not the expected path — she taps
+ * The backstop behind the Continue button, not the expected path, she taps
  * when she has read it. It exists so that putting the phone down mid-scene
  * doesn't leave the rehearsal parked forever, and it is generous because being
  * hurried through a note is the thing this whole mechanism exists to prevent.
@@ -57,18 +57,18 @@ const AUTO_CONTINUE_MS = 6000
  * Whether a scored speech is worth stopping for.
  *
  * The split that keeps the Continue button from becoming the per-line
- * confirmation tap this page deliberately removed once — "pure friction… a
+ * confirmation tap this page deliberately removed once, "pure friction… a
  * small piece of admin" is the comment on the effect below, and it was right.
  * A speech she had needs no acknowledgement: the pills going by *are* the
  * acknowledgement, and there is nothing to read.
  *
- * So the scene stops only when there is something to look at — a beat that
+ * So the scene stops only when there is something to look at, a beat that
  * wasn't solid, or a note. Which is roughly when a person holding the book
  * would stop you, and not otherwise.
  *
  * Notes are trusted here because the server now drops ungrounded ones
- * (`coaching/service.ts`). Before that filter a note meant almost nothing —
- * Nova would emit "All beats are dry" — and stopping the scene on one would
+ * (`coaching/service.ts`). Before that filter a note meant almost nothing,
+ * Nova would emit "All beats are dry", and stopping the scene on one would
  * have been stopping it for filler.
  */
 function worthAPause(score: BlockScored): boolean {
@@ -125,18 +125,18 @@ export function RehearsalPage() {
   const [showOtherLines, setShowOtherLines] = useState(true)
   const [readingPaused, setReadingPaused] = useState(false)
   // How many beats she's called for, counted *from wherever the mic thinks she
-  // is* — not from the top of the speech. 0 = nothing revealed; each "Line?"
+  // is*, not from the top of the speech. 0 = nothing revealed; each "Line?"
   // hands over one more thought, never the whole speech.
   const [beatsRevealed, setBeatsRevealed] = useState(0)
   // Which beat the reveal starts from, pinned at the moment she asks. Without
   // pinning it, the revealed text would slide forward under her as the mic
-  // cursor moves — she asked to see *this* thought, not a rolling window.
+  // cursor moves, she asked to see *this* thought, not a rolling window.
   const [revealAnchor, setRevealAnchor] = useState<number | null>(null)
-  // Which block is currently being read aloud to her, if any — so the button can
+  // Which block is currently being read aloud to her, if any, so the button can
   // say so and can't be triggered twice over itself.
   const [readingAloudBlockId, setReadingAloudBlockId] = useState<string | null>(null)
   const [done, setDone] = useState(false)
-  // Persisted across sessions, not just this scene — someone who turns it
+  // Persisted across sessions, not just this scene, someone who turns it
   // off wants it off everywhere, not re-prompted every rehearsal.
   const [autoScroll, setAutoScroll] = useState(() => localStorage.getItem(AUTO_SCROLL_STORAGE_KEY) !== 'off')
   // Phone only: whether the play title and the change-scene/role links are
@@ -144,7 +144,7 @@ export function RehearsalPage() {
   // of a permanently pinned header to tell her the name of the play she just
   // chose and offer two links she needs about once a rehearsal. Above 600px the
   // disclosure button is display:none and the meta is always shown, so this
-  // state exists but governs nothing — the desktop header is unchanged.
+  // state exists but governs nothing; the desktop header is unchanged.
   const [sceneMetaOpen, setSceneMetaOpen] = useState(false)
   // The browser refused to play a cue, so the reading is holding rather than
   // running the scene down in silence. Cleared by the prompt below, whose tap
@@ -159,7 +159,7 @@ export function RehearsalPage() {
   }, [autoScroll])
 
   // Records her place for the play page's resume card. Not written for a
-  // single-line practice run (`?line=`) — that's a drill launched from
+  // single-line practice run (`?line=`), that's a drill launched from
   // somewhere else, not a place in the play to come back to.
   useEffect(() => {
     if (!lineId && act && scene) setLastScene(playId, act, scene)
@@ -171,13 +171,13 @@ export function RehearsalPage() {
   }, [dialogue])
 
   const activeEntry = dialogue?.[cursor]
-  // Keyed on the block, not a beat — the mic stays open across a whole speech,
+  // Keyed on the block, not a beat; the mic stays open across a whole speech,
   // so resetting its state at every beat boundary would interrupt exactly the
   // continuous delivery beats exist to avoid scoring away.
   const activeLineKey = activeEntry?.type === 'speech' ? activeEntry.blockId : `entry-${cursor}`
 
   // The mic opens only for her own blocks. Polly voices everybody else, and the
-  // two never contend — so passing undefined here is what keeps a live mic (and
+  // two never contend, so passing undefined here is what keeps a live mic (and
   // a billing Transcribe stream) off every other character's speech.
   const activeUserBlockId =
     activeEntry?.type === 'speech' && activeEntry.isUserLine ? activeEntry.blockId : undefined
@@ -194,7 +194,7 @@ export function RehearsalPage() {
   /** The session couldn't be opened. Distinct from "guest" in cause and
    * identical in consequence, which is why they share one message below. */
   const [sessionFailed, setSessionFailed] = useState(false)
-  /** Dismissed for this rehearsal. Not persisted — it is a statement of fact
+  /** Dismissed for this rehearsal. Not persisted; it is a statement of fact
    * about *this* run, and a guest starting a new scene should be told again. */
   const [noticeDismissed, setNoticeDismissed] = useState(false)
 
@@ -203,7 +203,7 @@ export function RehearsalPage() {
    *
    * Filed by callback rather than read off the live block, because a score
    * arrives about a second after `complete` and the page has usually advanced
-   * by then — the block it belongs to is no longer the active one. The event
+   * by then, the block it belongs to is no longer the active one. The event
    * carries its own `blockId` for exactly this reason.
    */
   const [coachingByBlock, setCoachingByBlock] = useState<Map<string, BlockScored>>(new Map())
@@ -225,7 +225,7 @@ export function RehearsalPage() {
   }, [micState, activeUserBlockId])
 
   /** The scene is holding on this speech because there is something on it worth
-   * reading — which is also the only condition under which Continue appears. */
+   * reading, which is also the only condition under which Continue appears. */
   const activeScore = activeUserBlockId ? coachingByBlock.get(activeUserBlockId) : undefined
   const holdingForScore = !!activeScore && worthAPause(activeScore)
 
@@ -251,8 +251,8 @@ export function RehearsalPage() {
    * running. The consequence it also fixes: abandoning a scene used to lose the
    * entire run, and now keeps every block she actually got through.
    *
-   * Skipped for a single-beat drill (`?line=`) — that is a practice run rather
-   * than a rehearsal of a scene — and for guests, who have no user row to hang
+   * Skipped for a single-beat drill (`?line=`); that is a practice run rather
+   * than a rehearsal of a scene, and for guests, who have no user row to hang
    * a session on.
    *
    * A failure here is deliberately not surfaced. She can still rehearse, still
@@ -278,7 +278,7 @@ export function RehearsalPage() {
         if (!cancelled) setSessionId(started.sessionId)
       })
       .catch((err) => {
-        // Told, not just logged — see `notRemembered` below. She can carry on
+        // Told, not just logged. See `notRemembered` below. She can carry on
         // either way, but she should not find out at the wrap-up that a scene
         // she just ran was never written down.
         console.warn('This rehearsal will not be remembered:', err)
@@ -291,7 +291,7 @@ export function RehearsalPage() {
   }, [play?.id, act, scene, role?.id, user?.id, lineId, drillBlockIds.join(',')])
 
   // The per-beat split arrives with the capture's `complete` event. This is the
-  // point where what she said stops being ephemeral — until now it was computed,
+  // point where what she said stops being ephemeral, until now it was computed,
   // sent to the browser, and dropped on the next block.
   useEffect(() => {
     for (const beat of heard) {
@@ -308,7 +308,7 @@ export function RehearsalPage() {
 
   // Re-runs on cursor changes (a new line becomes active) and on anything
   // that grows the active card after the fact (text reveal, mic-state
-  // buttons) — otherwise those can push the mic controls below the fold
+  // buttons), otherwise those can push the mic controls below the fold
   // with no follow-up scroll. `.lines` carries generous bottom padding
   // (see RehearsalPage.module.css) so 'end' has room to settle instead of
   // snapping against the viewport edge. Also fires right when autoScroll
@@ -320,7 +320,7 @@ export function RehearsalPage() {
   }, [cursor, showYourLines, showOtherLines, beatsRevealed, micState, autoScroll])
 
   // With auto-scroll off, the rehearsal keeps advancing while the view stays
-  // put — so the live line silently ends up below the fold with nothing on
+  // put, so the live line silently ends up below the fold with nothing on
   // screen saying so. Watching the active line directly (rather than assuming
   // it's offscreen) means the prompt only appears when it actually is.
   const [activeLineOffscreen, setActiveLineOffscreen] = useState(false)
@@ -354,7 +354,7 @@ export function RehearsalPage() {
   /**
    * Writes the rehearsal, then moves to the wrap-up.
    *
-   * Fire-and-forget on purpose — the navigation does not wait on the write, and a
+   * Fire-and-forget on purpose; the navigation does not wait on the write, and a
    * failed write does not trap her on the rehearsal screen. She has finished the
    * scene either way, and the wrap-up is where she's going; a save that failed is
    * worth telling her about there, not worth blocking her here.
@@ -365,7 +365,7 @@ export function RehearsalPage() {
    */
   function submitSession() {
     // No session means a guest, a single-beat drill, or a rehearsal whose
-    // session never opened. Nothing to close in any of those cases — and
+    // session never opened. Nothing to close in any of those cases, and
     // nothing lost either, because there was never anything being written.
     if (lineId || !user || !play || !sessionId) return
 
@@ -381,14 +381,14 @@ export function RehearsalPage() {
 
     // Handed to the wrap-up so it reads back *this* run rather than racing the
     // write and finding the previous one. Much less of a race than it used to
-    // be — the beats are already down — but the closing call still has to land
+    // be; the beats are already down, but the closing call still has to land
     // before the summary is read, or the duration is missing.
     recordSessionSave({ playId: play.id, act, scene, result })
 
     void result.catch((err) => {
       // Not surfaced as a blocking error: she has finished the scene and is on
       // her way to the wrap-up, which is where a failure is worth mentioning.
-      // Note what is *not* lost here any more — the rehearsal itself is already
+      // Note what is *not* lost here any more; the rehearsal itself is already
       // stored, so this failing costs the duration and the completed_at flag,
       // not the run.
       console.error('Could not close this rehearsal:', err)
@@ -406,7 +406,7 @@ export function RehearsalPage() {
 
   // Stage directions, and any other-character speech line missing a
   // lineId/speakerId (defensive), still advance on a fixed delay. Real
-  // other-character speech is handled by the audio effect below instead —
+  // other-character speech is handled by the audio effect below instead,
   // guarded out here so the two effects never both schedule an advance for
   // the same entry.
   useEffect(() => {
@@ -424,11 +424,11 @@ export function RehearsalPage() {
   // Other characters' blocks: fetch real Polly audio and advance when it
   // finishes playing, rather than a fixed delay. One request per block, so a
   // speech plays as one continuous delivery instead of a run of clips. Falls back to the timer if
-  // Polly errors — graceful degradation per docs/BE_PLAN.md §5, so a
+  // Polly errors, graceful degradation per docs/BE_PLAN.md §5, so a
   // synthesis failure never blocks the rehearsal.
   // Pausing tears this effect down, which stops the audio mid-line; resuming
   // re-runs it and replays that line from its start rather than resuming
-  // mid-word. For a rehearsal cue that's the useful behaviour — you paused
+  // mid-word. For a rehearsal cue that's the useful behaviour, you paused
   // because you missed it.
   useEffect(() => {
     if (!dialogue || done || readingPaused) return
@@ -457,7 +457,7 @@ export function RehearsalPage() {
         if (cancelled) return
         // The two failures here want opposite responses, and collapsing them
         // into one `advance()` is what made this unusable on iOS. A refusal to
-        // play is not a missing cue to skip past — nothing is wrong with the
+        // play is not a missing cue to skip past; nothing is wrong with the
         // audio, and skipping runs the whole scene down in silence 650ms at a
         // time until it reaches her next line. So it stops and asks, and the
         // tap on that prompt is the gesture that buys back playback.
@@ -465,7 +465,7 @@ export function RehearsalPage() {
           setAudioBlocked(true)
           return
         }
-        // A genuinely broken cue — synthesis failed, the signed URL 403'd.
+        // A genuinely broken cue, synthesis failed, the signed URL 403'd.
         // Keep the rehearsal moving; that is what this delay is for.
         fallbackTimer = setTimeout(() => advance(), AUTO_ADVANCE_DELAY_MS)
       })
@@ -479,11 +479,11 @@ export function RehearsalPage() {
   }, [cursor, dialogue, done, readingPaused, playbackAttempt])
 
   /**
-   * Her speech is captured, so move on — but not before she has seen how it
+   * Her speech is captured, so move on, but not before she has seen how it
    * went.
    *
-   * **This reverses `coaching-plan.md` §4's "advancing to the next block never
-   * waits on a score".** That rule was right about the danger and wrong about
+   * This reverses `coaching-plan.md` §4's "advancing to the next block never
+   * waits on a score". That rule was right about the danger and wrong about
    * the arithmetic. It assumed the annotation could land late and still be read,
    * because she would be listening to the next character and could glance back.
    * With auto-scroll on there is nothing to glance at: the score arrives ~1s
@@ -492,7 +492,7 @@ export function RehearsalPage() {
    * satisfied; the intent behind it wasn't. Coaching she never sees is coaching
    * that isn't happening.
    *
-   * So the scene waits for the score, and then for a moment longer — capped, so
+   * So the scene waits for the score, and then for a moment longer, capped, so
    * it can never stall on feedback that isn't coming. The delay is smaller than
    * it sounds: advancing is what triggers `getBlockAudio` for the next
    * character, so part of this overlaps a gap that already existed.
@@ -522,22 +522,22 @@ export function RehearsalPage() {
   /**
    * Plays her own line back to her.
    *
-   * Answers OPEN_ITEMS §3's open question — whether she can ask to hear her own
-   * lines — in the affirmative, but only on request. The scene reading still
+   * Answers OPEN_ITEMS §3's open question, whether she can ask to hear her own
+   * lines, in the affirmative, but only on request. The scene reading still
    * skips her lines, because voicing them unasked would rehearse the speech
    * *for* her. Called for after "Line?", when she's already admitted she doesn't
    * have it and reading it hasn't been enough.
    *
    * Mutes the mic for the duration. Polly out of the same laptop the mic is on
-   * gets transcribed as her words otherwise — barge-in (docs/capture-plan.md §8),
+   * gets transcribed as her words otherwise, barge-in (docs/capture-plan.md §8),
    * and self-inflicted here rather than incidental. Her own block is in the warm
    * cache like every other, so this is a signed-URL lookup, not a paid synthesis.
    */
   async function readLineAloud(blockId: string, speakerId: string) {
     if (readingAloudBlockId) return
     // Synchronous, before the first await, while this click's activation is
-    // still live. It is nearly always a no-op by now — the first tap anywhere
-    // in the app already unlocked playback (AppLayout) — but this is the one
+    // still live. It is nearly always a no-op by now, the first tap anywhere
+    // in the app already unlocked playback (AppLayout), but this is the one
     // path with a real gesture in hand at the moment of playing, so it may as
     // well be the belt to that braces. After the await below the activation is
     // gone, which is exactly how the autoplay bug arose in the first place.
@@ -727,7 +727,7 @@ export function RehearsalPage() {
             )
           }
           if (!active) {
-            // Speaker name stays even when the text is hidden — she still needs
+            // Speaker name stays even when the text is hidden, she still needs
             // to follow who's talking to know when her cue lands.
             //
             // Her own blocks keep their annotation after the mic has moved on,
@@ -747,7 +747,7 @@ export function RehearsalPage() {
             )
           }
           // Her own block. Shown outright only if "Your lines" is on; otherwise
-          // held back, and each "Line?" hands over one more beat — one thought
+          // held back, and each "Line?" hands over one more beat, one thought
           // at a time, so a sixteen-beat speech isn't given away in one tap.
           // "Line?" hands over the beat she's actually stuck on. The mic keeps a
           // beat cursor across the block (docs/OPEN_ITEMS.md §1b), so this starts

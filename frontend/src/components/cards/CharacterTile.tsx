@@ -4,7 +4,7 @@ import styles from './CharacterTile.module.css'
 
 export interface CharacterTileProps {
   name: string
-  /** Spoken lines across the whole play — the main "how big is this part?" signal. */
+  /** Spoken lines across the whole play, the main "how big is this part?" signal. */
   lineCount: number
   /** Distinct scenes the character appears in. */
   sceneCount: number
@@ -13,7 +13,7 @@ export interface CharacterTileProps {
 }
 
 /**
- * Grid tile for role selection — gold fill and ring when selected.
+ * Grid tile for role selection, gold fill and ring when selected.
  *
  * No checkmark: it competed with the name for the same row, so selecting a
  * two-word part wrapped the name and made that tile taller than its

@@ -1,7 +1,7 @@
 // Where in a block she currently is, derived from a growing transcript.
 //
 // The mic stays open across a whole block and she delivers it at natural pace,
-// so nothing in the audio marks a beat boundary for us — beats are scoring
+// so nothing in the audio marks a beat boundary for us, beats are scoring
 // boundaries, not interaction boundaries (docs/OPEN_ITEMS.md §1b). This module
 // is what recovers those boundaries from what she said: given the block's
 // expected beat texts and the transcript so far, it answers "which beat is she
@@ -21,7 +21,7 @@
 import { toWords, wordsMatch } from "./words.ts";
 
 /** How many expected words the alignment may skip over to find a match for the
- * next spoken word — i.e. how many words in a row she can drop before the
+ * next spoken word, i.e. how many words in a row she can drop before the
  * cursor stops trying to follow her and waits for her to catch up.
  *
  * Four is a phrase, not a line. Wider tolerates bigger cuts but makes a common
@@ -43,7 +43,7 @@ export type BeatProgress = {
   /** Index into the block's beats she is believed to be delivering now.
    * Equals `beats.length` once the whole block has been accounted for. */
   beatIndex: number;
-  /** Beats the cursor has moved past. Note "passed", not "said correctly" — a
+  /** Beats the cursor has moved past. Note "passed", not "said correctly", a
    * beat she skipped outright counts here too, because she is no longer on it.
    * Its `heardByBeat` entry is empty, which is how a skip is told apart from a
    * near-miss downstream. */
@@ -68,7 +68,7 @@ export type BeatProgress = {
  * with the audio. A block is at most a few hundred words, so re-aligning costs
  * nothing worth saving.
  *
- * The alignment is monotonic — the expected-word pointer only ever moves
+ * The alignment is monotonic, the expected-word pointer only ever moves
  * forward. That is not an optimization either, it is the only thing that makes
  * repeated text survivable: "How shall I be revenged on him?" is beat 6 of one
  * Mistress Ford block in II.i and beat 13 of a Mistress Page block in the same
@@ -77,7 +77,7 @@ export type BeatProgress = {
  * pointer cannot.
  *
  * Callers keeping a cursor across updates should clamp it non-decreasing
- * themselves — see CaptureSession. This function is pure and will happily report
+ * themselves. See CaptureSession. This function is pure and will happily report
  * a lower beat index if a revised partial genuinely retracts words.
  */
 export function alignToBeats(
@@ -96,13 +96,13 @@ export function alignToBeats(
 
   /**
    * Where, further ahead than the local window, the next few spoken words line
-   * up with the text — or -1 if nowhere convincing.
+   * up with the text, or -1 if nowhere convincing.
    *
    * This exists for the mistake the local window cannot absorb: she skips a
    * whole beat. Forgetting a thought and carrying on with the next one is a
    * normal rehearsal failure, and it moves her dozens of words past the cursor
    * at once. Without a resync the cursor would stall on the abandoned beat for
-   * the rest of the speech and attribute everything she went on to say to it —
+   * the rest of the speech and attribute everything she went on to say to it,
    * so a single skipped thought would be reported as every following beat being
    * wrong too.
    *
@@ -153,7 +153,7 @@ export function alignToBeats(
 
     if (matchedAt >= 0) {
       // Attribute to the beat the matched *expected* word belongs to, not to
-      // wherever the cursor happened to be — that is what keeps the split
+      // wherever the cursor happened to be; that is what keeps the split
       // correct when she runs two beats together in one breath.
       heardByBeat[expected[matchedAt].beat].push(word);
       consumed = matchedAt + 1;
@@ -173,7 +173,7 @@ export function alignToBeats(
     }
 
     // A mishearing, a stumble, or something she added. It still belongs to the
-    // beat she is on — the comparison step needs to see it, since a wrong word
+    // beat she is on, the comparison step needs to see it, since a wrong word
     // is precisely what it is looking for.
     const currentBeat = consumed < expected.length
       ? expected[consumed].beat
@@ -189,7 +189,7 @@ export function alignToBeats(
   let beatsCompleted = 0;
   for (let beat = 0; beat < beats.length; beat++) {
     const lastWordOfBeat = expected.findLastIndex((e) => e.beat === beat);
-    // A beat with no words at all (defensive — the importer doesn't produce
+    // A beat with no words at all (defensive, the importer doesn't produce
     // one) can't be "reached", so it never blocks completion.
     if (lastWordOfBeat === -1 || lastWordOfBeat < consumed) beatsCompleted++;
     else break;

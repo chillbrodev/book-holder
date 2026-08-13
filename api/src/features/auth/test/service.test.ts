@@ -1,8 +1,8 @@
-// AuthService's own validation logic — these throw before ever calling
+// AuthService's own validation logic, these throw before ever calling
 // DbClient.getPool(), so they're safe to exercise without a live database.
 // The DB-touching branches (successful register/login, lockout counting,
 // unique-violation handling) are verified manually against a real cluster
-// rather than automated here — see BE_PLAN.md.
+// rather than automated here. See BE_PLAN.md.
 import { assertEquals, assertRejects } from "@std/assert";
 import { AuthService } from "../service.ts";
 import { AuthError } from "../errors.ts";

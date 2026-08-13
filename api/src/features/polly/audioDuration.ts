@@ -2,8 +2,8 @@
 //
 // Exists to answer one question: does this render's length match the text it
 // was supposed to be? A text-to-speech engine that invents extra sentences
-// produces audio that is correct in every respect a type system can check —
-// valid MP3, right voice, right key — and simply too long. Duration is the
+// produces audio that is correct in every respect a type system can check,
+// valid MP3, right voice, right key, and simply too long. Duration is the
 // only signal that separates it from a good render.
 //
 // Pure and dependency-free on purpose: no decoder, no ffprobe, no temp file.
@@ -72,7 +72,7 @@ function audioStart(audio: Uint8Array): number {
  *
  * Assumes constant bitrate, which is what Polly returns (MPEG-2 Layer III,
  * 48 kbps, 24 kHz as of this writing). A VBR file would report the first
- * frame's rate and come out wrong — acceptable, because nothing here produces
+ * frame's rate and come out wrong, acceptable, because nothing here produces
  * one, and the caller's threshold is a loose sanity bound, not a measurement.
  */
 export function mp3DurationSeconds(audio: Uint8Array): number | undefined {
@@ -85,7 +85,7 @@ export function mp3DurationSeconds(audio: Uint8Array): number | undefined {
 
     const versionBits = (audio[i + 1] >> 3) & 0x03;
     const layerBits = (audio[i + 1] >> 1) & 0x03;
-    // 0b01 is a reserved version, 0b01 in the layer field is Layer III —
+    // 0b01 is a reserved version, 0b01 in the layer field is Layer III,
     // anything else here is a false sync or audio we don't handle.
     if (versionBits === 0x01 || layerBits !== 0x01) continue;
 

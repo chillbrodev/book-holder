@@ -1,7 +1,7 @@
 import { assertEquals, assertGreater } from "@std/assert";
 import { alignToBeats } from "../beatCursor.ts";
 
-// Mistress Ford's 8-beat block from Merry Wives II.i — the real text, verified
+// Mistress Ford's 8-beat block from Merry Wives II.i, the real text, verified
 // against the database (block 8d8add6e-ece5-5649-a845-65b085993bdd). Used rather
 // than invented lines because the things that make alignment hard here are
 // properties of the actual corpus: elisions, a repeated question, and beats that
@@ -51,7 +51,7 @@ Deno.test("finishing a beat completes it and moves to the next", () => {
 });
 
 Deno.test("beats run together in one breath still split per beat", () => {
-  // She delivers beats 1 and 2 continuously, which is the normal case — there is
+  // She delivers beats 1 and 2 continuously, which is the normal case; there is
   // no pause in the audio for the boundary to be recovered from.
   const progress = alignToBeats(
     MISTRESS_FORD_BLOCK,
@@ -90,7 +90,7 @@ Deno.test("an elided source word matches its transcribed spelling", () => {
     MISTRESS_FORD_BLOCK,
     "and gave such orderly and well behaved reproof to all uncomeliness",
   );
-  // Beat 2 (index 2) is where those words live — she skipped straight to it,
+  // Beat 2 (index 2) is where those words live, she skipped straight to it,
   // and the monotonic pointer follows because nothing earlier matched.
   assertEquals(progress.beatIndex, 2);
   assertGreater(progress.progressThroughBeat, 0);
@@ -133,13 +133,13 @@ Deno.test("the whole block delivered completes every beat", () => {
   assertEquals(progress.beatsCompleted, MISTRESS_FORD_BLOCK.length);
   assertEquals(progress.beatIndex, MISTRESS_FORD_BLOCK.length);
   assertEquals(progress.progressThroughBeat, 1);
-  // Every beat got words attributed to it — nothing collapsed into a neighbour.
+  // Every beat got words attributed to it, nothing collapsed into a neighbour.
   assertEquals(progress.heardByBeat.every((heard) => heard.length > 0), true);
 });
 
 Deno.test("a skipped beat is recovered from, not stalled on", () => {
   // She delivers beat 0, forgets beat 1 entirely, and carries on with beat 2.
-  // The cursor has to follow her — stalling on beat 1 would attribute the whole
+  // The cursor has to follow her, stalling on beat 1 would attribute the whole
   // rest of the speech to it and report every later beat as wrong too.
   const progress = alignToBeats(
     MISTRESS_FORD_BLOCK,

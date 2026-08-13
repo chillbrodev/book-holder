@@ -4,7 +4,7 @@ const DAY_MS = 24 * 60 * 60 * 1000
 
 /** "ANNE PAGE" / "Host" / "MISTRESS QUICKLY" -> "Anne Page" / "Host" / "Mistress Quickly". Character
  * names come straight from the Shakespeare XML SPEAKER tags with inconsistent casing (see
- * docs/PROJECT_PLAN.md §6), so this is purely a display concern — the canonical DB value stays as
+ * docs/PROJECT_PLAN.md §6), so this is purely a display concern, the canonical DB value stays as
  * imported, since Polly voice/cache lookups key off it exactly. */
 export function toDisplayName(name: string): string {
   return name
@@ -13,7 +13,7 @@ export function toDisplayName(name: string): string {
     .join(' ')
 }
 
-/** "12 lines" / "1 line". Regular plurals only — every caller so far is a
+/** "12 lines" / "1 line". Regular plurals only, every caller so far is a
  * countable noun that just takes an -s. */
 export function pluralize(count: number, noun: string): string {
   return `${count} ${noun}${count === 1 ? '' : 's'}`

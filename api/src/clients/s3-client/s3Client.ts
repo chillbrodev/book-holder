@@ -27,7 +27,7 @@ function isNotFound(err: unknown): boolean {
           ?.httpStatusCode === 404);
 }
 
-/** Generic bucket/key wrapper — bucket is passed in per call so this is
+/** Generic bucket/key wrapper, bucket is passed in per call so this is
  * reusable across features (Polly cache now, session recordings later). */
 export const S3Client = {
   async objectExists(bucket: string, key: string): Promise<boolean> {

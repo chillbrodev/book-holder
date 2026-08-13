@@ -11,7 +11,7 @@ import type {
 const ELEMENT_NODE = 1;
 const TEXT_NODE = 3;
 
-// Structural shape we actually need from xmldom's DOM nodes — declared locally
+// Structural shape we actually need from xmldom's DOM nodes, declared locally
 // instead of importing xmldom's own types, since this hasn't been type-checked
 // against the real package yet (Node isn't installed on this machine as of
 // writing). Verify this compiles once `npm install` has run.
@@ -34,7 +34,7 @@ function children(node: XmlNode, tag?: string): XmlNode[] {
   return out;
 }
 
-/** Text of direct TEXT_NODE children only — used on <LINE> so nested
+/** Text of direct TEXT_NODE children only, used on <LINE> so nested
  * <STAGEDIR> text isn't mixed into the spoken text. */
 function directText(node: XmlNode): string {
   let text = "";
@@ -45,7 +45,7 @@ function directText(node: XmlNode): string {
   return text.replace(/\s+/g, " ").trim();
 }
 
-/** Full descendant text — used everywhere except <LINE>, where mixed content matters. */
+/** Full descendant text, used everywhere except <LINE>, where mixed content matters. */
 function fullText(node: XmlNode): string {
   return (node.textContent ?? "").replace(/\s+/g, " ").trim();
 }
@@ -60,7 +60,7 @@ function parseSpeech(speechEl: XmlNode): { speakerNames: string[]; items: Speech
   const speakerNames = children(speechEl, "SPEAKER").map(fullText);
 
   // Walk direct children in document order, not children(speechEl, "LINE") in
-  // isolation — <STAGEDIR> can also be a direct child of <SPEECH>, interleaved
+  // isolation, <STAGEDIR> can also be a direct child of <SPEECH>, interleaved
   // between <LINE>s (e.g. "Knocks" mid-speech), and that position matters.
   const items: SpeechItem[] = [];
   for (let i = 0; i < speechEl.childNodes.length; i++) {
@@ -71,7 +71,7 @@ function parseSpeech(speechEl: XmlNode): { speakerNames: string[]; items: Speech
     } else if (child.tagName === "STAGEDIR" || child.tagName === "SUBHEAD") {
       // <SUBHEAD>SONG.</SUBHEAD> marks a song starting mid-speech (10 of the 14
       // corpus occurrences, including Merry Wives V.v). Treated as an action so
-      // it keeps its position *and* breaks the speech block — otherwise the
+      // it keeps its position *and* breaks the speech block, otherwise the
       // song's verse merges into the spoken lines around it and Polly reads
       // straight through the seam.
       items.push({ kind: "action", text: fullText(child) });
@@ -112,7 +112,7 @@ function parseScenesOfAct(actEl: XmlNode, actLabel: string, actOrder: number): P
   let sceneOrder = 0;
 
   // PROLOGUE is a sibling of SCENE within an ACT, often with a blank <SPEAKER>
-  // (the Chorus) — treated as a pseudo-scene ordered before SCENE I.
+  // (the Chorus), treated as a pseudo-scene ordered before SCENE I.
   for (const prologueEl of children(actEl, "PROLOGUE")) {
     scenes.push({
       act: actLabel,
@@ -137,7 +137,7 @@ function parseScenesOfAct(actEl: XmlNode, actLabel: string, actOrder: number): P
     });
   }
 
-  // EPILOGUE mirrors PROLOGUE — a sibling of SCENE inside the final ACT, in 6
+  // EPILOGUE mirrors PROLOGUE, a sibling of SCENE inside the final ACT, in 6
   // plays (Prospero's "Now my charms are all o'erthrown", Rosalind's, the
   // Henry V chorus). Ordered after the scenes rather than before. Its <SUBTITLE>
   // ("SPOKEN BY PROSPERO") is the closest thing it has to a scene description.
@@ -174,7 +174,7 @@ export function parsePlayXml(xml: string): ParsedPlay {
       if (child.tagName === "PERSONA") {
         personae.push({ rawText: fullText(child) });
       } else if (child.tagName === "PGROUP") {
-        // Flatten grouped personae (e.g. "FORD"/"PAGE" under one GRPDESCR) —
+        // Flatten grouped personae (e.g. "FORD"/"PAGE" under one GRPDESCR),
         // the group description itself isn't needed by the app.
         for (const personaEl of children(child, "PERSONA")) {
           personae.push({ rawText: fullText(personaEl) });
@@ -187,7 +187,7 @@ export function parsePlayXml(xml: string): ParsedPlay {
   let actOrder = 0;
 
   // INDUCT is a top-level sibling of ACT (not present in Merry Wives, but real
-  // in e.g. Taming of the Shrew) — treated as its own act-equivalent.
+  // in e.g. Taming of the Shrew), treated as its own act-equivalent.
   for (const inductEl of children(playEl, "INDUCT")) {
     scenes.push(...parseScenesOfAct(inductEl, "INDUCTION", actOrder++));
   }

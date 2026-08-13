@@ -8,7 +8,7 @@ import type { DialogueEntryRow } from "../service.ts";
  *
  * It was found from a screenshot: a speech appeared twice with a direction
  * between the halves, both halves carrying the same `BLOCK` id. The audible
- * version was worse — `getBlockAudio` keys on the block, so both halves asked
+ * version was worse, `getBlockAudio` keys on the block, so both halves asked
  * for the same recording and the scene read the whole speech, then read it
  * again.
  */
@@ -48,7 +48,7 @@ const said = (entries: DialogueEntryRow[]) =>
 
 Deno.test("a direction anchored to a beat comes after that beat", () => {
   // The exact shape that broke: both beats belong to one block, and
-  // "Re-enter RUGBY" is anchored to the second — so it follows the whole
+  // "Re-enter RUGBY" is anchored to the second, so it follows the whole
   // speech rather than splitting it.
   const stream = interleaveSceneStream(
     [
@@ -82,7 +82,7 @@ Deno.test("a block is never split by the direction that follows it", () => {
 
 Deno.test("an opening direction still comes before the first beat", () => {
   // after_line_number = 0 and beats numbered from 1, so there is nothing to
-  // tie with — the tiebreak change must not disturb this.
+  // tie with; the tiebreak change must not disturb this.
   const stream = interleaveSceneStream(
     [beat(1, "What, John Rugby!")],
     [direction(0, "Enter MISTRESS QUICKLY, SIMPLE, and RUGBY")],

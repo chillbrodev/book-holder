@@ -5,10 +5,10 @@ import styles from './ToggleButton.module.css'
 
 export interface ToggleButtonProps {
   on: boolean
-  /** What the control governs, e.g. "Your lines" — stays fixed as it toggles. */
+  /** What the control governs, e.g. "Your lines", stays fixed as it toggles. */
   label: string
   /**
-   * The same control named for a ~90px-wide button, e.g. "Yours" — used only in
+   * The same control named for a ~90px-wide button, e.g. "Yours", used only in
    * the phone's bottom bar, where four of these share the screen width.
    *
    * Both spellings are always in the DOM and CSS picks one, rather than a
@@ -28,7 +28,7 @@ export interface ToggleButtonProps {
 }
 
 /**
- * Rehearsal control — on/off is carried three ways at once (icon, state word,
+ * Rehearsal control, on/off is carried three ways at once (icon, state word,
  * and fill), per the style guide's redundant-encoding rule. The label never
  * changes with state, so the button doesn't read as a different control after
  * being pressed; only the state word underneath moves.
@@ -50,7 +50,7 @@ export function ToggleButton({
       className={cx(styles.button, on && styles.on)}
       onClick={onClick}
       aria-pressed={on}
-      /* Always the full label, whichever spelling is on screen — the abbreviation
+      /* Always the full label, whichever spelling is on screen, the abbreviation
          is a space compromise and shouldn't reach a screen reader. This also makes
          the duplicated text below invisible to AT, since aria-label supersedes the
          element's contents. */

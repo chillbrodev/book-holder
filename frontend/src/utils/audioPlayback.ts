@@ -3,7 +3,7 @@
  * one-time unlock that iOS Safari wants before it will play anything.
  *
  * Why a singleton rather than `new Audio(url)` per line, which is what this
- * replaced: **iOS Safari grants playback per element, not per page.** An element
+ * replaced: iOS Safari grants playback per element, not per page. An element
  * that has been played once inside a user gesture stays playable for the rest of
  * the session, and you can reassign its `src` freely afterwards. A freshly
  * constructed element has no such grant and needs its own gesture, which an
@@ -11,7 +11,7 @@
  *
  * The failure that produced this module: the rehearsal screen fetched a URL,
  * built a new element in the `.then()`, and called `play()`. Two things made
- * that unplayable on iOS — the element was new, and `play()` sat behind a
+ * that unplayable on iOS; the element was new, and `play()` sat behind a
  * network await, which ends any user activation the triggering tap had. The
  * rejection landed in the same `.catch()` written for "the Polly request
  * failed", whose job is to keep the rehearsal moving, so every other
@@ -21,7 +21,7 @@
  * interacted with at all.
  *
  * Desktop is unaffected by design. Where autoplay is already permitted the
- * sequence is identical — set src, play, advance on `ended` — and reusing one
+ * sequence is identical, set src, play, advance on `ended`, and reusing one
  * element additionally makes overlapping playback impossible, which the two
  * call sites were relying on state to prevent.
  */
@@ -58,7 +58,7 @@ export function isPlaybackUnlocked(): boolean {
 /**
  * Spend a user gesture on making the shared element playable forever after.
  *
- * Must be called *synchronously* from inside the gesture's handler — any await
+ * Must be called *synchronously* from inside the gesture's handler, any await
  * first and the activation is gone, which is the whole bug this exists to fix.
  * Plays a silent sample and immediately rewinds, so it is inaudible and cheap.
  * Safe to call on every gesture: it returns immediately once unlocked, and a
@@ -90,7 +90,7 @@ export function unlockPlayback(): void {
   }
 }
 
-/** Thrown when the browser refused to play — a permission problem, not a
+/** Thrown when the browser refused to play, a permission problem, not a
  *  missing file, and the two want opposite responses from the caller. */
 export class PlaybackBlockedError extends Error {
   constructor() {
@@ -105,7 +105,7 @@ export function isPlaybackBlocked(error: unknown): boolean {
 
 export interface PlaybackSession {
   /** Resolves when playback has actually begun; rejects with
-   *  PlaybackBlockedError if the browser refused. Never resolves on `ended` —
+   *  PlaybackBlockedError if the browser refused. Never resolves on `ended`,
    *  that arrives through the onEnded handler. */
   started: Promise<void>
   /** Stops this session and detaches its handlers. Idempotent, and a no-op on
@@ -158,8 +158,8 @@ export function playUrl(url: string, { onEnded, onError }: PlaybackHandlers): Pl
 
   started = started.catch((error: unknown) => {
     detach()
-    // NotAllowedError is the autoplay refusal. Everything else — a decode
-    // failure, a 403 on the signed URL — is a broken sound, and the caller
+    // NotAllowedError is the autoplay refusal. Everything else, a decode
+    // failure, a 403 on the signed URL, is a broken sound, and the caller
     // should degrade past it rather than ask the user to intervene.
     const blocked = error instanceof DOMException && error.name === 'NotAllowedError'
     throw blocked ? new PlaybackBlockedError() : error

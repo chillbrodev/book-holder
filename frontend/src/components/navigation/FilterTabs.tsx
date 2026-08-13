@@ -7,7 +7,7 @@ export interface FilterTabsProps {
   onChange: (value: string) => void
 }
 
-/** Simple text tabs — active tab gets filled background + stronger border, not color alone. */
+/** Simple text tabs, active tab gets filled background + stronger border, not color alone. */
 export function FilterTabs({ options, value, onChange }: FilterTabsProps) {
   return (
     <div className={styles.tabs}>

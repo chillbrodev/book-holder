@@ -1,10 +1,10 @@
-// Segmentation rules — see docs/beats-and-blocks-plan.md §3.
+// Segmentation rules. See docs/beats-and-blocks-plan.md §3.
 //
 // A speech's verse/prose lines are typographic wrapping, not units of meaning.
 // These functions turn them into *beats*: one thought each, which is what the
 // coach scores, what "Line?" prompts with, and what line_mastery keys on.
 //
-// Pure and offline on purpose — no DB, no AWS, no randomness — so the rules can
+// Pure and offline on purpose: no DB, no AWS, no randomness, so the rules can
 // be re-run over the whole corpus and diffed.
 
 /** Above this, a sentence is clause-split at `;`/`:`. A target, not a
@@ -14,15 +14,15 @@
 const MAX_BEAT_CHARS = 200;
 
 /** A fragment shorter than this that ends in `!` is an interjection and merges
- * forward. Ending in `.`/`?` it does not — see mergeInterjections. */
+ * forward. Ending in `.`/`?` it does not. See mergeInterjections. */
 const INTERJECTION_MAX_CHARS = 40;
 
 /** A fragment that begins with a lowercase letter is a continuation of the
- * sentence before it, not a new thought — see mergeContinuations. */
+ * sentence before it, not a new thought. See mergeContinuations. */
 const STARTS_LOWERCASE = /^[a-z]/;
 
 /** Sentence end: terminal punctuation plus any closing quotes/brackets. No
- * abbreviation defense — the Shakespeare corpus has no "Mr."/"Mrs."/"St.". */
+ * abbreviation defense, the Shakespeare corpus has no "Mr."/"Mrs."/"St.". */
 const SENTENCE_BOUNDARY = /(?<=[.!?]["'’)\]]*)\s+/;
 const CLAUSE_BOUNDARY = /(?<=[;:])\s+/;
 const ENDS_EXCLAIMING = /!["'’)\]]*$/;
@@ -46,7 +46,7 @@ export interface JoinedSpeech {
  * a genuinely hyphenated word that Moby happened to break at its own hyphen
  * (Star-chamber, note-book, holiday-time), not a typesetter's mid-word break.
  *
- * The lowercase test is what keeps it honest — "...to whose falls-" followed by
+ * The lowercase test is what keeps it honest, "...to whose falls-" followed by
  * "Heaven prosper the right!" is a dash, not a broken word, and stays split.
  * `--` (interruption) is never joined.
  */
@@ -103,13 +103,13 @@ function mergeInterjections(sentences: string[]): string[] {
  * Merges a fragment back into the sentence it continues.
  *
  * `SENTENCE_BOUNDARY` splits on terminal punctuation, which in Shakespeare is
- * not reliably the end of a thought — a question mid-utterance ends in `?` and
+ * not reliably the end of a thought, a question mid-utterance ends in `?` and
  * the rest of the utterance carries straight on. The tell is capitalisation:
- * the Moby text capitalises a genuinely new sentence, so **a fragment starting
- * lowercase is a continuation**, and splitting there produces beats nobody
+ * the Moby text capitalises a genuinely new sentence, so a fragment starting
+ * lowercase is a continuation, and splitting there produces beats nobody
  * would deliver separately.
  *
- * From a real rehearsal, which is how this was found — Fenton in I.iv came out
+ * From a real rehearsal, which is how this was found, Fenton in I.iv came out
  * as four two-beat speeches where every second beat began lowercase:
  *
  *   "Who's within there?"           | "ho!"
@@ -126,11 +126,11 @@ function mergeInterjections(sentences: string[]): string[] {
  * Measured over Merry Wives: 69 merges across 56 blocks, 1,705 beats → 1,636.
  * Every sampled result reads as one utterance ("Why do your dogs bark so? be
  * there bears i' the town?"). A further 74 lowercase fragments are left split
- * because absorbing them would exceed `MAX_BEAT_CHARS` — the same guard, and the
+ * because absorbing them would exceed `MAX_BEAT_CHARS`, the same guard, and the
  * same tradeoff, as the interjection rule: a beat has to stay short enough to
  * deliver and to score.
  *
- * **This does not invalidate the Polly cache.** `blockId` hashes the block's
+ * This does not invalidate the Polly cache. `blockId` hashes the block's
  * joined text, which is computed before segmentation and is unchanged by moving
  * a beat boundary; only `beatId` moves, resetting the practice history it should
  * reset (`ids.ts`).
@@ -150,7 +150,7 @@ function mergeContinuations(sentences: string[]): string[] {
 }
 
 /** Splits an over-long sentence at `;`/`:`, accumulating clauses greedily
- * rather than splitting at every one — Shakespeare's colons and semicolons are
+ * rather than splitting at every one, Shakespeare's colons and semicolons are
  * rhetorical turns, so these land where an actor breathes. A sentence with no
  * clause punctuation comes back whole and over the ceiling, deliberately. */
 function splitLongSentence(sentence: string): string[] {

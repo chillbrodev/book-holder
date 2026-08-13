@@ -16,7 +16,7 @@ const capture = new Hono<AppEnv>();
  * A WebSocket rather than a POST because capture is genuinely bidirectional and
  * continuous: PCM goes up while beat progress comes down, both for the duration
  * of one speech. `useMicSimulation`'s comment in the frontend called this out
- * before any of it existed — the real thing is a streaming integration, not a
+ * before any of it existed; the real thing is a streaming integration, not a
  * REST call.
  *
  * `Deno.upgradeWebSocket` directly rather than Hono's adapter helper: the app is
@@ -26,7 +26,7 @@ const capture = new Hono<AppEnv>();
  * hard to see.
  *
  * No auth gate, matching /polly and /plays: rehearsing works fully as a guest.
- * Unlike Polly, though, every connection here *does* bill — there is no cache to
+ * Unlike Polly, though, every connection here *does* bill; there is no cache to
  * hit, because you cannot pre-warm what she hasn't said yet. The guards are the
  * duration ceiling in AudioQueue and the fact that a stream only bills for audio
  * actually forwarded. Worth revisiting if this is ever exposed to real traffic:
@@ -44,18 +44,18 @@ capture.get("/blocks/:blockId", (c) => {
   const characterId = c.req.query("characterId");
   // Optional. Present when a signed-in actor started a session; absent for a
   // guest, and absent for anyone rehearsing before the client has been taught
-  // to open one. Its absence is never an error — see the persistence step below.
+  // to open one. Its absence is never an error. See the persistence step below.
   const sessionId = c.req.query("sessionId");
 
   // Read here, synchronously, while the HTTP request still exists.
   //
   // `Deno.upgradeWebSocket` below hands the connection over to the WebSocket
   // protocol and closes the underlying Request. Anything that touches its
-  // headers afterwards — which `getCookie` does — throws `TypeError: Request
+  // headers afterwards, which `getCookie` does, throws `TypeError: Request
   // closed`. Doing this inside `socket.onopen` is therefore always wrong, and
   // wrong in a way that reads like a server fault rather than a lifecycle
   // mistake: the client gets INTERNAL_SERVER_ERROR and the actor gets "Can't
-  // hear you — check your mic", pointing at a microphone that is working fine.
+  // hear you, check your mic", pointing at a microphone that is working fine.
   //
   // The token is a string, so capturing it costs nothing; resolving it into a
   // user is a database round trip and stays inside onopen where it can be
@@ -66,11 +66,11 @@ capture.get("/blocks/:blockId", (c) => {
 
   let session: CaptureSession | undefined;
   // Audio that arrives before the DB lookup finishes. Without this the first
-  // frames are silently dropped, which costs the opening words of the block —
+  // frames are silently dropped, which costs the opening words of the block,
   // the ones she is most likely to be judged on getting wrong.
   const early: Uint8Array[] = [];
   // The same race, for the control frame rather than the audio. `done` arriving
-  // before `session` exists used to hit `session?.finish()` and vanish — and
+  // before `session` exists used to hit `session?.finish()` and vanish, and
   // because `done` is the only thing that closes the audio queue, the capture
   // then ran until the duration ceiling instead of finishing. Silent, and it
   // leaves a billing Transcribe stream open the whole time.
@@ -92,7 +92,7 @@ capture.get("/blocks/:blockId", (c) => {
       // Resolved here rather than by middleware, because this route must work
       // for nobody as well as for someone. `findSessionUser` is the non-throwing
       // half of `getSessionUser` for exactly this caller. The token itself was
-      // captured before the upgrade — see above for why that is not optional.
+      // captured before the upgrade. See above for why that is not optional.
       const user = await AuthService.findSessionUser(sessionToken);
 
       session = await CaptureSession.open({ blockId, characterId }, send);
@@ -109,7 +109,7 @@ capture.get("/blocks/:blockId", (c) => {
       // `features/capture` stays a capture feature. The socket is simply the
       // channel the answer travels back on.
       //
-      // The socket is held open across this call — about a second — even though
+      // The socket is held open across this call, about a second, even though
       // `complete` has already gone. That second is invisible to the mic UI,
       // which moved on the moment `complete` landed, and it is the difference
       // between the annotation arriving on this connection and needing a second
@@ -127,13 +127,13 @@ capture.get("/blocks/:blockId", (c) => {
         // This is `coaching-plan.md` §7's "auth-aware but not auth-gated" in
         // its entirety: the socket read a cookie if one was sent, and a guest
         // simply has no session to write into. She got the mic, the other
-        // parts, and the same live coaching a signed-in actor got — only the
+        // parts, and the same live coaching a signed-in actor got, only the
         // memory is missing, which is exactly what "Save Progress" offers.
         //
         // After `send`, never before. The annotation is what she is waiting
         // for; a database round trip in front of it would delay the visible
         // half of this for the sake of the invisible half. And it is
-        // deliberately outside the send's control flow — a write that fails
+        // deliberately outside the send's control flow, a write that fails
         // must not cost her the coaching she can already see.
         if (sessionId && user) {
           try {
@@ -174,7 +174,7 @@ capture.get("/blocks/:blockId", (c) => {
   };
 
   socket.onmessage = (event) => {
-    // Binary frames are PCM (16 kHz, mono, 16-bit signed LE — see
+    // Binary frames are PCM (16 kHz, mono, 16-bit signed LE. See
     // transcribeClient.ts). Text frames are control messages. Splitting on the
     // frame type rather than a header keeps audio out of JSON, which would
     // inflate it by a third for no reason.

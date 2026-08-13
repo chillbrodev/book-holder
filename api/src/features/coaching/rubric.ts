@@ -2,14 +2,14 @@
  * The rubric the comparison model is given, and the shape it must answer in.
  *
  * Kept apart from `service.ts` because this is the part that will actually be
- * iterated on. The service's job — one call per block, fall back on failure —
+ * iterated on. The service's job, one call per block, fall back on failure,
  * is settled; the wording below is not, and it is the only thing standing
  * between a useful note and a wrong one.
  *
  * ## The transcript rule is the whole reason this file has a header
  *
  * `docs/coaching-plan.md` §8 records what the first real Nova call returned:
- * the note *"the capitalization of 'Songs' and 'Sonnets' was missed"* — about a
+ * the note *"the capitalization of 'Songs' and 'Sonnets' was missed"*, about a
  * speech she said out loud. Nothing was wrong with the model. It was handed a
  * string and judged it as typed prose, which is the reasonable reading of a
  * string unless you are told otherwise.
@@ -17,7 +17,7 @@
  * So the rubric says, at length and more than once, that its input came out of
  * speech-to-text. Capitalisation, punctuation, and homophones are artifacts of
  * Amazon Transcribe, not of her performance, and a note about any of them is
- * worse than no note — it tells an actor to fix something she did not do.
+ * worse than no note; it tells an actor to fix something she did not do.
  *
  * ## Why the model returns the band as well as the score
  *
@@ -31,7 +31,7 @@
  * either way, and "did she have this line" is the judgement, where a numeric cut
  * is a proxy for it. The continuous score is still returned and still stored, so
  * when the cuts are settled from real runs the derivation can take over and the
- * model's band becomes advisory — nothing has to be migrated for that to happen.
+ * model's band becomes advisory; nothing has to be migrated for that to happen.
  * What is *not* acceptable is inventing 0.9 and 0.5 here and having them harden
  * into product behaviour because they shipped.
  */
@@ -49,7 +49,7 @@ export const COACH_TOOL_DESCRIPTION =
  *
  * `beatNumber` rather than `lineId` is what the model is asked to key on. Line
  * ids are UUIDs, and asking a small model to copy thirty-six characters exactly
- * for every beat is a transcription task with nothing to gain — a wrong digit
+ * for every beat is a transcription task with nothing to gain, a wrong digit
  * loses the beat. The service maps the small integers back to line ids, which it
  * can do because it built the prompt from the same ordered list.
  */

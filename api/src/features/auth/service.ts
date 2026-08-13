@@ -6,7 +6,7 @@ import { AuthError } from "./errors.ts";
 import type { AuthUser } from "./interfaces.ts";
 
 // Account lockout: after this many wrong PINs in a row, the account is
-// locked for LOCKOUT_MINUTES rather than allowed to keep guessing — PINs
+// locked for LOCKOUT_MINUTES rather than allowed to keep guessing, PINs
 // are low-entropy (4-8 digits), so online rate-limiting matters as much as
 // the offline hashing cost in pin.ts.
 const MAX_FAILED_ATTEMPTS = 5;
@@ -107,12 +107,12 @@ export const AuthService = {
 
     if (!valid) {
       // CockroachDB's INT is 64-bit, so `pg` returns it as a string (avoids
-      // silent precision loss past Number.MAX_SAFE_INTEGER) — Number(...) it
+      // silent precision loss past Number.MAX_SAFE_INTEGER), Number(...) it
       // explicitly, or `+ 1` silently string-concatenates instead of adding.
       const attempts = Number(user.failed_pin_attempts) + 1;
       if (attempts >= MAX_FAILED_ATTEMPTS) {
         await pool.query(
-          // $2 needs an explicit ::INT cast — without it CockroachDB infers
+          // $2 needs an explicit ::INT cast, without it CockroachDB infers
           // its type as INTERVAL from the multiplication context and fails
           // with "unsupported binary operator: <interval> * <interval>".
           "UPDATE users SET failed_pin_attempts = 0, locked_until = now() + ($2::INT * interval '1 minute') WHERE id = $1",
@@ -176,8 +176,8 @@ export const AuthService = {
    *
    * The same lookup as `getSessionUser` without the throw, for the one caller
    * that needs to know who she is without requiring her to be anyone: the
-   * capture socket. `coaching-plan.md` §7 makes that socket **auth-aware but
-   * not auth-gated** — a guest gets the mic, the other parts, and the same live
+   * capture socket. `coaching-plan.md` §7 makes that socket auth-aware but
+   * not auth-gated, a guest gets the mic, the other parts, and the same live
    * coaching, and only the *memory* is withheld, which is exactly what "Save
    * Progress" has always been offering.
    *

@@ -9,7 +9,7 @@ export interface DialogueLineProps {
   block: DialogueBlock
   active?: boolean
   micError?: boolean
-  /** Replaces the block's text entirely — the held-back prompt on her own
+  /** Replaces the block's text entirely, the held-back prompt on her own
    * lines, or the empty string when "Other lines" is toggled off. */
   overrideText?: string
   /** Shown after the block when she's called for a prompt: the next beat only,
@@ -20,7 +20,7 @@ export interface DialogueLineProps {
 }
 
 /**
- * One speech, under one speaker header — the unit of display and of a single
+ * One speech, under one speaker header, the unit of display and of a single
  * Polly render (docs/beats-and-blocks-plan.md §2). Passed blocks are muted;
  * the active one gets the mic card treatment.
  *

@@ -12,7 +12,7 @@ export class PollyError extends BaseError<PollyErrorName> {
     ["LINE_NOT_FOUND", 404],
     ["VOICE_UNAVAILABLE", 503],
     // Same 503 as VOICE_UNAVAILABLE on purpose: to a client these are the
-    // same situation — no audio for this block, fall back to a text-only
+    // same situation: no audio for this block, fall back to a text-only
     // prompt (BE_PLAN.md §5). The distinct name is for the server logs and
     // the warm run, which do need to tell "Polly was down" apart from
     // "Polly answered with something wrong".

@@ -14,12 +14,12 @@ import styles from './PlayPage.module.css'
 
 /**
  * Everything between picking a play and starting a scene, under one centred
- * title — but as two separate steps, not one long page. Choosing a part and
+ * title, but as two separate steps, not one long page. Choosing a part and
  * choosing a scene are different decisions, and stacking them meant the scene
  * list appeared under your feet the moment you tapped a name.
  *
  * The step lives in the URL (`?step=role|scene`) rather than in component
- * state so browser Back steps between them instead of leaving for the shelf —
+ * state so browser Back steps between them instead of leaving for the shelf,
  * which is what someone reaching for Back after mis-tapping a part expects.
  *
  * With nowhere to resume, or arriving from the rehearsal screen's change
@@ -39,7 +39,7 @@ export function PlayPage() {
   const { data: existingRole, loading: roleLoading, error: roleError } = useAsync(() => getSelectedRole(playId), [playId])
   const { data: lastScene, loading: lastSceneLoading } = useAsync(() => getLastScene(playId), [playId])
 
-  // Highlighted but not yet committed — the part is only saved on Continue, so
+  // Highlighted but not yet committed; the part is only saved on Continue, so
   // backing out of step one leaves the previously chosen part untouched.
   const [pickedRoleId, setPickedRoleId] = useState<string | null>(null)
   const [showAllScenes, setShowAllScenes] = useState(false)
@@ -64,23 +64,23 @@ export function PlayPage() {
     return <AsyncStatus loading={loading} error={error} />
   }
 
-  // Synthetic characters (e.g. "All", the group-speaker for unison lines —
+  // Synthetic characters (e.g. "All", the group-speaker for unison lines,
   // see PROJECT_PLAN.md §6 parsing rule 5) aren't someone you can rehearse as.
   const selectableCharacters = characters.filter((c) => !c.isSynthetic)
   const selected = selectableCharacters.find((c) => c.id === (pickedRoleId ?? existingRole?.id))
 
-  // A part alone isn't a session — she may have chosen one and never started.
+  // A part alone isn't a session; she may have chosen one and never started.
   // Both halves have to be present before offering to resume.
   const canResume = existingRole != null && lastScene != null
   // Scenes the part actually appears in. For a 12-line role that's 1 row out
-  // of 23 — the whole reason the filter exists.
+  // of 23, the whole reason the filter exists.
   const scenesWithRole = scenes.filter((scene) => (scene.characterLines ?? 0) > 0)
 
   // Landing with no step named: resume if there's somewhere to resume to,
   // otherwise start at step one.
   //
   // Naming a step always skips the resume cards, even when the step can't be
-  // honoured — asking for the scene list with an unusable saved part (a stale
+  // honoured, asking for the scene list with an unusable saved part (a stale
   // id after a re-import, or one pointing at a synthetic character) should
   // land on step one, not silently on a resume card she didn't ask for.
   const namedStep = step === 'role' || step === 'scene'
@@ -93,7 +93,7 @@ export function PlayPage() {
   function handleContinueFromRole() {
     if (!selected) return
     void selectRole(playId, selected.id)
-    // Commit here, not on tap — this is the point the scene counts need to be
+    // Commit here, not on tap; this is the point the scene counts need to be
     // refetched for, and the only point the part actually changes.
     setCommittedRoleId(selected.id)
     goToStep('scene')

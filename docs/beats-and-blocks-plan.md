@@ -145,6 +145,11 @@ speech; they attach to the block, not to a beat.
 | beat words p50 / p90 / max | 9 / 27 / 44 | — |
 | beats over 200 chars | 8 (0.5%) | 11 (0.7%) |
 
+*These are the parser's figures at the time this decision was made, kept as the
+evidence it was made on. The imported corpus landed at 1,705 beats, and later
+segmentation tuning took it to **1,636 in 1,060 blocks**, which is what the
+database holds now. Current counts live in the README.*
+
 **Long speeches do not produce more beats per line** — they produce longer
 thoughts, and Shakespeare punctuates them:
 
@@ -246,6 +251,12 @@ carries the identity the cache key needs without a join or a migration of
 Merry Wives), which changes what the role picker means by "a 12-line role."
 Copy needs a pass.
 
+**`insertLines` uses multi-row `VALUES`, not `unnest`.** CockroachDB does not
+implement multi-dimensional arrays (crdb#32552), so an array-valued column such
+as `source_lines` cannot ride the bulk-`unnest` insert pattern that the rest of
+the importer uses. This is a CockroachDB constraint, not a schema choice, and it
+will bite again on any future array column.
+
 ## 6. API surface
 
 | endpoint | change |
@@ -344,55 +355,8 @@ The importer must remain offline, deterministic, and re-runnable without AWS
 credentials — the property that makes `--dry-run` review useful. Same reasoning
 as keeping Polly warming separate.
 
-## 9. Migration
-
-No practice history exists, so the DB can change freely — but this is a
-one-shot. Once she has real rehearsal history, re-importing gets expensive.
-
-1. Migration 004 (§5).
-2. Re-import — mints new UUIDs, orphaning any `line_mastery` / `mistake_log`
-   rows and making every cached mp3 unreachable.
-3. Wipe the S3 cache prefix. (Includes one known orphan from earlier endpoint
-   verification: `…/falstaff/{lineId}__Brian__speech2.mp3`.)
-4. Re-warm — ~108,900 chars for Merry Wives, ~**$3.27** at generative pricing.
-   Unchanged by the unit choice: same words either way.
-
-**Deferred until the parser and visuals are demonstrated.** Deferring costs
-nothing — the re-import invalidates the existing cache regardless of when we
-warm, so warming earlier would be pure waste. The browser's built-in
-`SpeechSynthesis` is a free stand-in for hearing whether a block plays as one
-natural unit; bad voices, but it proves the sequencing.
-
-## 10. Open questions
-
-Moved to `OPEN_ITEMS.md`, which is the running record across the whole project
-rather than just this change. The ones that came out of this work: the
-fuzzy-match threshold (§1a there, and the biggest of them), whether trivially
-short beats are rolled up in the Prompt Book, how a flubbed beat is marked
-inside verse lineation, whether she can hear her own lines, and whether
-embeddings ship at all.
-
 ## 11. Explicitly out of scope
 
 Split verse lines shared between two speakers (cue pickup) — Moby XML records
 them as separate `<LINE>`s in separate `<SPEECH>`es with no marker, so they
 cannot be reliably detected. The three `&c.` song fragments.
-
-## 12. Build order
-
-1. ~~Rewrite `packages/play-importer/src/buildRows.ts`~~ **done** — beat rows
-   with `block_id`, `beat_number`, `source_lines`,
-   `shares_first_source_line`; rules live in `src/segment.ts`.
-2. ~~`beats.txt` review artifact~~ **done** — blocks as they would display,
-   verse above beats, over-ceiling beats marked `!`, anomaly summary at the top.
-3. ~~Run across all 37 plays~~ **done** — see §4a.
-4. ~~Migration 004 + re-import~~ **done** — 1,705 beats in 1,060 blocks live in
-   CockroachDB. `insertLines` had to move from `unnest` to multi-row `VALUES`:
-   CockroachDB doesn't implement multi-dimensional arrays (crdb#32552), so an
-   array-valued column can't ride the bulk-unnest pattern.
-5. ~~API + frontend render blocks~~ **done** — `getSceneDialogue` returns
-   `blockId`/`sourceLines`/`isVerse`, the client groups consecutive beats, and
-   "Line?" hands over one beat at a time instead of the whole speech.
-6. Polly re-warm — the block endpoint exists, but the S3 cache is empty (new
-   UUIDs), so every cue block currently synthesizes on first play.
-7. `embedBeats.ts` + vector index — after that, and cut-first if time is short.

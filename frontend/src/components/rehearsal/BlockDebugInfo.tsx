@@ -8,7 +8,7 @@ export interface BlockDebugInfoProps {
 /**
  * The block's id, under the speech, outside production.
  *
- * The value every audio question comes down to — the S3 cache key is
+ * The value every audio question comes down to, the S3 cache key is
  * {play}/{character}/{blockId}__{voiceId}__{engine}.mp3 (api's
  * polly/service.ts), and the block id is the part of it the screen can't
  * otherwise tell you. So "why does this line sound wrong" is answerable off

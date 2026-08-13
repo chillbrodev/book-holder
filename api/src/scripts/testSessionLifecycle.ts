@@ -1,18 +1,15 @@
 // Drives start -> recordBlock -> complete against the real database, asserts
 // every row that should land, and then deletes everything it made.
 //
-// This is the half of the session loop that `docs/verify-session-loop.md`
-// cannot cover, in reverse: that document is the things only a person with a
-// microphone can check, and this is the SQL underneath them, which a person
-// running a scene would only ever see through the wrap-up. The two are
-// complementary — a real rehearsal proves the mic, this proves the writes.
+// This covers the half of the session loop a person cannot: the SQL underneath
+// a rehearsal, which someone running a scene would only ever see through the
+// wrap-up. The other half needs a microphone and a human, and no script can
+// stand in for it. A real rehearsal proves the mic; this proves the writes.
 //
 // It uses a throwaway user and removes it afterwards, so it can be run against
-// the shared dev/production database without leaving anything behind. That
-// matters more than usual right now: every memory table is at 0 rows, and the
-// first real rehearsal should be the first real row.
+// the shared dev/production database without leaving anything behind.
 //
-// No Transcribe and no Nova — the coaching is synthetic, because what is under
+// No Transcribe and no Nova: the coaching is synthetic, because what is under
 // test is what happens to a judgement once it exists, not how it was reached.
 // It does make one real Titan call, since embedding a mistake is part of the
 // write path and the whole point of mistake_log having a vector column.
@@ -198,7 +195,7 @@ async function main() {
     );
     check("duration stored", Number(finalRow.rows[0].duration_seconds) === 214);
     // The session planned every block of the scene and only one was run, so it
-    // is genuinely unfinished — completed_at must stay NULL. This is the check
+    // is genuinely unfinished, completed_at must stay NULL. This is the check
     // that would fail if `completed` were derived from "did complete() get
     // called" rather than from what actually happened.
     check(
@@ -211,7 +208,7 @@ async function main() {
     );
     // --- a block-scoped drill ----------------------------------------
     // What "Practice these lines" now starts: a session over a chosen subset of
-    // her speeches rather than the whole scene. The point of migration 008 —
+    // her speeches rather than the whole scene. The point of migration 008,
     // finishing three speeches is a completed rehearsal, not a scene abandoned
     // after three.
     const drill = await SessionLifecycle.start({
@@ -242,7 +239,7 @@ async function main() {
     );
     check("who chose them is recorded", drillBlocks.rows[0]?.source === "user");
 
-    // A block she doesn't speak must be refused rather than dropped — a session
+    // A block she doesn't speak must be refused rather than dropped, a session
     // whose intent quietly shrank would report itself finished having run less
     // than it was asked to.
     let refused = false;
@@ -263,7 +260,7 @@ async function main() {
     check("a block she doesn't speak is refused, not dropped", refused);
     console.log(`drill       scope=blocks blocks=${drillBlocks.rows.length}`);
   } finally {
-    // Children before parents, and both sessions before either parent row —
+    // Children before parents, and both sessions before either parent row,
     // getting this backwards is what the failed first run of this probe proved,
     // by leaving a session behind that its own mistake_log rows still pointed at.
     const sessions = [drillSessionId, sessionId].filter(Boolean) as string[];

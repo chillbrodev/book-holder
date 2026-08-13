@@ -1,8 +1,8 @@
-// PollyService's own validation logic — these throw before ever touching
+// PollyService's own validation logic, these throw before ever touching
 // S3/Polly/the database, so they're safe to exercise without live AWS
 // credentials or a live cluster. The cache-hit/cache-miss/synthesize/degrade
 // branches are verified manually against real AWS, same as the DB-touching
-// auth paths — see BE_PLAN.md.
+// auth paths. See BE_PLAN.md.
 import { assertEquals, assertRejects } from "@std/assert";
 import { PollyService } from "../service.ts";
 import { PollyError } from "../errors.ts";

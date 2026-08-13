@@ -61,8 +61,10 @@ git history for something that isn't actually a secret but also doesn't need to 
 
 ## Deploy config (ECS Express Mode + Amplify)
 
-Not built yet. Per `docs/ORCHESTRATION_PLAN.md` Week 1, this is still outstanding — `frontend` and `api` are
-scaffolded (see their own READMEs/`deno.json`) but neither is deployed yet.
+Both halves are built and live. A push to `main` touching `api/**` runs `.github/workflows/deploy-api.yml`
+(build → ECR → roll the ECS Express service, then poll `/health` until the new commit is the one answering);
+Amplify rebuilds the frontend off the same push, independently. `ecs-deploy.sh` in this directory is the
+*bootstrap* path, not the deploy path, and stays human-run because CI deliberately holds no IAM write.
 
 `api` is Deno + Hono, deployed as a Docker image via AWS **ECS Express Mode** — the AWS-recommended
 replacement for App Runner (App Runner stopped accepting new customers 2026-04-30 and is now in maintenance
@@ -119,9 +121,11 @@ If you point it at a different model, update the `BedrockInvokeNova` statement i
 the foundation-model ARN in every region the profile can route to, so a model swap is two ARN shapes in two
 files, not one string in one.
 
-**Still not wired into the container**: `BEDROCK_MODEL_ID_SUMMARY`/`S3_RECORDINGS_BUCKET` — nothing reads
-them yet (the coaching-note and S3-recordings work isn't built), so there's nothing to pass until that
-exists.
+**Not wired into the container, for two different reasons.** `BEDROCK_MODEL_ID_AGENT` and
+`BEDROCK_MODEL_ID_EMBEDDING` are read by the code but have working defaults, so passing them would only pin
+what is already right. `S3_RECORDINGS_BUCKET` is read by nothing and is expected to stay that way — the app
+deliberately does not store user audio (`docs/OPEN_ITEMS.md` §1e). `BEDROCK_MODEL_ID_SUMMARY` has been
+dropped; nothing ever read it.
 
 For **local dev**, set `POLLY_CACHE_BUCKET` in the root `.env` to whatever bucket name you're using (run
 `ecs-deploy.sh` once to have it create `book-holder-polly-cache-<account-id>` and reuse that name locally, or

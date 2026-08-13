@@ -4,7 +4,7 @@ import type { AppEnv } from "../../types.ts";
 
 const plays = new Hono<AppEnv>();
 
-// No auth gate, deliberately — rehearsing works fully as a guest (see
+// No auth gate, deliberately, rehearsing works fully as a guest (see
 // AppLayout.tsx's "Save Progress" affordance: opt-in, never a gate in front
 // of the app). Auth is only for persisting progress, which isn't built yet.
 
@@ -42,7 +42,7 @@ plays.get(
   async (c) => c.json(await PlaysService.getLine(c.req.param("lineId"))),
 );
 
-// The block a beat belongs to — what the Prompt Book's single-beat drill
+// The block a beat belongs to, what the Prompt Book's single-beat drill
 // opens, so she practises the thought with its run-up rather than in isolation.
 plays.get(
   "/:playId/lines/:lineId/block",

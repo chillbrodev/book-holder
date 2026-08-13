@@ -6,10 +6,10 @@ import { openCaptureSocket, type CaptureEvent, type CaptureSocket } from '../dat
  * AudioWorklet → 16 kHz PCM → WebSocket → Amazon Transcribe, with beat progress
  * coming back the other way.
  *
- * Keyed on the **block**, not the beat. The mic stays open across a whole speech
+ * Keyed on the block, not the beat. The mic stays open across a whole speech
  * and she delivers it at natural pace; beats are scoring boundaries, not
  * interaction boundaries, so nothing here stops and restarts at a beat edge
- * (docs/OPEN_ITEMS.md §1b). `beatIndex` is what moves during a block — the
+ * (docs/OPEN_ITEMS.md §1b). `beatIndex` is what moves during a block, the
  * connection doesn't.
  */
 
@@ -42,13 +42,13 @@ const AUTO_FINISH_SETTLE_MS = 900
  *
  * Silence is the signal, because text isn't. A completed beat cursor is *one* way
  * to know she's finished, and it is not reliable enough to be the only one: real
- * failure, from a real run — "Ay, cousin Slender, and 'Custalourum" came back as
+ * failure, from a real run, "Ay, cousin Slender, and 'Custalourum" came back as
  * "I, Cousin Slender, and Castellorum", 4 of 5 words matched, and the block could
  * never complete because "'Custalourum" is four edits from what Transcribe heard
  * and "Ay" is too short to match fuzzily at all. She had said the line. The app
  * sat there listening, and she had no idea what it wanted.
  *
- * A human scene partner doesn't wait to be told the line is over — they hear you
+ * A human scene partner doesn't wait to be told the line is over, they hear you
  * stop. Partials arrive several times a second while she's talking and stop
  * entirely when she isn't, so "no transcript activity" is a good proxy for
  * silence without analysing audio levels.
@@ -65,7 +65,7 @@ const SILENCE_MS = 2500
  * This is the rule that tells the two apart, and it is deliberately about
  * proportion rather than a text threshold. If she has said most of the words and
  * gone quiet, she is waiting on the app. If she has said hardly any and gone
- * quiet, she is waiting on herself — and finishing the block for her would take
+ * quiet, she is waiting on herself, and finishing the block for her would take
  * away the "Line?" she actually needs.
  *
  * Not the fuzzy-match threshold (docs/OPEN_ITEMS.md §1a), and not a score: this
@@ -80,7 +80,7 @@ const MOSTLY_DELIVERED = 0.5
  * the moment it has sent `scored`, so in every normal case this timer is
  * cleared by the socket closing under it. It is longer than the server's own 8s
  * coaching timeout (api's `COACH_TIMEOUT_MS`) precisely so it can never be the
- * thing that cuts a score off — if these two ever cross, the symptom is scores
+ * thing that cuts a score off, if these two ever cross, the symptom is scores
  * that vanish under load and nowhere obvious to look.
  */
 const SCORE_GRACE_MS = 12_000
@@ -89,8 +89,8 @@ export interface MicCaptureResult {
   micState: MicState
   /** Tap the dial. In `connecting` it starts capture (the gesture some browsers
    * require before an AudioContext will run); in `listening` it means "that's the
-   * speech done". Not the normal path — she stops talking and the app takes its
-   * cue — but always available, and surfaced as a real button rather than only as
+   * speech done". Not the normal path, she stops talking and the app takes its
+   * cue, but always available, and surfaced as a real button rather than only as
    * a tap on a status dial, because a dial doesn't look like a control. */
   tapMic: () => void
   retry: () => void
@@ -99,7 +99,7 @@ export interface MicCaptureResult {
   beatsCompleted: number
   beatCount: number
   /**
-   * She's gone quiet without the app being able to tell she finished — she has
+   * She's gone quiet without the app being able to tell she finished; she has
    * said little of the beat and stopped.
    *
    * The one case where the app genuinely needs her to say what's happening, so it
@@ -111,19 +111,19 @@ export interface MicCaptureResult {
    * Silences the mic at the source without tearing the stream down.
    *
    * For playing her own line back to her: Polly coming out of the same laptop
-   * the mic is on would otherwise be transcribed as her words — barge-in
+   * the mic is on would otherwise be transcribed as her words, barge-in
    * (docs/capture-plan.md §8), self-inflicted. Disabling the track makes the
    * worklet see zeroes, which is silence, which is exactly what the keepalive
-   * sends anyway — so the Transcribe stream stays alive and simply hears nothing.
+   * sends anyway, so the Transcribe stream stays alive and simply hears nothing.
    */
   setMuted: (muted: boolean) => void
-  /** Which beat of the block she's believed to be on — what "Line?" hands over
+  /** Which beat of the block she's believed to be on, what "Line?" hands over
    * next. Never moves backwards within a block. */
   beatIndex: number
   /** Live transcript, partials included. For display only: a partial can be
    * rewritten, so nothing scoreable may be derived from it. */
   transcript: string
-  /** Per-beat text once the block is done — the (expected, heard) pairs the
+  /** Per-beat text once the block is done, the (expected, heard) pairs the
    * comparison step will score. Empty until `captured`. */
   heard: { lineId: string; beatNumber: number; heard: string }[]
 }
@@ -135,12 +135,12 @@ export type BlockScored = Omit<Extract<CaptureEvent, { type: 'scored' }>, 'type'
  * @param blockId       the block she is delivering, or undefined when it isn't her turn
  * @param characterId   the character she is rehearsing as
  * @param sessionId     the open session to write this block into, or undefined
- *                      for a guest — coaching is identical either way, only the
+ *                      for a guest, coaching is identical either way, only the
  *                      memory differs (docs/coaching-plan.md §7)
  * @param onScored      called when the coach answers, which is after this hook
  *                      has usually been torn down and re-created for the next
  *                      block. The score carries its own `blockId` for that
- *                      reason — the caller files it, rather than assuming it
+ *                      reason, the caller files it, rather than assuming it
  *                      belongs to whatever is live.
  */
 export function useMicCapture(
@@ -156,7 +156,7 @@ export function useMicCapture(
   const [transcript, setTranscript] = useState('')
   const [heard, setHeard] = useState<MicCaptureResult['heard']>([])
 
-  /** True between `complete` and `scored` — the window in which the socket has
+  /** True between `complete` and `scored`, the window in which the socket has
    * to outlive its block. */
   const awaitingScoreRef = useRef(false)
   /** Held in a ref so the socket's handler always calls the current one without
@@ -168,7 +168,7 @@ export function useMicCapture(
   const [attempt, setAttempt] = useState(0)
 
   // Kept in refs rather than state because they are teardown handles, not
-  // rendered values — and because the audio callback must not re-close over a
+  // rendered values, and because the audio callback must not re-close over a
   // new render's copy on every frame.
   const socketRef = useRef<CaptureSocket>(null)
   const streamRef = useRef<MediaStream>(null)
@@ -194,7 +194,7 @@ export function useMicCapture(
    * update, so it only expires once words stop arriving.
    *
    * When it expires, the block is either finished or she's stuck, and the
-   * difference is how much of the beat she got through — see MOSTLY_DELIVERED.
+   * difference is how much of the beat she got through. See MOSTLY_DELIVERED.
    * The app decides for itself in the first case and asks in the second; what it
    * must not do is keep saying "Listening" when it has stopped being able to tell.
    */
@@ -205,8 +205,8 @@ export function useMicCapture(
     const total = beatCountRef.current
     const blockComplete = total > 0 && completed >= total
     // On the last beat with most of it said. The cursor can't confirm the end
-    // when the closing word is a name Transcribe has never met — "'Custalourum",
-    // "Coram", "Custalorum" — which is most of what Shallow and Slender say.
+    // when the closing word is a name Transcribe has never met, "'Custalourum",
+    // "Coram", "Custalorum", which is most of what Shallow and Slender say.
     const finishedLastBeat = total > 0 &&
       completed >= total - 1 &&
       progressThroughBeat >= MOSTLY_DELIVERED
@@ -234,20 +234,20 @@ export function useMicCapture(
 
     // The socket may have to outlive the block it captured.
     //
-    // `scored` arrives after `complete` — one Bedrock call later, measured at
+    // `scored` arrives after `complete`, one Bedrock call later, measured at
     // 0.8-1.3s. The page advances 500ms after `complete`, which tears this hook
     // down and used to close the socket immediately, so the score was sent to a
     // connection that had already gone. It persisted server-side and never
     // reached the screen: rows in the database, nothing under the speech.
     //
     // So when a score is still owed, the socket is left for the server to close
-    // — which it does, right after sending it. The grace timer is only a leak
+    //, which it does, right after sending it. The grace timer is only a leak
     // guard for a connection that never answers; it is longer than the server's
     // own 8s coaching timeout so it can never be the thing that cuts a score
     // off.
     //
     // The microphone itself is released immediately regardless, below. Nothing
-    // here keeps the recording indicator lit or the audio context open — what
+    // here keeps the recording indicator lit or the audio context open, what
     // lingers is one idle WebSocket waiting for a sentence.
     const socket = socketRef.current
     socketRef.current = null
@@ -270,7 +270,7 @@ export function useMicCapture(
   useEffect(() => {
     // Reset before the early return, not after it. When it stops being her turn
     // `blockId` goes undefined, and leaving the previous block's state behind
-    // means the hook keeps reporting `captured` while no mic is open at all —
+    // means the hook keeps reporting `captured` while no mic is open at all,
     // which the page reads as "her speech just finished" and acts on.
     let cancelled = false
     setMicState('connecting')
@@ -321,7 +321,7 @@ export function useMicCapture(
             // A score arrives about a second after `complete`, by which time the
             // page has advanced, this effect has been cleaned up and `cancelled`
             // is true. Every other event is genuinely stale at that point and
-            // must be dropped — a `progress` from a finished block would move
+            // must be dropped, a `progress` from a finished block would move
             // the cursor under a speech she is already delivering. A score is
             // the opposite: it is the answer this connection was held open for,
             // and it belongs to the block that produced it rather than to
@@ -353,7 +353,7 @@ export function useMicCapture(
                   beatsCompleted: event.beatsCompleted,
                   progressThroughBeat: event.progressThroughBeat,
                 }
-                // Words are still arriving, so she hasn't stopped — whatever the
+                // Words are still arriving, so she hasn't stopped, whatever the
                 // text looks like.
                 setStalled(false)
                 scheduleSilenceCheck()
@@ -367,10 +367,10 @@ export function useMicCapture(
                 break
               case 'error':
                 // The server has just told us precisely what went wrong, and
-                // "Can't hear you — check your mic" is the one thing it isn't:
+                // "Can't hear you, check your mic" is the one thing it isn't:
                 // this branch is reached when the socket connected fine and the
                 // *server* failed. Discarding `msg` here cost a real debugging
-                // session — a deployed capture failed 403 on Transcribe for
+                // session, a deployed capture failed 403 on Transcribe for
                 // want of an IAM action, and the browser console showed nothing
                 // but an unrelated 401, so the mic copy was the only evidence
                 // and it pointed at the wrong machine.
@@ -382,7 +382,7 @@ export function useMicCapture(
           onClose: (wasClean) => {
             if (cancelled) return
             // A socket that closes before `complete` arrived means the capture
-            // was lost, not finished — she should be told, not silently advanced
+            // was lost, not finished; she should be told, not silently advanced
             // past a speech nobody heard.
             setMicState((current) => (current === 'captured' ? current : wasClean ? current : 'cantHear'))
           },
@@ -445,7 +445,7 @@ export function useMicCapture(
     if (micState === 'listening') {
       // She's saying she's done. Ends the audio, which ends the Transcribe stream
       // server-side; `complete` comes back with the per-beat split, which is what
-      // moves us to `captured` — so `processing` is a real wait on the last
+      // moves us to `captured`, so `processing` is a real wait on the last
       // partials settling, not a cosmetic delay like the simulation's was.
       endCapture()
     }

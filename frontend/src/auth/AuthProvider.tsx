@@ -22,7 +22,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
       .catch((err: unknown) => {
         // Network/API-unreachable, not "no session" (getCurrentUser already
-        // treats a 401 as null) — fail open to guest rather than break the app.
+        // treats a 401 as null), fail open to guest rather than break the app.
         console.warn('Could not check for an existing session', err)
         if (!cancelled) setUser(null)
       })

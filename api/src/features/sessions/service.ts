@@ -3,7 +3,7 @@ import { DbClient } from "../../clients/cockroach-db/dbClient.ts";
 import { scoreBeat } from "./score.ts";
 import { SessionError } from "./errors.ts";
 
-/** What she said for one beat. `heard` is empty when she skipped it — which is
+/** What she said for one beat. `heard` is empty when she skipped it, which is
  * information, not a missing field, so it is not optional. */
 export type BeatAttempt = {
   lineId: string;
@@ -31,7 +31,7 @@ export type BeatMastery = {
   blockId: string;
   beatNumber: number;
   text: string;
-  /** Null when she has never practised this beat — different from a score of 0,
+  /** Null when she has never practised this beat, different from a score of 0,
    * which means she tried and it didn't land. */
   confidenceScore: number | null;
   mistakeCount: number;
@@ -50,7 +50,7 @@ export type SessionPlan = {
 /** One beat she got wrong in a particular run, with what she actually said.
  *
  * `mistakeCount` and `confidenceScore` come from `line_mastery`, so they are her
- * standing record for the beat, not this run's — the wrap-up wants both: what
+ * standing record for the beat, not this run's, the wrap-up wants both: what
  * went wrong just now, and whether it is a habit. */
 export type FlaggedBeat = BeatMastery & {
   act: string;
@@ -64,7 +64,7 @@ export type FlaggedBeat = BeatMastery & {
  * One of her speeches, as the wrap-up shows it back.
  *
  * The note is the most coach-like thing this app produces and it used to exist
- * only while the scene was on screen — stored in `block_coaching`, rendered
+ * only while the scene was on screen, stored in `block_coaching`, rendered
  * live, and then gone the moment she left. Reading it back here is what turns it
  * from a notification into a record.
  */
@@ -72,11 +72,11 @@ export type SpeechSummary = {
   blockId: string;
   /** Scene-local order, so the speeches read in the order she spoke them. */
   firstLineNumber: number;
-  /** The coach's note, or empty — silence is the right answer more often than
+  /** The coach's note, or empty, silence is the right answer more often than
    * not (`coaching-plan.md` §4) and an empty note is not a missing one. */
   note: string;
   /** Per-beat confidence for this speech, in beat order. The band is derived
-   * from these at render time, never stored — see §6. */
+   * from these at render time, never stored. See §6. */
   confidences: number[];
 };
 
@@ -95,7 +95,7 @@ export type SessionSummary = {
    * How much of what she set out to do she got through.
    *
    * This is migration 008's block-scoped session made visible. `blocksPlanned`
-   * comes from `session_block` — the intent recorded before she said a word —
+   * comes from `session_block`, the intent recorded before she said a word,
    * and `blocksRun` counts the ones that actually have scores. A scene run and a
    * four-speech drill are the same two numbers.
    */
@@ -114,7 +114,7 @@ export type SessionSummary = {
 const MAX_DURATION_SECONDS = 4 * 60 * 60;
 
 /** How many beats a plan surfaces. A director gives two or three notes, not
- * twenty — same reasoning as monologue mode's note cap (OPEN_ITEMS §1c). The rest
+ * twenty, same reasoning as monologue mode's note cap (OPEN_ITEMS §1c). The rest
  * remain in the Prompt Book, which is the place for a full list. */
 const MAX_EMPHASISED_BEATS = 5;
 
@@ -165,14 +165,14 @@ export const SessionService = {
    *
    * The Prompt Book answers a different question from the wrap-up. The wrap-up
    * is "how did that run go"; this is "where am I with this part", which no
-   * single session can answer — so it reads `line_mastery`, which is keyed
+   * single session can answer, so it reads `line_mastery`, which is keyed
    * (user, line) and has no concept of a session at all.
    *
    * Three numbers, deliberately distinct:
    *
    *   totalBeats      every beat of the part, run or not
-   *   practisedBeats  beats she has attempted — how far in she is
-   *   solidBeats      beats she currently *has* — the mastery bar
+   *   practisedBeats  beats she has attempted, how far in she is
+   *   solidBeats      beats she currently *has*, the mastery bar
    *
    * `solidBeats` counts `band = 'solid'` and never `band <> 'dry'`, because NULL
    * means the deterministic fallback scored the beat and no band was ever judged
@@ -217,13 +217,13 @@ export const SessionService = {
       [playId, characterId, userId],
     );
 
-    // Worst first — most-missed, then least confident, then most recent. Only
+    // Worst first, most-missed, then least confident, then most recent. Only
     // beats she has actually got wrong: an unpractised beat is not a weakness,
     // it is just unvisited, and listing it here would bury the real notes under
     // the whole part.
     //
     // `what_was_said` is her most recent attempt at that beat, not any older
-    // one — a lateral join rather than a join to mistake_log, which holds every
+    // one, a lateral join rather than a join to mistake_log, which holds every
     // miss ever and would multiply the rows.
     const flagged = await DbClient.getPool().query(
       `SELECT l.id AS line_id, l.block_id, l.act, l.scene, l.text,
@@ -318,7 +318,7 @@ export const SessionService = {
     const practised = beats.filter((beat) => beat.lastPracticedAt !== null);
 
     // Worst first: most-missed, then least confident. Only beats she has actually
-    // attempted are candidates — an unpractised beat isn't a weakness, it's just
+    // attempted are candidates, an unpractised beat isn't a weakness, it's just
     // new, and telling her to focus on something she's never tried is noise.
     const emphasise = [...practised]
       .sort((a, b) =>
@@ -340,8 +340,8 @@ export const SessionService = {
   /**
    * What actually happened in one rehearsal, for the wrap-up screen.
    *
-   * Scoped to `userId` in both queries — the session lookup and the flagged-beat
-   * lookup — rather than only the first. A session id is a UUID and hard to
+   * Scoped to `userId` in both queries, the session lookup and the flagged-beat
+   * lookup, rather than only the first. A session id is a UUID and hard to
    * guess, but "hard to guess" is not an authorisation check, and the second
    * query would otherwise happily read another user's mistakes given one.
    *
@@ -395,12 +395,12 @@ export const SessionService = {
 
     // LEFT JOIN to line_mastery for the same reason getSessionPlan uses one: the
     // mastery row is written in the same transaction as the mistake, so it should
-    // always be there — but a missing one must degrade to "no standing record"
+    // always be there, but a missing one must degrade to "no standing record"
     // rather than dropping a beat she demonstrably got wrong out of the list.
     //
     // Ordered by line_number, not beat_number. `beat_number` is the beat's index
     // *within its block*, so ordering by it interleaves blocks and puts several
-    // unrelated "beat 1"s together — two flagged beats from different speeches
+    // unrelated "beat 1"s together, two flagged beats from different speeches
     // both come back as 1. `line_number` is the scene-local beat sequence despite
     // its name (CLAUDE.md), so it is the order she actually spoke them in.
     const flagged = await DbClient.getPool().query(
@@ -420,7 +420,7 @@ export const SessionService = {
      *
      * LEFT JOIN from `session_beat_score` rather than from `block_coaching`,
      * because a speech she ran always has scores and only *sometimes* has a
-     * note — joining the other way would hide every speech the coach had
+     * note, joining the other way would hide every speech the coach had
      * nothing to say about, which is most of the good ones.
      *
      * Ordered by `line_number` for the reason recorded above `flagged`:
@@ -507,7 +507,7 @@ export const SessionService = {
    * rather than writes scattered through the request lifecycle, and this is it.
    *
    * Nothing is written when she starts, only when she finishes. An abandoned
-   * rehearsal therefore leaves no row at all — which is the honest outcome, and
+   * rehearsal therefore leaves no row at all, which is the honest outcome, and
    * avoids orphan `session_history` rows that no `mistake_log` will ever reference.
    */
   async saveSession(input: SaveSessionInput): Promise<SavedSession> {
@@ -539,7 +539,7 @@ export const SessionService = {
       return await DbClient.withTransaction(async (client) => {
         // Expected text comes from the database, never from the client. The client
         // knows what it displayed, but the answer key is not the client's to
-        // supply — a request could otherwise score itself against whatever text it
+        // supply, a request could otherwise score itself against whatever text it
         // liked.
         const expected = await loadExpectedText(
           client,
@@ -581,7 +581,7 @@ export const SessionService = {
           // confidence_score is the *latest* recall, not a running average: it
           // answers "how well does she know this now". The history lives in
           // mistake_count, which only ever accumulates. Two columns, two
-          // questions — an average would blur both into neither.
+          // questions; an average would blur both into neither.
           await client.query(
             `INSERT INTO line_mastery (user_id, line_id, confidence_score, last_practiced_at, mistake_count)
              VALUES ($1, $2, $3, now(), $4)
@@ -641,14 +641,14 @@ export type PromptBookBeat = {
   act: string;
   scene: string;
   text: string;
-  /** How many times she has missed it, ever — `line_mastery.mistake_count`,
+  /** How many times she has missed it, ever, `line_mastery.mistake_count`,
    * which only accumulates. Worst-first ordering keys on this. */
   mistakeCount: number;
   /** The latest attempt's band, or null when only the deterministic fallback
    * has scored it (migration 009). */
   band: string | null;
   confidenceScore: number;
-  /** Empty when she said nothing at all — the most useful thing to show. */
+  /** Empty when she said nothing at all, the most useful thing to show. */
   whatWasSaid: string;
   lastPractisedAt: string | null;
 };
@@ -660,21 +660,21 @@ export type PromptBook = {
   characterName: string;
   /** Every beat of the part, whether or not she has ever run it. */
   totalBeats: number;
-  /** Beats she has attempted at all — the honest denominator for "how far
+  /** Beats she has attempted at all, the honest denominator for "how far
    * through the part am I", and deliberately separate from `solidBeats`. */
   practisedBeats: number;
-  /** Beats whose latest band is *solid*. **`band = 'solid'`, never
-   * `band <> 'dry'`** — NULL means the fallback scored it and no band was ever
+  /** Beats whose latest band is *solid*. `band = 'solid'`, never
+   * `band <> 'dry'`, NULL means the fallback scored it and no band was ever
    * judged (migration 009), which must not count as known. */
   solidBeats: number;
-  /** Worst first. Her whole part, not one scene — this is the screen for "what
+  /** Worst first. Her whole part, not one scene; this is the screen for "what
    * do I still not have", which a per-scene wrap-up cannot answer. */
   needsAnotherLook: PromptBookBeat[];
 };
 
 /**
  * How many notes to carry. A prompt book that lists forty lines is a list, not
- * a prompt book — `OPEN_ITEMS.md` §1c's "a director gives two or three" applied
+ * a prompt book, `OPEN_ITEMS.md` §1c's "a director gives two or three" applied
  * one level up, to the part rather than the speech.
  */
 const PROMPT_BOOK_LIMIT = 12;

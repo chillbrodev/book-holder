@@ -1,5 +1,5 @@
 /**
- * Real fetch client for api's play/character/scene/line/polly endpoints —
+ * Real fetch client for api's play/character/scene/line/polly endpoints,
  * same request shape as auth/authClient.ts (credentials: 'include', typed
  * errors) since both hit the same api origin/session, kept as a separate
  * small helper rather than sharing code so auth's already-working client

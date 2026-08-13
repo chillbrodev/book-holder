@@ -7,7 +7,7 @@ export interface MasteryBarProps {
   size?: 'sm' | 'md' | 'lg'
 }
 
-/** Bar + fraction combo — the fraction is the real signal, kept alongside the bar so equal mastery reads with equal confidence regardless of scene length. */
+/** Bar + fraction combo; the fraction is the real signal, kept alongside the bar so equal mastery reads with equal confidence regardless of scene length. */
 export function MasteryBar({ mastered, total, size = 'md' }: MasteryBarProps) {
   const pct = total > 0 ? Math.min(100, Math.round((mastered / total) * 100)) : 0
   return (

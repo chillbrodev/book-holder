@@ -4,14 +4,14 @@
  * `docs/coaching-plan.md` §1–§2 is the reasoning; this is the implementation of
  * it. The two facts worth holding while reading:
  *
- * - **The call is block-shaped; the result is per beat.** CLAUDE.md's rule is
- *   unchanged — score per beat, render and display per block. A beat out of
+ * - The call is block-shaped; the result is per beat. CLAUDE.md's rule is
+ *   unchanged, score per beat, render and display per block. A beat out of
  *   context cannot be judged ("I have an eye to make difference of men's
  *   liking" against what she actually said needs to know what the speech is
  *   doing), so the model sees the whole speech and answers about each beat
  *   inside it. It is also ~1.6x fewer calls than one per beat.
  *
- * - **Nothing here may block a rehearsal.** Every failure path returns the
+ * - Nothing here may block a rehearsal. Every failure path returns the
  *   deterministic scorer's answer instead of throwing. `BE_PLAN.md` §5 asks for
  *   that explicitly, and `score.ts` was built as the real scorer rather than a
  *   stub precisely so this fallback is a working code path and not a promise.
@@ -59,7 +59,7 @@ const MAX_OUTPUT_TOKENS = 900;
  * tight: the cost of waiting is a late annotation, which §4 already designs
  * for ("scores may arrive late, and that is fine"), while the cost of cutting
  * a good answer off early is coaching that silently degrades to word overlap.
- * It exists to bound the unbounded case — a hung connection — not to police
+ * It exists to bound the unbounded case, a hung connection, not to police
  * normal latency.
  */
 const COACH_TIMEOUT_MS = 8_000;
@@ -69,7 +69,7 @@ export interface CoachBlockOptions {
    * Overrides the configured comparison model.
    *
    * `ConfigClient` resolves its values once at module load, so an environment
-   * variable cannot be changed after import — which makes this the only way to
+   * variable cannot be changed after import, which makes this the only way to
    * exercise the failure path without a live billed call, and the only way the
    * scene summary (`coaching-plan.md` §5, deliberately a different and stronger
    * model) will be able to reuse this call shape.
@@ -130,7 +130,7 @@ async function callModel(
     temperature: 0,
     // The rubric is byte-identical for every block in a scene and blocks land
     // well inside Nova's 5-minute TTL, so the checkpoint hits in practice
-    // rather than in theory. It is ignored below Nova's 1K-token minimum — if
+    // rather than in theory. It is ignored below Nova's 1K-token minimum, if
     // the rubric is ever trimmed under that this quietly stops helping, which
     // `usage.inputTokens` is where you would see it.
     cacheSystemPrompt: true,
@@ -138,15 +138,15 @@ async function callModel(
 
   if (recoveredFromText) {
     // The forced tool call didn't take. The parse still recovered a shape, so
-    // the rehearsal is fine — but per the client's header this is the signal
+    // the rehearsal is fine, but per the client's header this is the signal
     // that the toolChoice shape has broken, not an invitation to widen parsing.
     console.warn(
       `Coaching for block ${input.blockId} was recovered from prose — forced toolChoice may have stopped working.`,
     );
   }
 
-  // Logged rather than returned. `BE_PLAN.md` §7 wants per-call cost visible,
-  // and this is the only place that knows it — but it is a property of the call,
+  // Logged rather than returned. `BE_PLAN.md` §4 wants per-call cost visible,
+  // and this is the only place that knows it, but it is a property of the call,
   // not of the coaching, and threading it through the socket to the browser
   // would put token counts in front of an actor.
   console.info(
@@ -169,7 +169,7 @@ async function callModel(
  * Keep the note only if it is actually about this speech; otherwise drop it.
  *
  * The rubric asks for a note built from the written words and forbids
- * restating the marks. Nova Micro does not reliably comply — across several
+ * restating the marks. Nova Micro does not reliably comply, across several
  * revisions it kept returning things like *"All beats are dry"*, *"She did not
  * have the thought"* and *"The second beat is a solid delivery despite the name
  * change, and the fourth beat is empty"*. Each describes the scoring rather than
@@ -181,13 +181,13 @@ async function callModel(
  * for: the model proposes, this disposes. A prompt is the wrong place to
  * enforce a constraint you can evaluate yourself.
  *
- * The test is **groundedness**, not punctuation: does any run of three
+ * The test is groundedness, not punctuation: does any run of three
  * consecutive words in the note also appear in the speech? That accepts a note
  * that names the place it went wrong even if the model forgot the quote marks,
  * and rejects generic commentary, which by construction shares no phrasing with
  * Shakespeare.
  *
- * Dropping to "" is always safe — `coaching-plan.md` §4 has an empty note as
+ * Dropping to "" is always safe, `coaching-plan.md` §4 has an empty note as
  * the right answer more often than not. It matters more since §4's pause
  * reversal: the rehearsal now *holds* on a note, so filler costs her seconds of
  * the scene rather than merely being noise.
@@ -228,7 +228,7 @@ function groundedNote(note: string, input: CoachBlockInput): string {
  * Beats are numbered from 1 in the order given rather than by their stored
  * `beat_number`. Both are usually the same, but `beat_number` is the beat's
  * index *within its block* and nothing guarantees the model gets a contiguous
- * run — CLAUDE.md's warning about that column is about exactly this kind of
+ * run, CLAUDE.md's warning about that column is about exactly this kind of
  * assumption. A local 1..n is unambiguous and maps back through `input.beats`.
  */
 function buildUserMessage(input: CoachBlockInput): string {
@@ -316,8 +316,8 @@ function normaliseConfidence(confidence: unknown): number | null {
 /**
  * Word recall standing in for judgement, per beat.
  *
- * Two bands rather than three, on purpose. `score.ts` answers one question —
- * did enough of the written words come back — and that maps onto solid and dry.
+ * Two bands rather than three, on purpose. `score.ts` answers one question,
+ * did enough of the written words come back, and that maps onto solid and dry.
  * *Close* is the semantic case ("she had the sense of it, not the words"), which
  * is precisely what word overlap cannot see, so inventing a second cut here
  * would be inventing a distinction the data underneath does not contain.

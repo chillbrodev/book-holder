@@ -134,9 +134,19 @@ split is easy to get backwards.
 
 ---
 
-### 1e. Session recordings — deliberately deferred
+### 1e. Session recordings — deferred, and now a stated posture
 
-**Tabled as a nice-to-have, August 7 2026.** Not cost: measured, her whole part is
+**Tabled as a nice-to-have, August 7 2026. Promoted to a product stance, August 12 2026** — "we don't
+record you" is now written in the README as something the app *does*, not something it lacks. Rehearsal is
+where you are allowed to be bad at something, and a room that records you is a different room. That raises
+the bar for picking this up: it is no longer only a build cost, it is a published claim to walk back.
+
+The reasoning below is unchanged and still the case for reversing it — particularly the ground-truth
+argument, which got stronger, not weaker. If hesitation timing lands (`capture/prosody.ts`, scoped
+August 12), a long gap could be her groping for the line or a dropped audio packet, and nothing without
+audio can tell those apart.
+
+Not cost: measured, her whole part is
 **1.8 MB** as Opus, and a year at 20 runs a month is 422 MB — under a penny a month
 of S3. Deferred because it isn't the agentic loop, which is what this project is
 being judged on.
@@ -175,6 +185,57 @@ Needs no Bedrock — the ordering already exists. It needs a screen.
 
 *Carried forward from `docs/HANDOFF.md` §4c before that document was deleted.*
 
+### 1g. Hesitation timing — scoped August 12 2026, not built
+
+**We are already paying for word-level timings and throwing them away.**
+`transcribeClient.ts:122` takes `Alternatives[0].Transcript`, the flat string, and
+discards `Alternatives[0].Items[]`, which carries per-word `StartTime`, `EndTime`
+and `Confidence`. The `startTime`/`endTime` that *are* yielded on `TranscriptUpdate`
+are read by nothing at all.
+
+**Why it is worth having.** A beat where she said every word correctly scores
+identically whether she rattled it off or groped for four seconds mid-line. Text
+cannot tell "knows it cold" from "dragged it out of memory", and that is a real
+blind spot in a product whose whole job is line mastery.
+
+**Why it does not cross the line-mastery boundary** (§1e, and the README's "this is
+line mastery, not direction"): a stall is evidence about *recall*, not a note about
+*delivery*. The framing has to stay "you do not have this yet", never "you should
+pause less". The moment it becomes the latter it is direction, and it is out.
+
+**What makes it cheap.** The hard part is already solved. `beatCursor.ts` builds
+`heardByBeat` as `string[][]`, pushing each spoken word into its beat's bucket at
+lines 158 and 181 and joining only at 208. Carrying a `TimedWord` instead of a
+string means per-beat timing falls out of the existing alignment with no new
+matching logic.
+
+Sketch:
+
+1. `transcribeClient.ts` — stop dropping `Items[]`. Filter `Type === "pronunciation"`;
+   punctuation items have no duration. **Only trust `isPartial: false` results**, since
+   partial timings get rewritten (the file already documents why partials are
+   revisions, not increments).
+2. `beatCursor.ts` — buckets become `TimedWord[][]`; `heardByBeat` is unchanged for
+   every existing caller. Add a parallel `timingByBeat`.
+3. New `capture/prosody.ts`, pure and offline like `segment.ts` and `score.ts` so it
+   can be re-run over recorded transcripts and diffed: intra-beat stall (the signal),
+   retrieval lag from cue-end to first word, and pace relative to **her own median for
+   the session**. Absolute WPM is meaningless; some people just talk fast.
+4. Migration 011 — `stall_ms`, `lead_in_ms` on `session_beat_score`, additive and
+   nullable. Nullable for the same reason `band` is: the deterministic fallback has no
+   timing, and NULL must mean "not measured", never "no hesitation".
+
+**Deliberately excluded.** Scansion: stress is pitch and intensity as much as
+duration, so a landed iamb is not detectable from timings, and claiming otherwise is
+how this slides into direction.
+
+**The real risk is thresholds**, exactly as in §1a. What counts as a stall should be
+fitted to real sessions, not guessed, so steps 1-4 land storing raw milliseconds and
+nothing user-facing ships until there is data. Note also that a pause because the dog
+barked is indistinguishable from a pause because she forgot, which argues for showing
+this as a trend rather than a per-beat verdict — and is the strongest surviving
+argument for the recordings in §1e.
+
 ---
 
 ## 2. Embeddings and vectors
@@ -206,7 +267,9 @@ makes the choice of operator *not matter*, not that there was no choice.
 ### Done — August 11 2026
 
 - **`embedBeats.ts` is written and has run.** All **1,705** beats of Merry Wives
-  embedded, **0 failures, 113 s** at concurrency 4, **$0.0006**. Generation
+  embedded, **0 failures, 113 s** at concurrency 4, **$0.0006**. (That was the
+  corpus at the time; segmentation tuning later took it to 1,636, and the
+  backfill was re-run. Current counts live in the README, not here.) Generation
   stayed *out* of the importer as planned — it is a script alongside
   `warmPollyCache`, dry-run by default, resumable via `WHERE embedding IS NULL`,
   with `--limit` for proving the model and the cast before a full pass.
@@ -223,7 +286,7 @@ makes the choice of operator *not matter*, not that there was no choice.
 
 - **A query must pass the vector as a parameter, not a subquery.** `ORDER BY
   embedding <-> (SELECT …)` plans as a **FULL SCAN** — no error, no warning, and
-  on 1,705 rows it still returns the right answer quickly, so it looks fine. The
+  on this corpus it still returns the right answer quickly, so it looks fine. The
   same query with `$1::VECTOR` plans as `• vector search`. Anything reading these
   indexes has to fetch the probe vector first and bind it; `EXPLAIN` is the only
   thing that tells the two apart.
@@ -242,7 +305,8 @@ makes the choice of operator *not matter*, not that there was no choice.
 None of these block anything.
 
 - **`CharacterTile.tsx:33` says "N lines" while counting beats.** Merry Wives
-  went 2,610 → 1,705, so the number changed meaning as well as value. Same for
+  went 2,610 verse lines → 1,705 beats (and later 1,636), so the number changed
+  meaning as well as value. Same for
   `listScenes`' `totalLines`. Copy pass. (The wrap-up's was fixed — it reads
   "Beats run" off a real `beats_run` column.)
 - **The Prompt Book still reads `data/mock/*`.** It compiles and renders, but the
@@ -347,8 +411,8 @@ None of these block anything.
 Closed August 11 2026:
 
 - ~~Whether vector search ships at all~~ — it does, and it is not optional: the hackathon
-  requires two CockroachDB tools. All 1,705 beats embedded, both columns indexed
-  (migration 007). `ORCHESTRATION_PLAN.md` had it as cut-first scope; that is corrected
+  requires two CockroachDB tools. Every beat embedded, both columns indexed
+  (migration 007). Early sequencing had it as cut-first scope; that is corrected
   there.
 - ~~Whether L2 is CockroachDB's only distance~~ — it is not. `<->`, `<=>` and `<#>` all
   work on v26.2.5, verified against the live cluster. Normalizing is still right, for the

@@ -1,12 +1,11 @@
 /**
- * Real fetch client for `api`'s auth endpoints — unlike everything in
- * data/client.ts, this isn't a stub. `api` only has auth wired up so far
- * (see docs/API_PLAN.md); the rehearsal-flow endpoints it documents are
- * still mock/localStorage-backed until those exist server-side.
+ * Fetch client for `api`'s auth endpoints.
  *
  * `credentials: 'include'` on every call so the httpOnly session cookie
- * `api` sets is sent/received — the frontend never touches the token
- * itself, only whether a session exists (via /auth/me).
+ * `api` sets is sent and received; the frontend never touches the token
+ * itself, only whether a session exists (via /auth/me). That is the whole
+ * reason auth has its own client rather than going through data/apiClient.ts:
+ * a cookie the JS cannot read is the point, not an inconvenience.
  */
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000'
@@ -21,7 +20,7 @@ interface ApiErrorBody {
   error: { name: string; msg: string }
 }
 
-/** `name` mirrors api's AuthError name union (VALIDATION_ERROR, INVALID_CREDENTIALS, etc.) —
+/** `name` mirrors api's AuthError name union (VALIDATION_ERROR, INVALID_CREDENTIALS, etc.),
  * see api/src/features/auth/errors.ts. Not re-declared as a literal union here so this client
  * doesn't need to change every time the API adds an error case. */
 export class AuthApiError extends Error {
@@ -61,7 +60,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export function register(input: { username: string; pin: string }): Promise<AuthUser> {
-  // api's schema requires a separate display `name` — this "lightweight" flow only
+  // api's schema requires a separate display `name`, this "lightweight" flow only
   // asks for a username + PIN, so name defaults to the username itself.
   return request('/auth/register', {
     method: 'POST',
@@ -77,7 +76,7 @@ export function logout(): Promise<void> {
   return request('/auth/logout', { method: 'POST' })
 }
 
-/** Resolves to `null` (not a rejection) when there's no valid session — that's the
+/** Resolves to `null` (not a rejection) when there's no valid session, that's the
  * expected steady state for a guest, not an error condition callers need to branch on. */
 export async function getCurrentUser(): Promise<AuthUser | null> {
   try {

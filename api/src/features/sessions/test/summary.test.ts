@@ -3,7 +3,7 @@ import { SessionService } from "../service.ts";
 import { SessionError } from "../errors.ts";
 
 /**
- * Argument validation only — these run without a database, like the Polly
+ * Argument validation only, these run without a database, like the Polly
  * service tests.
  *
  * The parts that need real rows (that `beats_run` survives the round trip, that

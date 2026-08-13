@@ -6,7 +6,7 @@ import {
 import { ConfigClient } from "../config-client/configClient.ts";
 
 /**
- * Streaming, not batch — and the reasoning is in docs/capture-plan.md §6, not
+ * Streaming, not batch, and the reasoning is in docs/capture-plan.md §6, not
  * here, because it is a product decision rather than a client detail. The short
  * version: "Line?" has to hand over the next beat while she is still mid-speech,
  * which a post-utterance transcript cannot support at any price. Both modes bill
@@ -20,7 +20,7 @@ export const TRANSCRIBE_MEDIA_ENCODING = "pcm";
  * Transcribe accepts 8–48 kHz; 16 kHz is its recommendation for speech and is a
  * quarter of 48 kHz's bytes with no accuracy cost on a voice. It is also what
  * Polly emits for `OutputFormat: "pcm"`, which is what makes a Polly render
- * usable directly as a test fixture for this path (docs/capture-plan.md §2) —
+ * usable directly as a test fixture for this path (docs/capture-plan.md §2),
  * keep the two the same so that stays true.
  */
 export const TRANSCRIBE_SAMPLE_RATE = 16000;
@@ -40,7 +40,7 @@ export type TranscriptUpdate = {
    * A segment is Transcribe's own unit, decided by its pause and punctuation
    * logic, and it has no relationship to a beat: one real 8-beat speech came back
    * as 6 segments, one of which covered three beats by itself. Callers wanting
-   * the whole utterance must accumulate finalized segments themselves — see
+   * the whole utterance must accumulate finalized segments themselves. See
    * CaptureSession. This is deliberately left faithful to the API rather than
    * pre-joined, so the partial/final distinction stays visible. */
   transcript: string;
@@ -60,13 +60,13 @@ function getClient(): AwsTranscribeStreamingClient {
     // Runs on Deno's node:http2 compatibility layer, which the SDK reaches for
     // by default (its NodeHttp2Handler) and which Deno documents as only
     // *partially* supported. Verified working on Deno 2.9.4 end to end against
-    // the real service — see docs/capture-plan.md §2. Worth re-checking on a
+    // the real service. See docs/capture-plan.md §2. Worth re-checking on a
     // Deno upgrade, because the failure mode would be a transport error on every
     // capture rather than anything a type check would notice.
     client = new AwsTranscribeStreamingClient({
       region: ConfigClient.Aws.region,
-      // Unlike Polly's bulk warming, nothing here runs flat out — one stream per
-      // block, driven by a human speaking in real time — so the SDK's default
+      // Unlike Polly's bulk warming, nothing here runs flat out, one stream per
+      // block, driven by a human speaking in real time, so the SDK's default
       // retry behaviour is right. Adaptive rate limiting would be measuring a
       // load pattern that doesn't exist.
     });
@@ -86,7 +86,7 @@ export const TranscribeClient = {
    * transport wrapper.
    *
    * One stream per block, which pays Transcribe's 15-second-per-request minimum
-   * on 89% of blocks in the corpus. That is deliberate and measured — see
+   * on 89% of blocks in the corpus. That is deliberate and measured. See
    * docs/capture-plan.md §5, which also records the 3.06×-cheaper alternative and
    * why it lost.
    */

@@ -21,9 +21,13 @@
 # path; the real deploy is .github/workflows/deploy-api.yml, which reads the
 # same override from a GitHub repository variable.
 #
-# BEDROCK_MODEL_ID_SUMMARY/S3_RECORDINGS_BUCKET are still NOT passed — nothing
-# reads them yet (the coaching-note and S3-recordings work isn't built), so
-# there's nothing to wire up until that exists.
+# BEDROCK_MODEL_ID_AGENT/BEDROCK_MODEL_ID_EMBEDDING are not passed either, for a
+# different reason than they once were: both now have working defaults in
+# configClient.ts, so passing them would only pin what is already correct.
+#
+# S3_RECORDINGS_BUCKET is not passed because it will never be read — the app
+# deliberately does not store your voice. See docs/OPEN_ITEMS.md §1e.
+# (BEDROCK_MODEL_ID_SUMMARY is gone entirely; nothing ever read it.)
 #
 # Usage:
 #   ./infra/aws/ecs-deploy.sh

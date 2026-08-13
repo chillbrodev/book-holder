@@ -4,7 +4,7 @@ import { ConfigClient } from "../config-client/configClient.ts";
 let pool: Pool | undefined;
 
 /** CockroachDB's serialization-failure SQLSTATE. The transaction did not commit
- * and re-running it is the documented remedy — not an error to report. */
+ * and re-running it is the documented remedy, not an error to report. */
 const RETRYABLE_SQLSTATE = "40001";
 
 /** Attempts before giving up. Cockroach's own guidance is a bounded retry; an
@@ -15,7 +15,7 @@ const MAX_ATTEMPTS = 5;
 const BASE_BACKOFF_MS = 50;
 
 export const DbClient = {
-  /** Lazy singleton — only opens a connection when something actually queries. */
+  /** Lazy singleton, only opens a connection when something actually queries. */
   getPool(): Pool {
     if (!pool) {
       pool = new Pool({ connectionString: ConfigClient.CockroachDb.url });
@@ -27,9 +27,9 @@ export const DbClient = {
    * Runs `fn` inside one serializable transaction, retrying serialization
    * failures with exponential backoff.
    *
-   * CockroachDB is `SERIALIZABLE` always — there is no weaker level to drop to —
-   * so a transaction that conflicts with a concurrent one is **aborted, not
-   * blocked**, and the client is expected to run it again. Code that doesn't
+   * CockroachDB is `SERIALIZABLE` always; there is no weaker level to drop to,
+   * so a transaction that conflicts with a concurrent one is aborted, not
+   * blocked, and the client is expected to run it again. Code that doesn't
    * retry doesn't get slow under contention, it gets wrong: the write is simply
    * lost, and the error looks like an infrastructure blip rather than the
    * ordinary, expected event it is. `PROJECT_PLAN.md` calls this out as a
@@ -41,7 +41,7 @@ export const DbClient = {
    * that one is a hand-run seed import competing with nothing, whereas two
    * requests retrying in lockstep collide again on the same schedule forever.
    *
-   * The callback gets a dedicated `PoolClient`, and must use it for every query —
+   * The callback gets a dedicated `PoolClient`, and must use it for every query,
    * reaching for `getPool()` inside would run that statement on a *different*
    * connection, outside this transaction, where it neither rolls back on failure
    * nor sees the transaction's own writes.
@@ -76,7 +76,7 @@ export const DbClient = {
           `Serialization conflict, retrying transaction (attempt ${attempt}/${MAX_ATTEMPTS}).`,
         );
       } finally {
-        // Always returned to the pool, on every path — a leaked connection here
+        // Always returned to the pool, on every path, a leaked connection here
         // exhausts the pool and takes the whole API down with it.
         client.release();
       }

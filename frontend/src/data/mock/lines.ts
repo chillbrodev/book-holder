@@ -1,10 +1,10 @@
 import type { Line } from '../../types/domain'
 
 /**
- * Act II, Scene 1 of The Merry Wives of Windsor — the one fully built scene for the demo.
+ * Act II, Scene 1 of The Merry Wives of Windsor, the one fully built scene for the demo.
  * Ported from the Claude Design prototype's sample dialogue. Real, public-domain text.
  *
- * Still mock — feeds getPromptBookSummary, which stays mock-backed. The wrap-up
+ * Still mock, feeds getPromptBookSummary, which stays mock-backed. The wrap-up
  * no longer reads any of this: it reads the real session (see
  * data/sessionClient.ts). FOCUS_PLAY_ID is a fictional id local to this mock data,
  * distinct from data/client.ts's same-named constant, which is also mock

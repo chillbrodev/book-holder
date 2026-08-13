@@ -15,7 +15,7 @@ export type BlockBeat = {
 };
 
 /** `beat_number` is `number | string` because `pg` returns 64-bit INTs as
- * strings to avoid precision loss — same convention as every raw row type in
+ * strings to avoid precision loss, same convention as every raw row type in
  * features/plays (BE_PLAN.md §1a). */
 type RawBeatRow = {
   id: string;
@@ -50,23 +50,23 @@ export type CaptureEvent =
   | {
     type: "complete";
     /** Index-aligned with the block's beats. The (expected, heard) pairs the
-     * comparison step will score — this is capture's actual output. */
+     * comparison step will score; this is capture's actual output. */
     heard: { lineId: string; beatNumber: number; heard: string }[];
     /** Audio actually forwarded, keepalive silence included. Billed seconds are
-     * `max(15, this)` — see docs/capture-plan.md §5. */
+     * `max(15, this)`. See docs/capture-plan.md §5. */
     secondsForwarded: number;
   }
   | ({
     /**
      * How the block was judged. Arrives after `complete`, on the same socket,
-     * roughly a second later — one Bedrock call behind.
+     * roughly a second later, one Bedrock call behind.
      *
      * A separate event rather than a field on `complete` because the two have
      * different guarantees. `complete` is capture's own output and always
      * arrives; `scored` is a round trip to another service and may be late, may
      * be the deterministic fallback, and on a socket she closed by walking away
      * may never arrive at all. `coaching-plan.md` §4 designs the UI for exactly
-     * that — the annotation slot is reserved from the start and tolerates being
+     * that; the annotation slot is reserved from the start and tolerates being
      * a block behind, so nothing waits on this.
      */
     type: "scored";
@@ -78,7 +78,7 @@ export type CaptureEvent =
  * with the context needed to judge them.
  *
  * Returned from `run()` rather than only emitted, so the caller can score it,
- * persist it, or ignore it. Capture's job ends at "here is what she said" —
+ * persist it, or ignore it. Capture's job ends at "here is what she said",
  * keeping the decision about what happens next outside this file is what stops
  * `features/capture` growing a dependency on coaching and on sessions.
  */
@@ -98,13 +98,13 @@ export interface CaptureResult {
  * The block's beats, in order, with their line ids.
  *
  * Joins through `line_speakers` rather than trusting a `characterId` filter,
- * because a speech can have more than one speaker (BE_PLAN.md §1a) — and this
+ * because a speech can have more than one speaker (BE_PLAN.md §1a), and this
  * doubles as the check that the character she's rehearsing actually speaks this
  * block. Same shape of query as `PollyService.getBlockAudio`, for the same
  * reason: the grouping into blocks was decided by the importer and persisted as
  * `block_id`, so it is never re-derived from anything a client sends.
  *
- * Returns each beat separately where Polly's query `string_agg`s them — the
+ * Returns each beat separately where Polly's query `string_agg`s them, the
  * difference is the whole domain distinction. Polly renders a block as one
  * utterance; scoring happens per beat.
  */
@@ -148,7 +148,7 @@ async function getBlockBeats(
  * One block's capture: audio in, beat progress out.
  *
  * Lives server-side because the beat cursor needs the expected beat texts, and
- * those are the answer key to what she's being tested on — see
+ * those are the answer key to what she's being tested on. See
  * docs/capture-plan.md §4 for why the browser doesn't hold the Transcribe stream
  * itself.
  */
@@ -158,7 +158,7 @@ export class CaptureSession {
   readonly #queue: AudioQueue;
   #progress: BeatProgress;
   /** Clamped non-decreasing across updates. `alignToBeats` is pure and will
-   * report a lower beat if a revised partial retracts words — correct for a
+   * report a lower beat if a revised partial retracts words, correct for a
    * single alignment, wrong for a cursor she is watching, because a beat that
    * un-advances reads as the app losing its place. */
   #highWaterBeat = 0;
@@ -202,7 +202,7 @@ export class CaptureSession {
     return this.#block.beats.map((beat) => beat.text);
   }
 
-  /** Where she is now — what "Line?" reads to decide which beat to hand over. */
+  /** Where she is now, what "Line?" reads to decide which beat to hand over. */
   get beatIndex(): number {
     return this.#highWaterBeat;
   }
@@ -222,7 +222,7 @@ export class CaptureSession {
    *
    * Errors are emitted rather than thrown: by the time this is running the
    * WebSocket is already open, so there is no HTTP response left to fail. A
-   * capture that dies mid-block must leave the rehearsal usable — she marks the
+   * capture that dies mid-block must leave the rehearsal usable, she marks the
    * beat as said and carries on (BE_PLAN.md §5).
    *
    * Resolves with the block's (expected, heard) pairs, or `undefined` if
@@ -241,7 +241,7 @@ export class CaptureSession {
 
     try {
       for await (const update of TranscribeClient.transcribe(this.#queue)) {
-        // Transcribe's transcript is per *segment*, and a segment is not a beat —
+        // Transcribe's transcript is per *segment*, and a segment is not a beat,
         // measured against one real 8-beat speech, Transcribe returned 6 segments
         // and one of them spanned beats 2, 3 and 4 on its own. So the whole
         // transcript has to be reassembled here: aligning a single segment
@@ -291,7 +291,7 @@ export class CaptureSession {
     this.#emit({
       type: "complete",
       // The client already has the beat texts from the dialogue endpoint, so
-      // `expected` is stripped here rather than sent — the event stays as small
+      // `expected` is stripped here rather than sent; the event stays as small
       // as it was, while the return value below carries what the server needs.
       heard: beats.map(({ lineId, beatNumber, heard }) => ({
         lineId,

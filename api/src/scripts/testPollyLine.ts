@@ -1,5 +1,5 @@
 // Quick single-block smoke test for the Polly cache path (S3 HeadObject ->
-// Polly synth -> S3 PutObject) — no database involved, so it isolates
+// Polly synth -> S3 PutObject): no database involved, so it isolates
 // credentials/API issues from DB/import concerns. Uses a synthetic blockId
 // ("test-block") rather than a real one, so re-running doesn't touch/collide
 // with cached audio for actual script blocks.
@@ -27,7 +27,7 @@ function parseArgs(
   return {
     text: raw.text ?? "Why, then the world's mine oyster.",
     voice: raw.voice ?? "Brian",
-    // Deliberately not a real play/character — keeps this smoke test's
+    // Deliberately not a real play/character, keeps this smoke test's
     // cache object under a clearly-scratch path (test/test/...) rather than
     // mixed in among real cached blocks.
     play: raw.play ?? "test",
@@ -56,7 +56,7 @@ if (import.meta.main) {
     console.error("FAILED:", err instanceof Error ? err.message : String(err));
 
     // PollyError wraps the real AWS SDK error as `cause` (see
-    // features/polly/service.ts) but nothing normally prints it — surface it
+    // features/polly/service.ts) but nothing normally prints it, surface it
     // here since that's the actual diagnostic signal.
     const cause = (err as { cause?: unknown } | undefined)?.cause;
     if (cause instanceof Error) {

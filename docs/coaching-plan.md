@@ -48,11 +48,10 @@ that reads the memory this now produces.
 - The coach agent that reads this memory and recommends what to run next. Not in the
   original scope of this doc; it is what `source: 'coach'` on `session_block` exists for.
 
-**Two things block the *quality* of it, not the building of it:** both threshold
-cuts in §3 are unset, and no rehearsal has ever been run to the end of a scene —
-`session_history` is at 0 rows, so there are no real transcripts to set them
-from. `docs/verify-session-loop.md` is what produces those. Build against
-`score.ts`'s placeholder in the meantime; don't invent thresholds.
+**One thing still blocks the *quality* of it, not the building of it:** both
+threshold cuts in §3 are unset, and settling them wants real sessions to fit
+against rather than guesses. Build against `score.ts`'s placeholder in the
+meantime; don't invent thresholds. `OPEN_ITEMS.md` §1a tracks it.
 
 ---
 
@@ -80,7 +79,7 @@ that.
 Three consequences, all of them favourable:
 
 - **Context.** The model sees the whole speech and scores each beat inside it.
-- **Volume.** ~1,705 beats live in ~1,060 blocks — roughly a 1.6× cut in calls.
+- **Volume.** ~1,636 beats live in 1,060 blocks — roughly a 1.6× cut in calls.
 - **Caching.** Nova supports prompt caching on `system` with a 5-minute TTL. The
   rubric is identical for every block in a scene, and blocks land well inside
   five minutes of each other, so the checkpoint actually hits rather than
@@ -199,7 +198,7 @@ wrap-up. Regenerating would bill a call on every refresh and produce different
 words for the same rehearsal, which makes the wrap-up feel unreliable in exactly
 the way a coaching note must not.
 
-**`score.ts` does not go away.** It remains the fallback `BE_PLAN.md` §8 asks
+**`score.ts` does not go away.** It remains the fallback `BE_PLAN.md` §5 asks
 for: if Bedrock is slow or down, the band comes from word recall and the scene is
 never blocked. Its header already anticipates this — Bedrock replaces the
 judgement, not the interface.
@@ -320,7 +319,7 @@ what "Save Progress" has always been offering.
   needs real transcripts, which need real rehearsals.
 - **The model for the scene summary.** Deliberately unchosen. Bedrock pricing for
   current models could not be verified from AWS's pricing page — it renders no
-  figures for Nova or for any current-generation model — so `BE_PLAN.md` §7's
+  figures for Nova or for any current-generation model — so `BE_PLAN.md` §4's
   "verify pricing at build time" remains genuinely outstanding rather than
   quietly assumed.
 - ~~**Whether Nova honours forced `toolChoice`.**~~ **Settled August 10 2026 —

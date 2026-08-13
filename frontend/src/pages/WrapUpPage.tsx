@@ -22,7 +22,7 @@ import { describeNeighbours, findSceneNeighbours, sceneLabel, type NeighbourRow 
 import { toDisplayName } from '../utils/format'
 import styles from './WrapUpPage.module.css'
 
-/** Under a minute reads as "0 min", which looks broken for a short drill — and a
+/** Under a minute reads as "0 min", which looks broken for a short drill, and a
  * rehearsal really can be that short. Seconds below the first minute. */
 function formatDuration(seconds: number): string {
   if (seconds < 60) return `${Math.max(0, Math.round(seconds))}s`
@@ -33,13 +33,13 @@ function formatDuration(seconds: number): string {
  * Reads back the run she just finished.
  *
  * Awaits the save the rehearsal page started before reading, so the summary is
- * *this* run and not the previous one — the write is a transaction with a query
+ * *this* run and not the previous one; the write is a transaction with a query
  * per beat, and an unsynchronised read beats it nearly every time.
  *
  * A save that rejects is swallowed rather than thrown: the read below then 404s
  * and the page renders the honest "not saved" state, which is more use to her
  * than a generic error. `null` means no saved rehearsal exists, which is a real
- * outcome — a guest, a drill, or a failed write — not a failure to load.
+ * outcome, a guest, a drill, or a failed write, not a failure to load.
  */
 async function loadSummary(playId: string, act: string, scene: string): Promise<SessionSummary | null> {
   const saved = await pendingSessionSave(playId, act, scene)?.catch(() => null)
@@ -60,18 +60,18 @@ export function WrapUpPage() {
   const navigate = useNavigate()
 
   // Wrapped in an object so "loaded, but nothing was saved" is distinguishable
-  // from "still loading" — useAsync reports both as `data === undefined`.
+  // from "still loading", useAsync reports both as `data === undefined`.
   const { data: result, loading, error } = useAsync(
     () => loadSummary(playId, act, scene).then((summary) => ({ summary })),
     [playId, act, scene],
   )
   const { data: role } = useAsync(() => getSelectedRole(playId), [playId])
-  // Asked for with the character so `characterLines` comes back — that field is
+  // Asked for with the character so `characterLines` comes back; that field is
   // what separates "the next scene" from "the next scene she's in".
   /**
    * The coach's recommendation for this run.
    *
-   * Read first, and only run if there isn't one — so revisiting a wrap-up shows
+   * Read first, and only run if there isn't one, so revisiting a wrap-up shows
    * the same advice rather than billing a fresh agent loop and saying something
    * different about a rehearsal that hasn't changed. Same reasoning
    * `coaching-plan.md` §5 gives for storing the scene summary instead of
@@ -109,7 +109,7 @@ export function WrapUpPage() {
   /**
    * Play the speech a flagged beat belongs to, in her own part's voice.
    *
-   * The block rather than the beat, because that is the unit Polly renders —
+   * The block rather than the beat, because that is the unit Polly renders,
    * asking for a beat would mean a synthesis that exists nowhere and matches no
    * cache key. Hearing the run-up is also what makes the flagged line locatable;
    * a beat with no lead-in is hard to place in a speech you half know.
@@ -120,7 +120,7 @@ export function WrapUpPage() {
    */
   async function replay(blockId: string) {
     if (!role) return
-    // Synchronous, before the await, while this click's activation is alive —
+    // Synchronous, before the await, while this click's activation is alive,
     // see utils/audioPlayback.ts for why that ordering is the whole ballgame on
     // iOS Safari.
     unlockPlayback()
@@ -151,7 +151,7 @@ export function WrapUpPage() {
   }
 
   /** One prev/next pair. Both sides are always rendered so "next" stays put on
-   * the right rather than sliding left when there's no previous — the end of a
+   * the right rather than sliding left when there's no previous, the end of a
    * part shouldn't rearrange the controls she just used. */
   function neighbourRow(row: NeighbourRow, label?: string) {
     return (
@@ -224,7 +224,7 @@ export function WrapUpPage() {
             onAct={(rec) => {
               const back = encodeURIComponent(`/play/${playId}/wrap-up/${act}/${scene}`)
               // A coach recommendation drives exactly the same block-scoped
-              // drill "Practice these lines" does — the path migration 008
+              // drill "Practice these lines" does, the path migration 008
               // built and `?blocks=` already exercises.
               navigate(
                 rec.action === 'drill'
@@ -289,7 +289,7 @@ export function WrapUpPage() {
           disabled={!summary || summary.flagged.length === 0}
           onClick={() =>
             summary &&
-            // Every flagged speech, not just the first — which is what this
+            // Every flagged speech, not just the first, which is what this
             // button said and did not do. `?blocks=` starts a block-scoped
             // session (migration 008): a session is a set of blocks, and a
             // scene is only one kind of set, so a three-speech drill is a real

@@ -13,7 +13,7 @@ function setSessionCookie(c: Context, token: string): void {
     httpOnly: true,
     secure: ConfigClient.Server.isProduction,
     // Frontend (Amplify) and API (ECS) are different origins in production,
-    // so cross-site cookies need SameSite=None — which browsers only honor
+    // so cross-site cookies need SameSite=None, which browsers only honor
     // alongside Secure, hence tying this to isProduction rather than always
     // using "None". If FE/BE ever move under one parent domain, Lax +
     // Domain=.example.com would be the stricter, preferable choice.
@@ -23,7 +23,7 @@ function setSessionCookie(c: Context, token: string): void {
   });
 }
 
-// Routes assume success — all validation/credential/lockout logic lives in
+// Routes assume success, all validation/credential/lockout logic lives in
 // AuthService and throws AuthError, which app.ts's onError translates to a
 // response. Nothing here branches on failure.
 

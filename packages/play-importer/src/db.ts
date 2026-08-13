@@ -7,11 +7,11 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 let pool: Pool | undefined;
 
-/** Lazy — only reads COCKROACHDB_URL / opens a connection when something
+/** Lazy, only reads COCKROACHDB_URL / opens a connection when something
  * actually calls this. Review-only and --dry-run runs never hit this at all. */
 export function getPool(): Pool {
   if (!pool) {
-    // Explicit path, not "dotenv/config" — CWD isn't reliable since this can
+    // Explicit path, not "dotenv/config", CWD isn't reliable since this can
     // run via `npm run import:play --workspace=...`, which chdirs into the
     // workspace directory rather than staying at the repo root.
     config({ path: resolve(__dirname, "../../../.env") });

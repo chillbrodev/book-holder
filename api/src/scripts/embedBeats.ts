@@ -5,7 +5,7 @@
 // must stay offline, deterministic, and re-runnable with no AWS credentials,
 // which is what makes its `--dry-run` review worth reading. The same reasoning
 // keeps Polly warming out of it. This is the third member of that family and
-// follows warmPollyCache's shape on purpose — dry run by default, `--yes` to
+// follows warmPollyCache's shape on purpose, dry run by default, `--yes` to
 // spend money, resumable, and keyed so a second pass skips what the first did.
 //
 // Idempotent by construction: it only selects rows `WHERE embedding IS NULL`,
@@ -28,7 +28,7 @@ import {
 
 // Titan Text Embeddings V2 is $0.02 per million input tokens. The whole of
 // Merry Wives is ~27,000 tokens (`OPEN_ITEMS.md` §2), so a full pass is a
-// fraction of a cent — but the estimate is printed anyway, because the reason
+// fraction of a cent, but the estimate is printed anyway, because the reason
 // warmPollyCache defaults to a dry run is that nobody should have to guess what
 // a script is about to spend.
 const TITAN_V2_USD_PER_MILLION_TOKENS = 0.02;
@@ -42,8 +42,8 @@ const CHARS_PER_TOKEN = 3.6;
  *
  * Lower than it could be, for the reason recorded in CLAUDE.md about Polly:
  * a first warming pass at concurrency 6 lost 254 of 1064 blocks to throttling.
- * Bedrock's limits are not Polly's, but the lesson — that a bulk pass is the
- * one place throttling actually bites — is the same, and `retryMode: adaptive`
+ * Bedrock's limits are not Polly's, but the lesson; that a bulk pass is the
+ * one place throttling actually bites, is the same, and `retryMode: adaptive`
  * on the client is the other half of it.
  */
 const DEFAULT_CONCURRENCY = 4;
@@ -59,7 +59,7 @@ type CliArgs = {
   concurrency: number;
   yes: boolean;
   /** Stop after this many beats. For proving the model id, the dimension and
-   * the `::VECTOR` cast all work before committing to a full pass — a wrong
+   * the `::VECTOR` cast all work before committing to a full pass, a wrong
    * model id otherwise fails 1,705 times with a retry ladder behind each. */
   limit?: number;
 };
@@ -125,7 +125,7 @@ async function embedOne(beat: BeatRow): Promise<void> {
 }
 
 /** Bounded worker pool. Same shape as warmPollyCache's, and bounded for the
- * same reason — an unbounded Promise.all over 1,705 beats is a throttling
+ * same reason, an unbounded Promise.all over 1,705 beats is a throttling
  * incident, not a fast script. */
 async function runPool<T>(
   items: T[],

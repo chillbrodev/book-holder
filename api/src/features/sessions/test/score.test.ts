@@ -28,8 +28,8 @@ Deno.test("nothing heard is blank, not merely a low score", () => {
 Deno.test("the real Slender line survives its transcription", () => {
   // From an actual run: "Ay, cousin Slender, and 'Custalourum" came back as
   // "I, Cousin Slender, and Castellorum". She said it. Transcribe couldn't spell
-  // it. 3 of 5 words recover — "ay" is under the fuzzy floor and "custalourum" is
-  // four edits from "castellorum" — so this lands as a miss, and that is the
+  // it. 3 of 5 words recover, "ay" is under the fuzzy floor and "custalourum" is
+  // four edits from "castellorum", so this lands as a miss, and that is the
   // honest result of a text-only comparison rather than a bug.
   const score = scoreBeat(
     "Ay, cousin Slender, and 'Custalourum.",
@@ -95,14 +95,14 @@ Deno.test("half a beat delivered reads as a miss", () => {
 
 Deno.test("repeating herself doesn't double-count", () => {
   // She restarts the line. Recall is capped by the expected words, so a second
-  // attempt can't push it above 1 — and the better attempt is what lands.
+  // attempt can't push it above 1, and the better attempt is what lands.
   const beat = "Did you ever hear the like?";
   const score = scoreBeat(beat, "did you ever, did you ever hear the like");
   assertEquals(score.recall, 1);
 });
 
 Deno.test("an empty beat is not scoreable and is not a miss", () => {
-  // Guard, not a case — the importer doesn't produce one. What matters is that it
+  // Guard, not a case, the importer doesn't produce one. What matters is that it
   // can't write NaN into confidence_score.
   const score = scoreBeat("", "anything at all");
   assertEquals(score.recall, 1);

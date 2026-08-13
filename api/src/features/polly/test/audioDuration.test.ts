@@ -1,4 +1,4 @@
-// Frame-header parsing is pure — no AWS, no database — so unlike the rest of
+// Frame-header parsing is pure: no AWS, no database, so unlike the rest of
 // the Polly paths it can be tested exhaustively here rather than verified by
 // hand against a live account.
 //
@@ -18,7 +18,7 @@ type FrameOptions = {
 
 /** A buffer whose first four bytes are a valid frame header, padded with
  * silence to `totalBytes`. Only the header is parsed, so the padding's
- * contents are irrelevant — its *length* is the input under test. */
+ * contents are irrelevant, its *length* is the input under test. */
 function mp3(totalBytes: number, options: FrameOptions = {}): Uint8Array {
   const { version = 0b10, layer = 0b01, bitrateIndex = 6 } = options;
   const audio = new Uint8Array(totalBytes);
@@ -35,7 +35,7 @@ Deno.test("reads duration from an MPEG-2 Layer III frame", () => {
 });
 
 Deno.test("uses the MPEG-1 bitrate table for MPEG-1 audio", () => {
-  // Index 6 is 80 kbps under MPEG-1 but 48 kbps under MPEG-2 — the same
+  // Index 6 is 80 kbps under MPEG-1 but 48 kbps under MPEG-2, the same
   // header bits mean different rates, which is the whole reason for two
   // tables.
   assertAlmostEquals(

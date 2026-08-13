@@ -1,5 +1,5 @@
 // PIN hashing via Web Crypto's PBKDF2 (native, no npm dependency, no
-// node-gyp/native-binding step to complicate the Dockerfile — unlike
+// node-gyp/native-binding step to complicate the Dockerfile, unlike
 // bcrypt). A PIN is low-entropy by design, so the iteration count matters
 // more here than it would for a real password: 600k is OWASP's 2023
 // minimum recommendation for PBKDF2-HMAC-SHA256.
@@ -50,7 +50,7 @@ function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean {
 }
 
 /**
- * Encodes as `pbkdf2$sha256$<iterations>$<salt>$<hash>` — self-describing,
+ * Encodes as `pbkdf2$sha256$<iterations>$<salt>$<hash>`, self-describing,
  * so `verifyPin` reads the iteration count/salt that were actually used
  * rather than assuming today's constants, letting ITERATIONS increase later
  * without invalidating existing rows or needing a migration.

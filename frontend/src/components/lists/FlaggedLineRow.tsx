@@ -14,7 +14,7 @@ export interface FlaggedLineRowProps {
   isLast?: boolean
 }
 
-/** Dense flagged-line row — wrap-up uses a Replay button, the Prompt Book uses a mistake badge + chevron (tappable, launches focused practice). */
+/** Dense flagged-line row, wrap-up uses a Replay button, the Prompt Book uses a mistake badge + chevron (tappable, launches focused practice). */
 export function FlaggedLineRow({ text, trailing = 'replay', mistakes, location, last, onClick, onReplay, isLast = false }: FlaggedLineRowProps) {
   const clickable = trailing === 'chevron'
   return (

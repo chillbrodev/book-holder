@@ -14,8 +14,8 @@ const sessions = new Hono<AppEnv>();
  * Not a policy choice so much as a schema one: `session_history.user_id`,
  * `line_mastery.user_id` and `mistake_log.user_id` are all NOT NULL REFERENCES
  * users(id), so there is nowhere to put a guest's history. Rehearsing still works
- * fully as a guest — she can hear the other parts, be listened to, and call for
- * lines — she just isn't remembered, which is what the header's "Save Progress"
+ * fully as a guest; she can hear the other parts, be listened to, and call for
+ * lines; she just isn't remembered, which is what the header's "Save Progress"
  * has always been offering.
  *
  * `sessionMiddleware` throws UNAUTHENTICATED without a valid cookie, so the guest
@@ -50,7 +50,7 @@ sessions.post("/start", async (c) => {
 });
 
 /**
- * Mark a run finished — or leave it abandoned, which is also a real outcome.
+ * Mark a run finished, or leave it abandoned, which is also a real outcome.
  *
  * `completed_at` is set only when every block in `session_block` has all of its
  * beats scored, which is one question for a scene run and a drill set alike.
@@ -89,8 +89,8 @@ sessions.get("/prompt-book", async (c) => {
  * tokens, and writes a `coach_recommendation` row it will read back next time.
  * Idempotent it is not, and a client that retries should know that.
  *
- * Returns `{ recommendation: null }` when there is nothing worth saying — a
- * clean run deserves silence rather than manufactured praise — and also when
+ * Returns `{ recommendation: null }` when there is nothing worth saying, a
+ * clean run deserves silence rather than manufactured praise, and also when
  * the agent failed, which the wrap-up treats identically. Never 500s: a wrap-up
  * that will not load because the coach had an opinion it could not express is
  * worse than a wrap-up with no coach on it.
@@ -108,7 +108,7 @@ sessions.post("/:sessionId/coach", async (c) => {
 });
 
 /** The recommendation already made for a session, without running the agent
- * again — so revisiting a wrap-up costs nothing and says the same thing. */
+ * again, so revisiting a wrap-up costs nothing and says the same thing. */
 sessions.get("/:sessionId/coach", async (c) => {
   const user = c.get("user");
   const recommendation = await CoachService.latest({
@@ -134,7 +134,7 @@ sessions.get("/plan", async (c) => {
 });
 
 /** How the run she just finished actually went. The wrap-up's numbers come from
- * here — before this they were fixtures, which is why the screen could show a
+ * here, before this they were fixtures, which is why the screen could show a
  * duration for a rehearsal that was never saved. */
 sessions.get("/summary", async (c) => {
   const user = c.get("user");

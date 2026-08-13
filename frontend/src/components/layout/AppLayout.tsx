@@ -27,7 +27,7 @@ export function AppLayout() {
   // playback already unlocked. See utils/audioPlayback.ts for what iOS Safari
   // actually requires and why one element is shared.
   //
-  // Not `once: true` — the first tap can land while the page is still settling,
+  // Not `once: true`; the first tap can land while the page is still settling,
   // and an unlock that fails has to be retryable. unlockPlayback() returns
   // immediately once it has succeeded, so the listener costs nothing after that.
   useEffect(() => {
@@ -40,7 +40,7 @@ export function AppLayout() {
   }, [])
 
   // Dismissal. `pointerdown` rather than `click` so the menu closes on press
-  // rather than release — a click listener lets the menu sit open under a
+  // rather than release, a click listener lets the menu sit open under a
   // finger already on its way somewhere else, and on touch that reads as lag.
   useEffect(() => {
     if (!accountMenuOpen) return

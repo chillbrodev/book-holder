@@ -27,7 +27,7 @@ const COPY: Record<Mode, { title: string; subhead: string; submitLabel: string; 
   },
 }
 
-/** Opt-in only — never mounted on load, only in response to her clicking
+/** Opt-in only, never mounted on load, only in response to her clicking
  * "Save Progress." Rehearsing without an account works fine; this is purely
  * for the "I want this to still be here next time" case. */
 export function AuthModal({ onClose }: AuthModalProps) {

@@ -6,13 +6,13 @@
 // with itself, attributing words to a beat and then calling them absent from it.
 //
 // Nothing here is the fuzzy-match threshold (docs/OPEN_ITEMS.md §1a). This is
-// word *identity* — "is this the same word" — and the tolerance exists because
+// word *identity*, "is this the same word", and the tolerance exists because
 // Transcribe and a 400-year-old printed text spell the same spoken word
 // differently. How many correct words make a correct beat is a separate question,
 // decided in score.ts.
 
 /** Words at least this long may match with one character of edit distance.
- * Shorter words are compared exactly — at three characters an edit-distance of
+ * Shorter words are compared exactly, at three characters an edit-distance of
  * one makes "a"/"I", "the"/"thee" and "no"/"so" interchangeable, which is a
  * worse failure than missing a genuine mishearing. */
 const MIN_LENGTH_FOR_FUZZY_MATCH = 4;
@@ -22,7 +22,7 @@ const MIN_LENGTH_FOR_FUZZY_MATCH = 4;
  *
  * Apostrophes are dropped rather than kept because Shakespeare's elisions are
  * exactly where the source text and a transcript disagree without anybody being
- * wrong — the Moby text writes "'scaped" and "reveng'd" where Transcribe will
+ * wrong, the Moby text writes "'scaped" and "reveng'd" where Transcribe will
  * write "scaped" and "revenged". Removing the apostrophe makes the first pair
  * identical and the second one character apart, which the tolerance below covers.
  */
@@ -39,7 +39,7 @@ export function normalizeWord(word: string): string {
  * The hyphen split is load-bearing, not tidying. A printed hyphen is typography;
  * she says two words, and Transcribe writes two words. Without splitting,
  * "well-behaved" normalizes to the single token "wellbehaved", which can never
- * match "well behaved" at any edit distance — so every hyphenated compound was a
+ * match "well behaved" at any edit distance, so every hyphenated compound was a
  * guaranteed miss. The Moby text is full of them ("love-letters",
  * "holiday-time", "soldier-like", "well-nigh"), and it also uses "--" as a dash
  * mid-sentence, which this handles for free.
@@ -93,7 +93,7 @@ export function withinEditDistance(
  *
  * Deliberately not symmetric in intent even though it is in implementation: the
  * first argument is what a machine heard, the second what Shakespeare wrote. That
- * asymmetry is why the tolerance is one edit and not two — "threw"/"through" is
+ * asymmetry is why the tolerance is one edit and not two, "threw"/"through" is
  * two edits and genuinely different words, and letting it match would hide a real
  * mishearing (measured: docs/capture-plan.md §8). */
 export function wordsMatch(spoken: string, expected: string): boolean {

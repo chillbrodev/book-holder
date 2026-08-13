@@ -17,7 +17,7 @@ const SKELETON_ROWS = 4
  * The part, rather than a run of it.
  *
  * The wrap-up answers "how did that go"; this answers "where am I with this
- * part" — a question no single session can, which is why it reads `line_mastery`
+ * part", a question no single session can, which is why it reads `line_mastery`
  * (keyed (user, line), with no concept of a session) rather than a session row.
  *
  * Real data as of August 12 2026. It rendered on `data/mock/*` until now, with
@@ -29,7 +29,7 @@ export function PromptBookPage() {
   const navigate = useNavigate()
 
   // The shelf is one play deep today, and the Prompt Book has no play picker of
-  // its own — so it follows whichever part she has actually chosen. Taking the
+  // its own, so it follows whichever part she has actually chosen. Taking the
   // id from the plays list rather than a hardcoded slug is what makes adding a
   // second play an import rather than a code change.
   const plays = useAsync(() => getPlays(), [])
@@ -48,8 +48,8 @@ export function PromptBookPage() {
   /**
    * True until the whole chain has settled, not just the last link.
    *
-   * This page loads three things in sequence — plays, then her chosen part,
-   * then the book — and each downstream call resolves `null` immediately while
+   * This page loads three things in sequence, plays, then her chosen part,
+   * then the book, and each downstream call resolves `null` immediately while
    * its input is still missing. Reading only `book.loading` therefore reported
    * "loaded" during the first two, and the page rendered its "pick a part
    * first" state for a beat before replacing it with real data.
@@ -153,7 +153,7 @@ function Book(
                   mistakes={beat.mistakeCount}
                   last={beat.lastPractisedAt ? formatRelativeTime(beat.lastPractisedAt) : undefined}
                   isLast={i === book.needsAnotherLook.length - 1}
-                  // The single-beat drill — it opens the whole speech around the
+                  // The single-beat drill, it opens the whole speech around the
                   // beat (`getBlockForLine`), because a beat with no run-up into
                   // it isn't how the line is delivered.
                   onClick={() => onDrill(beat.act, beat.scene, beat.lineId)}
@@ -169,8 +169,8 @@ function Book(
 /**
  * The page's own shape, greyed out.
  *
- * Same footprint as the loaded page — subhead, mastery block, section label,
- * rows — so the content lands in place rather than pushing the page around. No
+ * Same footprint as the loaded page, subhead, mastery block, section label,
+ * rows, so the content lands in place rather than pushing the page around. No
  * animation: this is a fetch that usually takes a few hundred milliseconds, and
  * a pulsing bar for that long draws more attention than the wait deserves.
  */
@@ -195,7 +195,7 @@ function PromptBookSkeleton() {
   )
 }
 
-/** A 404/401 from the prompt book is "nothing recorded yet", not a failure —
+/** A 404/401 from the prompt book is "nothing recorded yet", not a failure,
  * the same distinction the wrap-up draws. */
 function asNull(err: unknown) {
   if (err instanceof ApiError && (err.status === 404 || err.status === 401)) return null

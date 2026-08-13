@@ -14,7 +14,7 @@ export type CharacterRow = {
   name: string;
   description: string | null;
   isSynthetic: boolean;
-  /** Beats attributed to this character anywhere in the play — rows in
+  /** Beats attributed to this character anywhere in the play, rows in
    * `lines`, which since migration 004 hold one thought each, not one line of
    * verse and not a whole speech. Copy that says "lines" to the user is
    * counting these. */
@@ -32,12 +32,12 @@ export type SceneSummaryRow = {
   totalLines: number;
   /** Beats spoken in this scene by the character listScenes was called for,
    * or 0 when it was called without one. Lets the scene picker lead with the
-   * scenes a part is actually in — for a 12-beat role, a flat list of all 23
+   * scenes a part is actually in, for a 12-beat role, a flat list of all 23
    * scenes buries the one that matters. */
   characterLines: number;
 };
 
-/** One *beat* — one thought, which is what the coach scores and what
+/** One *beat*; one thought, which is what the coach scores and what
  * line_mastery keys on. Display and Polly work on the block it belongs to; see
  * docs/beats-and-blocks-plan.md §2. */
 export type DialogueEntryRow =
@@ -46,14 +46,14 @@ export type DialogueEntryRow =
     type: "speech";
     lineId: string;
     lineNumber: number;
-    /** The speech-block this beat belongs to — a speech, cut wherever a stage
+    /** The speech-block this beat belongs to, a speech, cut wherever a stage
      * direction falls inside it. Assigned at import, not derived here: only
      * the importer knows where a direction split a speech, and persisting it
      * is what lets the audio endpoint take a block id instead of a
      * client-supplied ordered array of line ids. */
     blockId: string;
     beatNumber: number;
-    /** The joined beat text — what Polly speaks and what a transcript is
+    /** The joined beat text, what Polly speaks and what a transcript is
      * compared against. For a verse block this is *not* what the screen
      * shows; sourceLines is. */
     text: string;
@@ -63,7 +63,7 @@ export type DialogueEntryRow =
     sharesFirstSourceLine: boolean;
     /** Block-level: verse keeps its lineation on screen, prose is wrapped. */
     isVerse: boolean;
-    // Ordered by character name for determinism — line_speakers is an
+    // Ordered by character name for determinism, line_speakers is an
     // unordered many-to-many join (BE_PLAN.md §1a), so there's no real
     // "primary speaker" for the rare jointly-spoken line. Callers that need
     // one voice (e.g. Polly playback) take speakerIds[0].
@@ -72,7 +72,7 @@ export type DialogueEntryRow =
   };
 
 // line_number/act_order/scene_order/after_line_number are all CockroachDB
-// INT (64-bit) — pg returns those as strings, not numbers, to avoid silent
+// INT (64-bit), pg returns those as strings, not numbers, to avoid silent
 // precision loss past Number.MAX_SAFE_INTEGER (same reason auth/service.ts
 // explicitly Number()s failed_pin_attempts). Every raw row type below
 // reflects that; Number() at the mapping boundary is deliberate, not
@@ -91,14 +91,14 @@ type RawLineRow = {
 };
 
 /** The columns every beat query needs, kept in one place so getSceneDialogue
- * and getLine can't drift apart — they feed the same client-side grouping. */
+ * and getLine can't drift apart, they feed the same client-side grouping. */
 const BEAT_COLUMNS = `l.id, l.line_number, l.block_id, l.beat_number, l.text,
         l.source_lines, l.shares_first_source_line, l.is_verse`;
 
 /** The per-speaker aggregates, kept beside BEAT_COLUMNS for the same reason:
  * all three beat queries feed one mapLineRow, so a column added to only some
  * of them lands as `undefined` at the mapping boundary rather than as a
- * compile error. Aggregates, so these belong in SELECT only — never in the
+ * compile error. Aggregates, so these belong in SELECT only, never in the
  * GROUP BY that BEAT_COLUMNS also serves. */
 const SPEAKER_COLUMNS = `array_agg(c.id ORDER BY c.name) AS speaker_ids,
         array_agg(c.name ORDER BY c.name) AS speaker_names`;
@@ -142,7 +142,7 @@ export const PlaysService = {
   /** LEFT JOINs so a character with no attributed lines still comes back (at
    * 0/0) rather than vanishing from the role picker. scene_count concatenates
    * act/scene rather than counting a tuple because `||` yields NULL for a
-   * character with no lines, which count() then skips — a tuple would count
+   * character with no lines, which count() then skips; a tuple would count
    * as one. */
   async listCharacters(playId: string): Promise<CharacterRow[]> {
     const result = await DbClient.getPool().query(
@@ -179,7 +179,7 @@ export const PlaysService = {
   },
 
   /** The LEFT JOIN is filtered to one character in its ON clause, not the
-   * WHERE — so scenes the character isn't in still come back (at 0), and each
+   * WHERE, so scenes the character isn't in still come back (at 0), and each
    * line still contributes exactly one row, keeping count(*) an honest total.
    * count(ls.line_id) then counts only the matched rows. Passing a null
    * characterId matches nothing, so characterLines is 0 throughout. */
@@ -223,28 +223,28 @@ export const PlaysService = {
   /**
    * Interleaves beats and stage directions into one ordered stream.
    *
-   * **A direction with `after_line_number = N` sorts immediately *after* beat N,
+   * A direction with `after_line_number = N` sorts immediately *after* beat N,
    * which is what the column name has always said and what the importer has
-   * always meant** — it writes the running `lineNumber`, i.e. the last beat the
+   * always meant, it writes the running `lineNumber`, i.e. the last beat the
    * direction follows (`buildRows.ts`). This used to sort it *before* beat N,
    * and the tiebreak was the whole bug.
    *
-   * It broke 79 of 1,060 blocks — every one where a direction is anchored to a
+   * It broke 79 of 1,060 blocks, every one where a direction is anchored to a
    * block's *last* beat, which is the common case, since directions mostly fall
    * between speeches. The effect was that the direction landed one beat early,
    * inside the block it should have followed, splitting that block into two
-   * display entries **sharing one `block_id`**.
+   * display entries sharing one `block_id`.
    *
    * Two symptoms, and the audible one is why it was found: `getBlockAudio` keys
-   * on the block, so both halves requested the same recording — the whole
-   * speech — and the scene read it twice, jumping ahead through text it hadn't
+   * on the block, so both halves requested the same recording, the whole
+   * speech, and the scene read it twice, jumping ahead through text it hadn't
    * shown and then apparently starting the speech again. On screen it also put
    * "Exeunt" before a scene's final line rather than after it.
    *
    * `after_line_number = 0` still sorts before everything: beats are numbered
    * from 1, so a scene-opening direction has no beat to tie with.
    *
-   * Doesn't compute isUserLine — that depends on which character the browser
+   * Doesn't compute isUserLine, that depends on which character the browser
    * has locally selected to rehearse as, which this endpoint has no notion of.
    */
   async getSceneDialogue(
@@ -340,7 +340,7 @@ export interface SceneBeat {
 }
 
 export interface SceneDirection {
-  /** The beat this direction follows. 0 means "before the scene's first beat" —
+  /** The beat this direction follows. 0 means "before the scene's first beat",
    * beats are numbered from 1, so an opening direction ties with nothing. */
   afterLineNumber: number;
   /** Import order among directions sharing an anchor. */
@@ -355,16 +355,16 @@ export interface SceneDirection {
  * because the whole of this function's behaviour is two comparisons and both
  * of them were wrong in ways nothing failed on.
  *
- * **A direction anchored to beat N comes after beat N.** It used to come
- * before, which put 79 of the corpus's 1,060 blocks in the wrong shape — every
+ * A direction anchored to beat N comes after beat N. It used to come
+ * before, which put 79 of the corpus's 1,060 blocks in the wrong shape, every
  * block whose last beat a direction was anchored to. The block was then split
  * into two display entries sharing one `block_id`, and since `getBlockAudio`
  * keys on the block, both halves asked for the same recording and the scene
  * read the whole speech twice.
  *
- * **Directions sharing an anchor keep their import order.** `sequence` was
+ * Directions sharing an anchor keep their import order. `sequence` was
  * being selected and then not used, so I.iv's "They retire" and "Enter FORD
- * with PISTOL, and PAGE" — both anchored to beat 59 — came back in whatever
+ * with PISTOL, and PAGE", both anchored to beat 59, came back in whatever
  * order the rows arrived in.
  */
 export function interleaveSceneStream(

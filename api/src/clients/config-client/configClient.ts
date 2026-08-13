@@ -1,19 +1,19 @@
 import { loadSync } from "@std/dotenv";
 import { bold, red } from "@std/fmt/colors";
 
-// Repo root .env (one level above api/) — shared with infra/cockroachdb's
+// Repo root.env (one level above api/), shared with infra/cockroachdb's
 // migrate.ts and packages/play-importer, which read the same
 // COCKROACHDB_URL. Resolved relative to CWD: `deno task` sets CWD to
 // api/ (deno.json's directory), so "../.env" lands on the repo root in
 // local dev.
 //
-// Skipped entirely in production — ECS injects the task definition's
+// Skipped entirely in production, ECS injects the task definition's
 // environment variables directly into the process before the container's
 // CMD even runs, so there's no .env file to load there (see
 // api/.dockerignore) and no reason to grant read-file permission to attempt
 // one. Deno's permission check happens before the file-existence check, so
 // the "production" deno task deliberately doesn't grant
-// --allow-read=../.env — attempting loadSync unconditionally would throw
+// --allow-read=../.env, attempting loadSync unconditionally would throw
 // PermissionDenied on every boot instead of the graceful no-op a missing
 // file would otherwise get.
 if (Deno.env.get("DENO_ENV") !== "production") {
@@ -21,7 +21,7 @@ if (Deno.env.get("DENO_ENV") !== "production") {
 }
 
 // `KEY=` (blank, not removed) is how `.env.example` marks an unfilled var,
-// and `Deno.env.get` returns "" for it, not undefined — `===undefined`/`??`
+// and `Deno.env.get` returns "" for it, not undefined, `===undefined`/`??`
 // alone would treat that as "present but empty" instead of falling through.
 // Both helpers deliberately treat blank the same as missing.
 
@@ -54,7 +54,7 @@ export const ConfigClient = {
     url: getDenoEnvValueOrThrow("COCKROACHDB_URL"),
   },
   Aws: {
-    // No credentials read here on purpose — the AWS SDK's default provider
+    // No credentials read here on purpose, the AWS SDK's default provider
     // chain resolves AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY from the
     // environment locally, and the ECS task role's container credentials
     // automatically when deployed. Same client code both places.
@@ -63,7 +63,7 @@ export const ConfigClient = {
   Polly: {
     cacheBucket: getDenoEnvValueOrThrow("POLLY_CACHE_BUCKET"),
     // Per-character voice lives in characters.polly_voice_id (see
-    // infra/cockroachdb/migrations/003_polly_voice_id.sql) — this is only
+    // infra/cockroachdb/migrations/003_polly_voice_id.sql); this is only
     // the fallback for a character with no assignment yet.
     defaultVoiceId: getDenoEnvValueOrDefault(
       "POLLY_DEFAULT_VOICE_ID",
@@ -71,7 +71,7 @@ export const ConfigClient = {
     ),
   },
   Bedrock: {
-    // Nova Micro, reached through the **US geo inference profile** — the `us.`
+    // Nova Micro, reached through the US geo inference profile, the `us.`
     // prefix is load-bearing, not decoration.
     //
     // Nova Micro is not available in-region in us-west-2 (AWS's model card
@@ -84,7 +84,7 @@ export const ConfigClient = {
     //
     // Consequence for IAM: invoking through a profile needs bedrock:InvokeModel
     // on the inference-profile ARN *and* on the foundation-model ARN in every
-    // destination region — see infra/aws/create-dev-user.sh.
+    // destination region. See infra/aws/create-dev-user.sh.
     //
     // Text-only Micro rather than multimodal Lite because a comparison is a
     // transcript against a beat's text; there is no image in this call, and
@@ -94,14 +94,14 @@ export const ConfigClient = {
       "BEDROCK_MODEL_ID_COMPARISON",
       "us.amazon.nova-micro-v1:0",
     ),
-    // Titan Text Embeddings V2. **No `us.` prefix, and that is not an
-    // oversight** — it is the opposite case to Nova Micro above, and the two
+    // Titan Text Embeddings V2. No `us.` prefix, and that is not an
+    // oversight; it is the opposite case to Nova Micro above, and the two
     // are easy to pattern-match onto each other wrongly.
     //
     // Nova Micro has no in-region presence in us-west-2 and is reachable only
     // through the geo inference profile, so it needs the prefix. Titan V2 *is*
     // available in-region, has no inference profile, and the bare id is the
-    // only thing that resolves — prefixing it fails with the same
+    // only thing that resolves, prefixing it fails with the same
     // bad-model-id-shaped error that omitting the prefix causes for Nova.
     //
     // 1024 dimensions, matching `VECTOR(1024)` from migration 004. Chosen in
@@ -112,20 +112,20 @@ export const ConfigClient = {
       "BEDROCK_MODEL_ID_EMBEDDING",
       "amazon.titan-embed-text-v2:0",
     ),
-    // Nova **Lite** for the coach agent, and the `us.` prefix for the same
-    // reason Micro carries one — it is reached through the US geo inference
+    // Nova Lite for the coach agent, and the `us.` prefix for the same
+    // reason Micro carries one; it is reached through the US geo inference
     // profile, not in-region.
     //
     // A step up from Micro deliberately. The comparison call is one block
     // against a rubric and Micro does it in ~800ms; the agent has to plan over
     // several tools, decide which of her weaknesses is worth naming, and write
     // one sentence a person would say. Micro is not reliable at the first of
-    // those — the same limitation that made it restate the marks rather than
+    // those, the same limitation that made it restate the marks rather than
     // read the speech (`groundedNote` in features/coaching).
     //
     // Same family, so the IAM shape is a copy of Nova Micro's rather than a new
     // one to get wrong: profile ARN plus the foundation model in each
-    // destination region, in **both** create-dev-user.sh and
+    // destination region, in both create-dev-user.sh and
     // task-role-policy.sh.
     agentModelId: getDenoEnvValueOrDefault(
       "BEDROCK_MODEL_ID_AGENT",

@@ -19,7 +19,7 @@ export interface MicStateIndicatorProps {
    * The scene is holding on this speech because there was something worth
    * reading (`RehearsalPage.worthAPause`).
    *
-   * Same reason `stalled` exists: "Captured — moving on…" beside a Continue
+   * Same reason `stalled` exists: "Captured, moving on…" beside a Continue
    * button and a scene that is deliberately standing still is the app narrating
    * behaviour it no longer has. Small, and exactly the kind of small that makes
    * an interface feel like it isn't paying attention.
@@ -29,7 +29,7 @@ export interface MicStateIndicatorProps {
 
 const COPY: Record<MicState, { label: string; hint: string }> = {
   connecting: { label: 'Connecting mic…', hint: 'Tap the mic if it doesn’t start on its own.' },
-  // Promises what the app now actually does — takes its cue from her stopping —
+  // Promises what the app now actually does, takes its cue from her stopping,
   // rather than instructing a tap. The tap still works and is also a real button
   // in the actions row, but it is a way out, not the way through.
   listening: { label: 'Listening', hint: 'Take it at your own pace — I’ll know when you’re done.' },
@@ -38,7 +38,7 @@ const COPY: Record<MicState, { label: string; hint: string }> = {
   cantHear: { label: "Can't hear you — check your mic", hint: 'The mic dropped — try again or call for the line.' },
 }
 
-/** The five mic states — icon and copy always change together, never a color shift alone. */
+/** The five mic states, icon and copy always change together, never a color shift alone. */
 export function MicStateIndicator({
   state,
   onTap,
@@ -49,7 +49,7 @@ export function MicStateIndicator({
 }: MicStateIndicatorProps) {
   // Stalled is a shading of `listening`, not a sixth state: the mic really is
   // still open and she can still carry on. `holding` is the same kind of
-  // shading over `captured` — the speech is caught either way, and the only
+  // shading over `captured`; the speech is caught either way, and the only
   // difference is whether the scene is waiting on her to read something.
   const copy = stalled && state === 'listening'
     ? { label: 'Still listening — lost your thread', hint: 'Carry on, call for the line, or say you’re done.' }
@@ -57,7 +57,7 @@ export function MicStateIndicator({
     ? { label: 'Captured', hint: 'Have a look — then carry on.' }
     : COPY[state]
   const isQuiet = state === 'connecting' || state === 'cantHear'
-  // Only worth showing on a speech with several thoughts in it — on a one-beat
+  // Only worth showing on a speech with several thoughts in it, on a one-beat
   // line it would read as a progress bar for a single sentence.
   const showProgress = state === 'listening' && !stalled && beatCount > 1
 

@@ -1,5 +1,5 @@
 /**
- * UI-shaped types the stub (and later, real) API returns — what pages actually consume,
+ * UI-shaped types the stub (and later, real) API returns, what pages actually consume,
  * as opposed to the 1:1 schema shapes in domain.ts.
  */
 import type { Play } from './domain'
@@ -28,13 +28,13 @@ export interface SceneSummary {
   isCurrent: boolean
 }
 
-/** One thought — the unit the coach scores and `line_mastery` keys on. Not a
+/** One thought, the unit the coach scores and `line_mastery` keys on. Not a
  * line of verse. See docs/beats-and-blocks-plan.md §2. */
 export interface DialogueBeat {
   lineId: string
   beatNumber: number
   /** The joined text: what Polly speaks and what a transcript is compared
-   * against. For a verse block this is *not* what the screen shows — sourceLines
+   * against. For a verse block this is *not* what the screen shows, sourceLines
    * is, because a part is memorized by its lineation. */
   text: string
   sourceLines: string[]
@@ -49,14 +49,14 @@ export interface DialogueBlock {
   type: 'speech'
   blockId: string
   speaker: string
-  /** The primary speaker's character id — needed to fetch Polly audio for this
+  /** The primary speaker's character id, needed to fetch Polly audio for this
    * block. Playback voices one character per block, so a jointly spoken block
    * still resolves to one voice (BE_PLAN.md §1a). */
   speakerId: string
   coSpeakers?: string[]
   isVerse: boolean
   beats: DialogueBeat[]
-  /** True when this is the block the rehearsing user reads — she gets the mic,
+  /** True when this is the block the rehearsing user reads, she gets the mic,
    * and no Polly audio is fetched for it. */
   isUserLine: boolean
 }

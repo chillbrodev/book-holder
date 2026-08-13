@@ -2,7 +2,7 @@
  * The mic socket: PCM up, beat progress down.
  *
  * A WebSocket rather than a fetch because capture is continuous and
- * bidirectional for the length of one speech — see docs/capture-plan.md §4 for
+ * bidirectional for the length of one speech. See docs/capture-plan.md §4 for
  * why the browser talks to our API rather than to Amazon Transcribe directly
  * (short version: a presigned Transcribe URL is a spendable credential, and the
  * beat cursor needs the answer key, which lives in the database).
@@ -19,7 +19,7 @@ export type CaptureEvent =
       beatsCompleted: number
       progressThroughBeat: number
       transcript: string
-      /** True while Transcribe may still rewrite this text — safe to show,
+      /** True while Transcribe may still rewrite this text, safe to show,
        * never safe to score. */
       isPartial: boolean
     }
@@ -31,11 +31,11 @@ export type CaptureEvent =
   | {
       /**
        * How the block was judged. Arrives after `complete`, about a second
-       * later — one Bedrock call behind.
+       * later, one Bedrock call behind.
        *
        * May not arrive at all: it is a round trip to another service, and a
        * socket she closed by walking away never sees it. Nothing in the UI may
-       * wait on this (docs/coaching-plan.md §4) — the annotation slot is
+       * wait on this (docs/coaching-plan.md §4); the annotation slot is
        * reserved from the start and tolerates being a block behind.
        */
       type: 'scored'
@@ -50,7 +50,7 @@ export type CaptureEvent =
     }
   | { type: 'error'; name: string; msg: string }
 
-/** *solid* / *close* / *dry* — never a percentage. A grade is a teacher's
+/** *solid* / *close* / *dry*, never a percentage. A grade is a teacher's
  * register and the style guide's voice is backstage crew; "dry" is what someone
  * in the wings actually says about a forgotten line. */
 export type Band = 'solid' | 'close' | 'dry'
@@ -62,7 +62,7 @@ function captureUrl(blockId: string, characterId: string, sessionId?: string): s
   const base = API_BASE_URL.replace(/^http/, 'ws')
   const query = new URLSearchParams({ characterId })
   // Optional, and its absence is never an error. No session means a guest, or a
-  // rehearsal begun before one could be opened — she is coached either way and
+  // rehearsal begun before one could be opened; she is coached either way and
   // only the memory is missing (docs/coaching-plan.md §7).
   if (sessionId) query.set('sessionId', sessionId)
   return `${base}/capture/blocks/${blockId}?${query}`
@@ -70,7 +70,7 @@ function captureUrl(blockId: string, characterId: string, sessionId?: string): s
 
 export interface CaptureSocket {
   /** Audio frames straight from the worklet. Dropped silently if the socket
-   * isn't open — losing a frame is better than throwing on the audio path. */
+   * isn't open, losing a frame is better than throwing on the audio path. */
   sendAudio: (pcm: ArrayBuffer) => void
   /** She's finished the speech. The socket stays open until the server's
    * `complete` arrives, so this is not the same as closing. */

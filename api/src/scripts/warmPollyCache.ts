@@ -1,19 +1,19 @@
 // Pre-synthesizes and caches Polly audio for speech *blocks*, grouped by
 // character
-// (one Polly voice per character, see characters.polly_voice_id —
+// (one Polly voice per character, see characters.polly_voice_id,
 // infra/cockroachdb/migrations/003_polly_voice_id.sql) so a user's first
 // real rehearsal session never pays the on-demand synthesize-and-cache
-// latency described in docs/BE_PLAN.md §4. Safe to re-run — already-cached
+// latency described in docs/BE_PLAN.md §4. Safe to re-run, already-cached
 // (block, voice) pairs are skipped via the same S3 HeadObject check the live
 // /polly/blocks/:blockId/audio endpoint uses.
 //
 // A block, not a beat: one speech is one render. Warming per beat would both
 // cost more calls and cache audio nothing ever requests, since playback asks
-// for blocks — and it must key identically to getBlockAudio or the whole pass
+// for blocks, and it must key identically to getBlockAudio or the whole pass
 // is wasted (docs/beats-and-blocks-plan.md §6).
 //
 // Defaults to a dry run (prints scope + an estimated Polly cost, calls
-// nothing) since this can trigger hundreds of billed Polly calls — pass
+// nothing) since this can trigger hundreds of billed Polly calls, pass
 // --yes to actually synthesize.
 //
 // Usage:
@@ -26,7 +26,7 @@ import { DbClient } from "../clients/cockroach-db/dbClient.ts";
 import { ConfigClient } from "../clients/config-client/configClient.ts";
 import { PollyService } from "../features/polly/service.ts";
 
-// Neural engine (pollyClient.ts) — $16/1M chars, with a 1M-char/mo free tier.
+// Neural engine (pollyClient.ts), $16/1M chars, with a 1M-char/mo free tier.
 // Was generative at $30/1M and a 100K-char tier; see POLLY_ENGINE for why that
 // changed. Keep this in step with the engine, or the dry run's estimate is
 // wrong in whichever direction costs the most to discover.
@@ -134,7 +134,7 @@ function groupByCharacter(lines: BlockRow[]): Map<string, BlockRow[]> {
   return groups;
 }
 
-/** Runs `worker` over `items` with at most `limit` in flight — a hand-rolled
+/** Runs `worker` over `items` with at most `limit` in flight, a hand-rolled
  * pool rather than a dependency, since this is the only place in the repo
  * that needs one. Keeps concurrent Polly calls bounded so a large warm run
  * doesn't hammer into the account's SynthesizeSpeech rate limit (the SDK's
@@ -194,7 +194,7 @@ if (import.meta.main) {
   let failedCount = 0;
 
   for (const [characterName, characterLines] of groups) {
-    // Every line in a group shares one voice — it's a property of the
+    // Every line in a group shares one voice, it's a property of the
     // character (characters.polly_voice_id), not the line.
     console.log(
       `\n${characterName} -> voice ${

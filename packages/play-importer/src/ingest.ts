@@ -6,7 +6,7 @@ const RETRYABLE_SQLSTATE = "40001";
 const CHUNK_SIZE = 500;
 
 /** This is a one-shot seed import (run by hand, not concurrent with anything
- * else), so a bounded retry on serialization conflicts is enough — it doesn't
+ * else), so a bounded retry on serialization conflicts is enough, it doesn't
  * need the full backoff treatment the live per-session write path needs. */
 async function withRetry<T>(fn: () => Promise<T>, attempts = 3): Promise<T> {
   let lastErr: unknown;
@@ -31,7 +31,7 @@ function chunks<T>(items: T[], size: number): T[][] {
 /**
  * Refuses to import a play that is already in the database.
  *
- * Nothing here ever updated in place — a second run just inserted a whole
+ * Nothing here ever updated in place, a second run just inserted a whole
  * second copy under a new play_id, and the only symptoms were a duplicate on
  * the Shelf and a Polly bill that quietly doubled, because the warm script
  * walks every block it can see. Migration 004 masked this by emptying the
@@ -107,7 +107,7 @@ const LINE_COLUMNS = [
  * inserts use, because of `source_lines`.
  *
  * unnest needs one array per column, so an array-valued column would need an
- * array *of* arrays — and CockroachDB doesn't implement multi-dimensional
+ * array *of* arrays, and CockroachDB doesn't implement multi-dimensional
  * arrays (crdb#32552), so `$n::text[][]` is a parse error, not a runtime one.
  * Passing each row's `string[]` as its own parameter sidesteps it entirely and
  * lets the driver encode the array, rather than us hand-building Postgres array

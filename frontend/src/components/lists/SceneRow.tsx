@@ -22,7 +22,7 @@ function sceneMeta(total: number, yourLines?: number): string {
   return `${pluralize(yourLines, 'line')} for you · ${total} in the scene`
 }
 
-/** Scene-picker row — title, short description, and either a mastery bar or,
+/** Scene-picker row, title, short description, and either a mastery bar or,
  * before anything has been rehearsed, how much of the scene is actually yours.
  * Current scene gets a gold tint even mid-list. */
 export function SceneRow({

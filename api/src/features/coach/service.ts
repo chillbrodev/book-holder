@@ -3,7 +3,7 @@
  * so in one sentence.
  *
  * This is the piece that makes the app agentic rather than LLM-powered. Every
- * other Bedrock call here is a function — text in, judgement out, one shot. This
+ * other Bedrock call here is a function, text in, judgement out, one shot. This
  * one is given tools and a goal and chooses for itself what to look at, in what
  * order, and how much is enough. On a rehearsal with nothing to say, the right
  * number of tool calls is zero and the right recommendation is none.
@@ -11,7 +11,7 @@
  * ## What it may and may not do
  *
  * It reads. It cannot write, cannot see another user's history, and cannot put
- * its own text into a query — the tools take ids and return rows, and the SQL is
+ * its own text into a query, the tools take ids and return rows, and the SQL is
  * fixed in `tools.ts`. The only thing that leaves this module is a note and a
  * choice of what to run next, and the choice is validated against her actual
  * part before it is stored.
@@ -19,7 +19,7 @@
  * ## Why the recommendation is stored
  *
  * So that next time it can ask what it said last time and whether she did it.
- * An agent that cannot tell what it told you to do has no memory of its own —
+ * An agent that cannot tell what it told you to do has no memory of its own,
  * it can only produce a fresh opinion each time, which is a chatbot with extra
  * steps. `coach_recommendation` (migration 010) is what closes that loop, and
  * `get_last_recommendation` is the tool that reads it back.
@@ -54,7 +54,7 @@ export const CoachService = {
    *
    * Never throws. A wrap-up that fails to load because the coach had an opinion
    * it could not express is a worse outcome than a wrap-up with no coach on it,
-   * and every caller treats `null` as "nothing to say" — which is also a real
+   * and every caller treats `null` as "nothing to say", which is also a real
    * answer on a clean run.
    */
   async recommend(input: {
@@ -76,7 +76,7 @@ export const CoachService = {
    * Her most recent recommendation, if it still stands.
    *
    * Read separately from `recommend` so the wrap-up can be revisited without
-   * running the agent again — the same reasoning `coaching-plan.md` §5 gives for
+   * running the agent again, the same reasoning `coaching-plan.md` §5 gives for
    * storing the scene summary rather than regenerating it. Regenerating would
    * bill a call per refresh and produce different words for the same rehearsal,
    * which makes advice feel arbitrary in exactly the way advice must not.
@@ -144,7 +144,7 @@ async function runAgent(input: {
   }
 
   // The answer arrives as `submit_recommendation`'s arguments. The prose parse
-  // below is only a fallback for a model that answered in text anyway — it is
+  // below is only a fallback for a model that answered in text anyway; it is
   // how this worked at first, and it failed exactly as you would expect: Nova
   // Lite reasoned inside a `<thinking>` block and emitted no object at all.
   const parsed = result.final
@@ -153,7 +153,7 @@ async function runAgent(input: {
   if (!parsed) {
     // Distinct from "nothing to say": the agent answered and the answer was not
     // usable. Logged with the text, because the alternative is a silent null
-    // that looks identical to a clean run — which is exactly the confusion the
+    // that looks identical to a clean run, which is exactly the confusion the
     // first version of this caused.
     console.warn(
       `Coach agent answer did not parse: ${
@@ -193,7 +193,7 @@ interface RawRecommendation {
  *
  * Nova is asked for JSON and mostly gives it, sometimes fenced, occasionally
  * with a sentence in front. The same scraping `bedrockClient.parseJsonFromText`
- * does for the single-tool path, and for the same reason — a malformed wrapper
+ * does for the single-tool path, and for the same reason, a malformed wrapper
  * around a good answer is not worth discarding the answer over.
  *
  * A forced tool call could have guaranteed the shape, as `converseJson` does.
@@ -226,7 +226,7 @@ interface ValidRecommendation {
  * Check the agent's choice against her actual part before storing it.
  *
  * The model returns `lineIds` it saw in tool output, and this resolves them to
- * blocks — because a drill runs whole speeches, and because resolving here means
+ * blocks, because a drill runs whole speeches, and because resolving here means
  * a hallucinated id becomes an empty result rather than a session that cannot
  * start. `SessionLifecycle.start` would reject unknown blocks anyway; failing
  * at the point of *recommending* is better than recommending something that
@@ -263,7 +263,7 @@ async function validate(
     : [];
   if (lineIds.length === 0) return null;
 
-  // Blocks, not beats — and all from one scene, because a session is scoped to
+  // Blocks, not beats, and all from one scene, because a session is scoped to
   // one (migration 008). If the agent picked lines across scenes, the first
   // scene wins rather than the recommendation being thrown away.
   const blocks = await DbClient.getPool().query(
@@ -330,8 +330,8 @@ async function store(
  * Strip quotation marks that wrap the *whole* note, and only then.
  *
  * The model sometimes returns its sentence already inside quotes, which renders
- * as the app quoting itself. But a good note **opens** with a quoted line — the
- * brief demands one — so stripping a leading quote unconditionally orphans its
+ * as the app quoting itself. But a good note opens with a quoted line, the
+ * brief demands one, so stripping a leading quote unconditionally orphans its
  * partner: `"Who's within there? ho!" has been missed twice` became
  * `Who's within there? ho!" has been missed twice`. The first version of this
  * did exactly that.

@@ -2,22 +2,22 @@
  * What the coach agent is for, and what a good answer looks like.
  *
  * Separate from the service for the reason `coaching/rubric.ts` is: the service
- * — tools, loop, validation, storage — is settled, and this is the part that
+ * , tools, loop, validation, storage, is settled, and this is the part that
  * will be iterated against a real model. Keeping them apart means a prompt
  * revision is a diff in one file.
  *
  * Two lessons carried over from the scoring rubric, both learned the hard way
  * there and one of them re-learned here:
  *
- * **A procedure works where a principle does not.** "Mangled proper nouns are
+ * A procedure works where a principle does not. "Mangled proper nouns are
  * the transcriber's fault" failed twice; "strike out every proper noun, then
  * judge what is left" worked immediately. So this brief says what order to do
  * things in rather than only what to value.
  *
- * **Never show a model a good example of the thing you want it to write.** The
+ * Never show a model a good example of the thing you want it to write. The
  * rubric once carried an illustrative note and Nova returned it verbatim about a
  * speech it had never seen. This brief was written knowing that and carried two
- * good examples anyway — and the agent's first real recommendation was one of
+ * good examples anyway, and the agent's first real recommendation was one of
  * them, word for word, about a line that happened to make it true. That is worse
  * than obvious parroting: it reads as insight. Only failing examples remain
  * below, and the passing shape is described rather than demonstrated.
@@ -25,7 +25,7 @@
 
 import type { ToolJsonSchema } from "../../clients/bedrock-client/bedrockClient.ts";
 
-/** Documented for the brief rather than enforced by a forced tool call — see
+/** Documented for the brief rather than enforced by a forced tool call. See
  * `parseRecommendation` for why the final turn is deliberately free-form. */
 export const RECOMMENDATION_SCHEMA: ToolJsonSchema = {
   type: "object",

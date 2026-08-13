@@ -30,7 +30,7 @@ Deno.test("closing while the iterator is waiting ends it rather than hanging", a
   const queue = new AudioQueue({ keepaliveIdleMs: 60_000 });
   const drained = drain(queue);
   // Close only after the iterator has had a chance to start waiting on an empty
-  // queue — the case that would otherwise deadlock.
+  // queue; the case that would otherwise deadlock.
   await new Promise((resolve) => setTimeout(resolve, 10));
   queue.close();
   assertEquals(await drained, 0);
@@ -73,7 +73,7 @@ Deno.test("real audio resets the keepalive rather than adding to it", async () =
 
 Deno.test("stops forwarding at the capture ceiling", async () => {
   // A tab left open with a live mic bills Transcribe by the second until someone
-  // notices — the guard BE_PLAN.md §4 asks for.
+  // notices, the guard BE_PLAN.md §4 asks for.
   let limitReached = false;
   const queue = new AudioQueue({
     keepaliveIdleMs: 60_000,

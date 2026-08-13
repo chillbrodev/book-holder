@@ -22,13 +22,13 @@ export type ToolJsonSchema = Extract<
 import { ConfigClient } from "../config-client/configClient.ts";
 
 /**
- * Bedrock, via the **Converse** API on the `bedrock-runtime` endpoint.
+ * Bedrock, via the Converse API on the `bedrock-runtime` endpoint.
  *
  * Not `bedrock-mantle`, even though AWS recommends it for some models: mantle's
  * documented auth is a long-term Bedrock API key
  * (`AWS_BEARER_TOKEN_BEDROCK`/`OPENAI_API_KEY`). That is a static credential
  * that would have to be minted, stored in Secrets Manager, and rotated by hand
- * — a step down from what this service already has, where the ECS task role
+ * , a step down from what this service already has, where the ECS task role
  * supplies credentials that nothing persists. `bedrock-runtime` goes through
  * the SDK's default provider chain exactly like PollyClient and S3Client, so
  * the same code path works locally (env keys from create-dev-user.sh) and
@@ -51,10 +51,10 @@ function getClient(): BedrockRuntimeClient {
       // and a block that takes six tries still costs one synthesis. This call
       // sits inside a live rehearsal: she says a beat and the next one is
       // seconds behind it, so a long backoff ladder is worse than a fast
-      // failure that BE_PLAN §8's fuzzy-match fallback can cover.
+      // failure that BE_PLAN §5's fuzzy-match fallback can cover.
       retryMode: "standard",
       maxAttempts: 2,
-      // BE_PLAN §7 asks for request timeouts on every Bedrock/Polly/Transcribe
+      // BE_PLAN §4 asks for request timeouts on every Bedrock/Polly/Transcribe
       // call. Without one the SDK will wait on a hung socket far past the point
       // where the answer is still useful to someone mid-scene.
       requestHandler: { requestTimeout: 8000 },
@@ -63,7 +63,7 @@ function getClient(): BedrockRuntimeClient {
   return client;
 }
 
-/** What a Converse call cost, for the budget tracking BE_PLAN §7 wants. */
+/** What a Converse call cost, for the budget tracking BE_PLAN §4 wants. */
 export interface ConverseUsage {
   inputTokens: number;
   outputTokens: number;
@@ -83,8 +83,8 @@ export interface ConverseJsonResult<T> {
  * Ask a model for one JSON object matching `schema`.
  *
  * Uses a single-tool `toolConfig` rather than Bedrock's structured-outputs
- * feature, because **Nova Micro and Nova Lite do not support structured
- * outputs** — both model cards list it explicitly under "Not Supported" — while
+ * feature, because Nova Micro and Nova Lite do not support structured
+ * outputs, both model cards list it explicitly under "Not Supported", while
  * client-side tool calling is supported on both. A forced call to a tool whose
  * input schema *is* the response schema is the way to get a guaranteed shape
  * out of Nova.
@@ -93,7 +93,7 @@ export interface ConverseJsonResult<T> {
  * varies by model and is not stated on Nova's card either way; if a model
  * ignores the forcing and replies in prose, scraping the JSON out is far better
  * than failing a beat mid-scene. If `recoveredFromText` ever comes back true in
- * practice, that's the signal to revisit the toolChoice shape — not to widen
+ * practice, that's the signal to revisit the toolChoice shape, not to widen
  * the parser.
  */
 export const BedrockClient = {
@@ -204,7 +204,7 @@ export interface AgentTool {
   /** Runs server-side. Whatever it returns is JSON-encoded back to the model. */
   run: (input: Record<string, unknown>) => Promise<unknown>;
   /**
-   * Calling this tool *is* the answer — the loop stops and returns its input.
+   * Calling this tool *is* the answer, the loop stops and returns its input.
    *
    * The alternative is asking for prose that happens to be JSON on the final
    * turn, which is where this loop first broke: Nova Lite reasoned correctly
@@ -213,7 +213,7 @@ export interface AgentTool {
    * shape or does not arrive.
    *
    * Deliberately *not* the same as `converseJson`'s forced `toolChoice`. Nothing
-   * compels the model to call this — it decides when it has seen enough — which
+   * compels the model to call this; it decides when it has seen enough, which
    * is what keeps "I have nothing to recommend" expressible rather than
    * something it must dress up as a recommendation.
    */
@@ -221,7 +221,7 @@ export interface AgentTool {
 }
 
 export interface AgentTurn {
-  /** Which tool, and what the model asked for. Kept for the transcript — an
+  /** Which tool, and what the model asked for. Kept for the transcript, an
    * agent whose reasoning cannot be inspected is very hard to trust or debug. */
   tool: string;
   input: Record<string, unknown>;
@@ -237,7 +237,7 @@ export interface AgentResult {
   turns: AgentTurn[];
   usage: ConverseUsage;
   /** True when the loop hit `maxTurns` with the model still asking for tools.
-   * The text is then whatever it had said last, which may be nothing — callers
+   * The text is then whatever it had said last, which may be nothing, callers
    * must treat this as "no recommendation" rather than as an answer. */
   exhausted: boolean;
 }
@@ -248,8 +248,8 @@ export interface AgentResult {
  * Not a budget so much as a stop: a model that has asked for eight tools and
  * still has nothing to say is looping, not thinking, and the failure mode
  * without this is an agent that quietly bills forever. Generous enough that a
- * genuine plan — check her progress, look at recent misses, find what is like
- * them, decide — never reaches it.
+ * genuine plan, check her progress, look at recent misses, find what is like
+ * them, decide, never reaches it.
  */
 const MAX_AGENT_TURNS = 8;
 
@@ -258,14 +258,14 @@ const MAX_AGENT_TURNS = 8;
  * back, repeat until it answers in prose.
  *
  * Distinct from `converseJson` above, and the difference is the point.
- * `converseJson` *forces* one named tool and reads its arguments as the answer —
+ * `converseJson` *forces* one named tool and reads its arguments as the answer,
  * a way of getting structured output, not a way of letting a model act. This
  * lets the model choose which tools it wants, in what order, and how many times,
  * which is what makes the coach an agent rather than a prompt with a schema.
  *
  * The message history is the loop's whole state. Every assistant turn goes back
  * verbatim, including its `toolUse` blocks, and each result is appended as a
- * `toolResult` matching the `toolUseId` — Bedrock rejects the next call
+ * `toolResult` matching the `toolUseId`, Bedrock rejects the next call
  * outright if a tool use has no matching result, so a tool that throws must
  * still answer, with its error as content. A failed lookup is information the
  * model can work around; a dropped one ends the conversation.
@@ -289,7 +289,7 @@ export async function converseWithTools(input: {
       },
     })),
     // No toolChoice: the model decides whether it needs anything at all. Forcing
-    // a tool here would defeat the purpose — and on a rehearsal with no history
+    // a tool here would defeat the purpose, and on a rehearsal with no history
     // the right number of tool calls really is zero.
   };
 
@@ -342,7 +342,7 @@ export async function converseWithTools(input: {
       const args = (use.input ?? {}) as Record<string, unknown>;
       turns.push({ tool: use.name ?? "(unknown)", input: args });
 
-      // A terminal tool ends the conversation — its arguments are the answer,
+      // A terminal tool ends the conversation; its arguments are the answer,
       // so there is nothing to feed back and no reason to pay for another turn.
       if (tool?.terminal) {
         return {
@@ -362,7 +362,7 @@ export async function converseWithTools(input: {
       } catch (err) {
         // Answered, not dropped. An unanswered toolUse makes the *next* request
         // invalid, so a thrown tool would end the conversation rather than
-        // degrade it — and the model can usually route around a failed lookup.
+        // degrade it, and the model can usually route around a failed lookup.
         payload = {
           error: err instanceof Error ? err.message : "Tool failed.",
         };

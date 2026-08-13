@@ -5,7 +5,7 @@ export interface StageDirectionProps {
   children: ReactNode
 }
 
-/** Centered, italic, muted stage direction — inline between speech blocks, never a card or modal. */
+/** Centered, italic, muted stage direction, inline between speech blocks, never a card or modal. */
 export function StageDirection({ children }: StageDirectionProps) {
   return <div className={styles.direction}>{children}</div>
 }

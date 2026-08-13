@@ -19,7 +19,7 @@ function normalizeKey(name: string): string {
 }
 
 /** Splits a <PERSONA> line into a name guess and trailing description, on the
- * first comma — e.g. "FENTON, a gentleman." -> ("FENTON", "a gentleman."). */
+ * first comma, e.g. "FENTON, a gentleman." -> ("FENTON", "a gentleman."). */
 function splitPersona(rawText: string): { nameGuess: string; description: string | null } {
   const commaIndex = rawText.indexOf(",");
   if (commaIndex === -1) return { nameGuess: rawText.trim(), description: null };
@@ -33,7 +33,7 @@ const CHORUS_KEY = "__CHORUS__";
 const ALL_KEY = "ALL";
 
 /** A run of consecutive lines within one speech, uninterrupted by any stage
- * direction — the unit of display and of a single Polly render. */
+ * direction, the unit of display and of a single Polly render. */
 type SpeechBlock =
   | { kind: "lines"; lines: ParsedLine[] }
   | { kind: "action"; text: string };
@@ -47,7 +47,7 @@ type SpeechBlock =
  *  - a <STAGEDIR> sibling of <LINE> ("Knocks" mid-speech), and
  *  - a <LINE> carrying its own nested <STAGEDIR> when it isn't the first line
  *    of the block. That direction prefixes its line's text, so cutting before
- *    it is what keeps it in the right place — and it means only a block's
+ *    it is what keeps it in the right place, and it means only a block's
  *    *first* line can carry one, which is why LineRow.stage_direction is a
  *    single value with nothing to drop.
  */
@@ -110,7 +110,7 @@ function resolveSpeakerKey(rawSpeakerName: string): {
  * script only ever uses SPEAKER "Host"; "First Servant"/"Second Servant" never
  * appear in PERSONAE at all. Deriving identity from usage means every speaking
  * role gets a row; PERSONAE is only consulted afterward, best-effort, to add
- * flavor-text descriptions — never to gate whether a character gets created.
+ * flavor-text descriptions, never to gate whether a character gets created.
  */
 export function buildRows(parsed: ParsedPlay, sourceUrl: string | null): BuiltPlay {
   const playId = randomUUID();
@@ -131,7 +131,7 @@ export function buildRows(parsed: ParsedPlay, sourceUrl: string | null): BuiltPl
 
   // Best-effort description enrichment from PERSONAE: exact match first, then
   // a prefix fallback for cases like SPEAKER "Host" vs PERSONA "Host of the
-  // Garter Inn." Not critical-path — nothing downstream depends on getting
+  // Garter Inn." Not critical-path, nothing downstream depends on getting
   // every description right, this is flavor text only.
   const personaEntries = parsed.personae.map((p) => splitPersona(p.rawText));
   const exactMap = new Map<string, string | null>();
@@ -191,11 +191,11 @@ export function buildRows(parsed: ParsedPlay, sourceUrl: string | null): BuiltPl
 
   for (const scene of parsed.scenes) {
     let speechNumber = 0;
-    // Scene-local beat sequence — populates LineRow.line_number, and anchors
+    // Scene-local beat sequence, populates LineRow.line_number, and anchors
     // stage directions via after_line_number.
     let lineNumber = 0;
     let stageDirSequence = 0;
-    // Scene-local block sequence — only used to break id ties, see ids.ts.
+    // Scene-local block sequence: only used to break id ties, see ids.ts.
     let blockIndex = 0;
 
     for (const item of scene.items) {
@@ -239,7 +239,7 @@ export function buildRows(parsed: ParsedPlay, sourceUrl: string | null): BuiltPl
       for (const block of splitSpeechIntoBlocks(item.items)) {
         if (block.kind === "action") {
           // Mid-speech stage direction (e.g. "Knocks" between two lines of
-          // the same speaker) — same table as scene-level ones, anchored to
+          // the same speaker), same table as scene-level ones, anchored to
           // the beat it follows via after_line_number.
           pushStageDirection(block.text);
           continue;
@@ -285,7 +285,7 @@ export function buildRows(parsed: ParsedPlay, sourceUrl: string | null): BuiltPl
             .map((_, i) => i)
             .filter((i) => joined.lineRanges[i].start < end && joined.lineRanges[i].end > start);
           const sourceLines = spannedIndices.map((i) => block.lines[i].text);
-          // Compared by line index, not by text — a song refrain can repeat an
+          // Compared by line index, not by text; a song refrain can repeat an
           // identical line inside one block, and equality would misread that as
           // a straddled boundary.
           const sharesFirst = spannedIndices[0] === previousLastLine;

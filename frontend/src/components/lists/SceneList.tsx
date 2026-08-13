@@ -8,7 +8,7 @@ export interface SceneListProps {
   onSelect: (scene: SceneSummary) => void
 }
 
-/** Act-grouped scene rows — lifted out of the old scene-picker page so the
+/** Act-grouped scene rows, lifted out of the old scene-picker page so the
  * play page can show it inline underneath the role grid. */
 export function SceneList({ scenes, onSelect }: SceneListProps) {
   return (

@@ -3,13 +3,13 @@
 //
 // What it exercises that a unit test cannot: the real WebSocket route, a real
 // Transcribe stream, and a real Bedrock call, in the order and on the connection
-// the browser uses. What it deliberately does NOT exercise is speech — it opens
+// the browser uses. What it deliberately does NOT exercise is speech, it opens
 // the socket and immediately says "done", so no audio is ever forwarded.
 //
 // That is the useful case rather than a degenerate one. A block where she said
 // nothing is a real outcome (she skipped it, or the mic never picked her up),
 // and the expected result is a complete event with every `heard` empty followed
-// by a scored event with every beat **dry** at confidence 0 — which is also the
+// by a scored event with every beat dry at confidence 0, which is also the
 // one judgement the rubric is forbidden from getting wrong in her favour.
 //
 // Bills: one Transcribe stream (minimum 15 billed seconds, see capture-plan.md

@@ -3,10 +3,10 @@
 // This exists because the thing most likely to be wrong about this feature
 // cannot be unit tested. `docs/coaching-plan.md` §8 records the first real Nova
 // call returning the note *"the capitalization of 'Songs' and 'Sonnets' was
-// missed"* — about a speech the actor said out loud. Nothing about that is
+// missed"*, about a speech the actor said out loud. Nothing about that is
 // visible in a type, a mock, or a schema; it only shows up when a real model
-// reads the real rubric. So the rubric's actual job — knowing it is reading a
-// speech-to-text transcript — is verified here or nowhere.
+// reads the real rubric. So the rubric's actual job, knowing it is reading a
+// speech-to-text transcript, is verified here or nowhere.
 //
 // No database. The block below is synthetic and chosen to put one of each case
 // in front of the model at once, including the two that were observed going
@@ -21,16 +21,16 @@ import type { CoachBlockInput } from "../features/coaching/service.ts";
 /**
  * Four beats, each testing something different:
  *
- * 1. Clean delivery, only transcriber artifacts — no capitals, no punctuation,
- *    "star chamber" split. Must be **solid**, and must draw no note about
+ * 1. Clean delivery, only transcriber artifacts: no capitals, no punctuation,
+ *    "star chamber" split. Must be solid, and must draw no note about
  *    spelling or punctuation. This is the §8 regression.
  * 2. Real transcriber damage on a proper noun, taken from an actual run
  *    (`sessions/test/score.test.ts`): "'Custalourum" came back "Castellorum",
- *    and "Ay" came back "I". She said it. Must be **solid**.
- * 3. A genuine paraphrase — the meaning is there, the words are not. This is
+ *    and "Ay" came back "I". She said it. Must be solid.
+ * 3. A genuine paraphrase; the meaning is there, the words are not. This is
  *    the case word overlap cannot see and the whole reason for using a model.
- *    Must be **close**.
- * 4. Nothing heard. Must be **dry** at confidence 0, with no benefit of the
+ *    Must be close.
+ * 4. Nothing heard. Must be dry at confidence 0, with no benefit of the
  *    doubt.
  */
 const BLOCK: CoachBlockInput = {
@@ -80,7 +80,7 @@ const FORBIDDEN_IN_NOTE = [
   "comma",
   "apostrophe",
   "transcri",
-  // Added after a real run produced "the name 'Custalourum' was misheard" —
+  // Added after a real run produced "the name 'Custalourum' was misheard",
   // technically true, about the transcriber, and useless to an actor who said
   // the word correctly. The rubric bans mentioning the transcriber; this is
   // that same instruction being evaded by not using the word.
@@ -124,7 +124,7 @@ if (import.meta.main) {
   );
 
   // The quote test, checked rather than trusted. A note either carries words
-  // lifted from the written speech or it is filler that restates the marks —
+  // lifted from the written speech or it is filler that restates the marks,
   // and filler is no longer harmless, because the rehearsal now *pauses* on a
   // note (`coaching-plan.md` §4). A note that says nothing costs her six
   // seconds of a scene.

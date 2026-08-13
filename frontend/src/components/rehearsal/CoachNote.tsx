@@ -17,9 +17,9 @@ export interface CoachNoteProps {
  * what to do about it, and it is the only thing here that read her whole
  * history rather than this session.
  *
- * **Nothing renders when there is nothing to say.** The agent can answer "none",
+ * Nothing renders when there is nothing to say. The agent can answer "none",
  * and a clean run should get silence rather than an empty panel or manufactured
- * praise — a coach that speaks after every run is one you stop listening to.
+ * praise, a coach that speaks after every run is one you stop listening to.
  * Absence is the design, not a gap in it.
  *
  * It is also deliberately not styled as an alert. Terracotta belongs to "worth

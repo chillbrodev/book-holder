@@ -25,7 +25,7 @@ app.get(
   // `version` is the deploying commit, injected as APP_VERSION by
   // ecs-deploy.sh and the deploy workflow. Without it a deploy check can only
   // ask "is something answering", which the *previous* revision also does
-  // happily while a rollout is still in progress — so CI would call a deploy
+  // happily while a rollout is still in progress, so CI would call a deploy
   // green before the new code was serving any traffic. "dev" locally, where
   // nothing sets it.
   "/health",
@@ -52,7 +52,7 @@ app.onError((err, c) => {
     return err.getResponse();
   }
 
-  // No error-tracking service wired up yet (see BE_PLAN.md) — plain stderr
+  // No error-tracking service wired up yet (see BE_PLAN.md), plain stderr
   // for now, swap for a real logger call when one exists. skipReporting on
   // BaseError subclasses is where that logger would branch once it exists.
   console.error(err);

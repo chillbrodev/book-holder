@@ -2,7 +2,7 @@ import { blockVerseLines, groupIntoBlocks } from "./blocks.js";
 import { SEGMENT_LIMITS } from "./segment.js";
 import type { BuiltPlay, ParsedPlay } from "./types.js";
 
-/** Reconstructs the play as plain text from the intermediate parse model —
+/** Reconstructs the play as plain text from the intermediate parse model,
  * meant to be read next to the real play text to catch parsing mistakes
  * before anything is written to a file that gets embedded or imported. */
 export function renderScript(parsed: ParsedPlay): string {
@@ -43,7 +43,7 @@ export function renderScript(parsed: ParsedPlay): string {
 }
 
 /**
- * The play as the app will actually segment it — every speech-block with its
+ * The play as the app will actually segment it, every speech-block with its
  * verse lines above the beats they were cut into. This is the file to read when
  * checking a parse: the `verse:` half shows the join (broken words rejoined,
  * dashes left alone), the `beats:` half shows the split.
@@ -171,7 +171,7 @@ export function renderBeatSummary(built: BuiltPlay): string[] {
 }
 
 /** One line per character: name, best-effort description, synthetic flag, and
- * how many beats they speak — for sanity-checking the PERSONAE fuzzy-match
+ * how many beats they speak, for sanity-checking the PERSONAE fuzzy-match
  * pass (e.g. did "Host" pick up its description? do genuinely undescribed
  * roles like "First Servant" correctly show no description, not an error?). */
 export function renderCharacterSummary(built: BuiltPlay): string {

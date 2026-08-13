@@ -24,7 +24,7 @@ import {
  * deadline, so one delayed timer doesn't cost the session.
  *
  * Generated here rather than asked of the client on purpose: the client going
- * quiet — a backgrounded tab, a wedged worklet, a flaky connection — is one of
+ * quiet, a backgrounded tab, a wedged worklet, a flaky connection, is one of
  * the cases this is protecting against, so it cannot be the thing responsible
  * for preventing it. */
 const KEEPALIVE_IDLE_MS = 5_000;
@@ -41,7 +41,7 @@ const KEEPALIVE_SILENCE_MS = 200;
  * The longest block in the corpus is 104.7 seconds of Polly delivery, so 180
  * gives comfortable headroom for a human taking her time, and still bounds what
  * a stuck client can spend. Without a ceiling, a browser tab left open with a
- * live mic bills Transcribe until someone notices — the runaway-call guard
+ * live mic bills Transcribe until someone notices, the runaway-call guard
  * BE_PLAN.md §4 asks for, applied to the one path here that bills by the second.
  */
 const MAX_CAPTURE_SECONDS = 180;
@@ -80,7 +80,7 @@ export class AudioQueue {
     this.#onLimitReached = options.onLimitReached;
   }
 
-  /** Seconds of audio actually forwarded — what Transcribe bills on, keepalive
+  /** Seconds of audio actually forwarded, what Transcribe bills on, keepalive
    * silence included, so it can be logged against the real cost. */
   get secondsForwarded(): number {
     return this.#bytesForwarded /
@@ -155,8 +155,8 @@ export class AudioQueue {
         }
       }
     } finally {
-      // Covers the abnormal exits too — an SDK error, or the consumer breaking
-      // out of the loop — so a dropped stream can never leave a timer holding
+      // Covers the abnormal exits too, an SDK error, or the consumer breaking
+      // out of the loop, so a dropped stream can never leave a timer holding
       // the process awake.
       this.#clearKeepalive();
       this.#closed = true;

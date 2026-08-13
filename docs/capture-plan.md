@@ -10,7 +10,7 @@ block, beats as scoring boundaries, alignment as a rolling fuzzy match. This doc
 settles the *mechanics* underneath it, and records the measurements that decided
 them so nobody re-derives them from scratch.
 
-`BE_PLAN.md` §7 listed "settle **streaming vs post-utterance** first" as a
+The backend plan listed "settle **streaming vs post-utterance** first" as a
 blocking question. This is that decision.
 
 ---
@@ -83,9 +83,9 @@ room, or a real actor's pacing. That pass still needs a person and a microphone.
 
 ## 3. Audio format: PCM off an AudioWorklet, not MediaRecorder
 
-**This corrects `FE_PLAN.md`**, which lists a "cross-browser `MediaRecorder`/mic
-permission" check. `MediaRecorder` is the wrong tool here and the check as
-written would validate the wrong thing.
+**This corrected an earlier plan** that called for a cross-browser
+`MediaRecorder` check. `MediaRecorder` is the wrong tool here, and that check
+would have validated the wrong thing.
 
 Transcribe streaming accepts three encodings: `pcm`, `flac`, `ogg-opus`.
 `MediaRecorder` emits none of them portably — Chrome gives
@@ -181,7 +181,7 @@ for exactly the characters worth rehearsing, because their parts are dialogue
 (many short blocks) rather than oratory. Across all characters it ranges 1.8×
 (Falstaff, who speaks in paragraphs) to 3.1×.
 
-**This redoes the cost line `BE_PLAN.md` §7 asked to have redone.**
+**This redoes the cost line `BE_PLAN.md` §4 asked to have redone.**
 `PROJECT_PLAN.md` §9 estimated $3–4/month for Transcribe by assuming ~130 billed
 minutes; the shape is right and the reasoning ("driven by the per-request
 minimum, not audio length") was exactly correct. Concretely: a full scene run
@@ -346,10 +346,12 @@ this document:
   anything.
 - **ALB idle timeout** against a deployed environment (§4). The only capture
   question left that local verification cannot answer.
-- **A pass with a real voice.** Everything in §2 was measured against Polly, which
-  is a deterministic stand-in, not an actor: no room noise, no hesitation, no
-  restarting a line halfway through. The fuzzy-match threshold (§1a) can't be
-  settled without that.
+- ~~**A pass with a real voice.**~~ **Done.** Everything in §2 was measured
+  against Polly, a deterministic stand-in with no room noise, hesitation, or
+  half-restarted lines. Real rehearsals have since run end to end and the capture
+  path held up. What that unblocked is the fuzzy-match threshold (`OPEN_ITEMS.md`
+  §1a), which now has real transcripts to fit against rather than guesses, and is
+  still unset.
 - **Barge-in.** Nothing yet stops Polly's audio for the previous character
   bleeding into her mic and being transcribed as her words. Echo cancellation in
   `getUserMedia` constraints is the cheap first answer; headphones are the real

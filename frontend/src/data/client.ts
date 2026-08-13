@@ -3,15 +3,15 @@
  *
  * This module began as a stub layer shaped after the database schema rather
  * than after whatever the screens happened to want, so that swapping in a real
- * fetch needed no caller changes. It worked — the callers never moved. Worth
+ * fetch needed no caller changes. It worked; the callers never moved. Worth
  * knowing because the shapes here look over-engineered for a mock and weren't.
  *
  * Still mock/localStorage-backed, on purpose: getSelectedRole/selectRole's
- * persistence. Nothing else — the Prompt Book came off fixtures on August 12
+ * persistence. Nothing else, the Prompt Book came off fixtures on August 12
  * 2026 and reads `sessions/prompt-book`.
  *
  * The wrap-up used to be here too. It now reads the real session from
- * `sessionClient.getSessionSummary` — `session_history` and `line_mastery` do
+ * `sessionClient.getSessionSummary`, `session_history` and `line_mastery` do
  * exist server-side, so a fixture was no longer a stand-in for something
  * missing, it was just a wrong number.
  */
@@ -37,7 +37,7 @@ export interface LastScene {
 
 /** Where she stopped last, so the play page can offer to resume rather than
  * making her find her place again. localStorage for the same reason the role
- * is — session_history doesn't exist server-side yet. */
+ * is, session_history doesn't exist server-side yet. */
 export function getLastScene(playId: string): Promise<LastScene | null> {
   const raw = localStorage.getItem(lastSceneStorageKey(playId))
   if (!raw) return Promise.resolve(null)
@@ -46,7 +46,7 @@ export function getLastScene(playId: string): Promise<LastScene | null> {
     const { act, scene } = parsed as Partial<LastScene>
     return Promise.resolve(typeof act === 'string' && typeof scene === 'string' ? { act, scene } : null)
   } catch {
-    // Hand-edited or half-written value — treat as "no saved place" rather
+    // Hand-edited or half-written value, treat as "no saved place" rather
     // than breaking the play page on load.
     return Promise.resolve(null)
   }
@@ -57,7 +57,7 @@ export function setLastScene(playId: string, act: string, scene: string): void {
 }
 
 /** The character the user is actually rehearsing as right now, or '' if none selected yet
- * (matches nothing, so isUserLine is false for every line — the picker flow redirects to
+ * (matches nothing, so isUserLine is false for every line, the picker flow redirects to
  * role-select before this matters in practice). */
 function getEffectiveCharacterId(playId: string): string {
   return localStorage.getItem(roleStorageKey(playId)) ?? ''
@@ -99,7 +99,7 @@ interface RawBeat {
 type RawDialogueEntry = { type: 'stage'; text: string } | RawBeat
 
 /**
- * Groups beats into blocks — one speaker header, one paragraph, one Polly
+ * Groups beats into blocks, one speaker header, one paragraph, one Polly
  * render.
  *
  * Groups *consecutive* beats sharing a blockId, not every beat with that id: a
@@ -130,7 +130,7 @@ function toDialogueItems(raw: RawDialogueEntry[], userCharacterId: string): Dial
       continue
     }
 
-    // Only the primary speaker's id is carried forward — Polly voices one
+    // Only the primary speaker's id is carried forward, Polly voices one
     // character per block, and joint-speech blocks are rare (BE_PLAN.md §1a).
     const coSpeakerNames = entry.speakerNames.slice(1)
     items.push({
@@ -148,7 +148,7 @@ function toDialogueItems(raw: RawDialogueEntry[], userCharacterId: string): Dial
   return items
 }
 
-/** A block's verse lines, each exactly once — what a verse display renders.
+/** A block's verse lines, each exactly once, what a verse display renders.
  *
  * A beat boundary usually falls mid-line, so that line is the last entry of one
  * beat and the first of the next. `sharesFirstSourceLine` marks exactly that,
@@ -214,7 +214,7 @@ export async function getScenesSummary(playId: string, characterId?: string): Pr
     sceneOrder: s.sceneOrder,
     title: `Scene ${s.scene}`,
     description: s.description ?? undefined,
-    // No session_history/line_mastery yet — every scene is legitimately
+    // No session_history/line_mastery yet, every scene is legitimately
     // "not started," not a fake fraction. isCurrent likewise always false;
     // the play page's resume card reads the locally-stored last scene instead.
     mastered: 0,
@@ -232,7 +232,7 @@ export async function getSceneDialogue(playId: string, act: string, scene: strin
 
 /** The Prompt Book's drill on a flagged beat opens that beat's whole *block*.
  * A beat is one thought, and practising it with no run-up into it isn't how the
- * speech is delivered — the API returns the block, the page marks the beat. */
+ * speech is delivered, the API returns the block, the page marks the beat. */
 export async function getSingleLineDialogue(playId: string, lineId: string): Promise<DialogueItem[]> {
   const userCharacterId = getEffectiveCharacterId(playId)
   const raw = await apiRequest<RawDialogueEntry[]>(`/plays/${playId}/lines/${lineId}/block`)

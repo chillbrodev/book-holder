@@ -24,7 +24,7 @@ export interface IconProps {
 }
 
 /**
- * Placeholder outline icon set (no real icon library was specified in the design system) — a
+ * Placeholder outline icon set (no real icon library was specified in the design system), a
  * small hand-built set in a 24x24, 2px-stroke style similar to Lucide. The `name` prop API is
  * kept stable so a real icon library can swap the internals later without touching call sites.
  */

@@ -17,7 +17,7 @@ export type CacheResult = {
   cached: boolean;
 };
 
-/** Lowercase, hyphen-separated, alnum only — S3 keys allow almost anything,
+/** Lowercase, hyphen-separated, alnum only, S3 keys allow almost anything,
  * but slugifying keeps the bucket console-browsable and avoids surprises
  * from spaces/punctuation in a title or character name. */
 export function slugify(text: string): string {
@@ -27,15 +27,15 @@ export function slugify(text: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-/** {play}/{character}/{blockId}__{voiceId}__{engine}.mp3 — grouped for
+/** {play}/{character}/{blockId}__{voiceId}__{engine}.mp3, grouped for
  * browsability in the S3 console (was a flat {lineId}/{voiceId}.mp3, which is
  * unreadable at a glance). voiceId stays in the filename, not just implied by
  * character, so changing a character's voice doesn't silently serve stale
  * audio under the same path.
  *
  * The engine is in the key for exactly that reason, learned the hard way: it
- * wasn't, and audio rendered by the generative engine — including three
- * renders with sentences Shakespeare didn't write — stayed live under a key
+ * wasn't, and audio rendered by the generative engine, including three
+ * renders with sentences Shakespeare didn't write, stayed live under a key
  * that said nothing about how it was produced. Switching engines could not
  * dislodge it, because a cache hit is `objectExists` and nothing else. Now a
  * change of engine is a change of key.
@@ -43,7 +43,7 @@ export function slugify(text: string): string {
  * Keyed on the *block*, not the beat: a speech is synthesized once, whole.
  * Rendering it beat by beat gives each fragment sentence-final intonation and
  * a trailing pause, which is audible as stop-start delivery and is baked into
- * the bytes — see docs/beats-and-blocks-plan.md §1. */
+ * the bytes. See docs/beats-and-blocks-plan.md §1. */
 function cacheKey(
   playTitle: string,
   characterName: string,
@@ -84,7 +84,7 @@ async function synthesizeAndCache(
   try {
     audio = await PollyClient.synthesizeSpeech(text, voiceId);
   } catch (err) {
-    // No cached audio and Polly errored/timed out — surface the block text
+    // No cached audio and Polly errored/timed out, surface the block text
     // so the caller can fall back to a text-only prompt instead of
     // blocking the rehearsal (BE_PLAN.md §5).
     throw new PollyError(
@@ -109,15 +109,15 @@ async function synthesizeAndCache(
  * for.
  *
  * The failure this catches is a speech engine that keeps talking past the end
- * of the input — audio that is a valid MP3 in the right voice under the right
+ * of the input, audio that is a valid MP3 in the right voice under the right
  * key, and simply contains words nobody wrote. Nothing downstream can detect
  * that: a cache hit is a HeadObject, so once such a render is stored it is
  * served forever, and block ids are content-derived, so even re-importing the
  * play lands on the same key. The only moment it can be caught is here,
  * before the PutObject.
  *
- * Throws rather than retrying. The neural engine is deterministic — an
- * identical request returns identical bytes — so a retry would re-fetch the
+ * Throws rather than retrying. The neural engine is deterministic, an
+ * identical request returns identical bytes, so a retry would re-fetch the
  * same bad audio at the same cost. Better to leave the block with no audio,
  * which degrades to a text-only prompt the caller already handles, and to say
  * loudly why.
@@ -128,7 +128,7 @@ function assertPlausibleLength(
   blockId: string,
 ): void {
   const duration = mp3DurationSeconds(audio);
-  // Unreadable header — not evidence of bad audio, so it isn't grounds to
+  // Unreadable header, not evidence of bad audio, so it isn't grounds to
   // discard an otherwise fine render. See mp3DurationSeconds.
   if (duration === undefined) return;
 
@@ -151,7 +151,7 @@ export const PollyService = {
    * present, otherwise calls Polly and caches the result before returning.
    * See docs/BE_PLAN.md §4 (cost control) and §5 (graceful degradation).
    *
-   * Voice comes from characters.polly_voice_id, not an env var — a play's
+   * Voice comes from characters.polly_voice_id, not an env var, a play's
    * characters are already play-scoped in the schema, so this lets two
    * plays' same-named characters carry different voices, and lets a voice
    * be changed with an UPDATE instead of an env edit + redeploy. */
@@ -167,11 +167,11 @@ export const PollyService = {
     }
 
     // The block's beats concatenated in order, server-side. The client sends
-    // only a block id — it can't send an ordered list of beats, because only
+    // only a block id; it can't send an ordered list of beats, because only
     // the importer knew where a stage direction split the speech, and that
     // grouping is persisted as block_id rather than re-derived here.
     //
-    // Joins through line_speakers rather than trusting characterId blindly —
+    // Joins through line_speakers rather than trusting characterId blindly,
     // a line can have more than one speaker (docs/BE_PLAN.md §1a), so this
     // also confirms the requested character actually speaks this block.
     const result = await DbClient.getPool().query(
@@ -217,7 +217,7 @@ export const PollyService = {
    * latency. Caller already has the block text (bulk-fetched), so this skips
    * the per-block DB round trip getBlockAudio does.
    *
-   * Must key identically to getBlockAudio — a warm run keyed even slightly
+   * Must key identically to getBlockAudio, a warm run keyed even slightly
    * differently pays for a full synthesis pass and then misses on every real
    * request. */
   async warmBlock(

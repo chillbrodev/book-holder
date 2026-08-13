@@ -4,7 +4,7 @@ import type { CoachBlockInput } from "../service.ts";
 
 /**
  * The model is not called here. These cover the paths that have to hold when it
- * answers badly or not at all — which is the half of this feature that runs in
+ * answers badly or not at all, which is the half of this feature that runs in
  * front of an actor on a bad day, and the half a live call can't demonstrate.
  * The rubric's own behaviour is verified against real Bedrock by
  * `scripts/testCoachBlock.ts`, because that is the only thing that can.
@@ -38,7 +38,7 @@ Deno.test("the fallback answers every beat and says it is the fallback", () => {
   assertEquals(result.source, "fallback");
   assertEquals(result.beats.length, 2);
   assertEquals(result.beats.map((beat) => beat.lineId), ["line-1", "line-2"]);
-  // No invented note — that is the part that needed a model.
+  // No invented note; that is the part that needed a model.
   assertEquals(result.note, "");
 });
 
@@ -53,7 +53,7 @@ Deno.test("the fallback calls a clean delivery solid and a blank one dry", () =>
 });
 
 Deno.test("a block with no beats is not a Bedrock call", async () => {
-  // Guard rather than a case — the importer doesn't produce one. It matters
+  // Guard rather than a case, the importer doesn't produce one. It matters
   // only because the alternative is paying for a call that can say nothing.
   const result = await CoachingService.coachBlock({
     blockId: "empty",
@@ -69,8 +69,8 @@ Deno.test("a block with no beats is not a Bedrock call", async () => {
 Deno.test("coachBlock never throws when the model call fails", async () => {
   // The whole contract of this module in one test: `BE_PLAN.md` §5 says a
   // rehearsal is never blocked on the model. A model id that cannot resolve
-  // exercises the real failure path — a genuine Bedrock round trip that comes
-  // back a validation error — rather than a mock of one. Nothing is billed for
+  // exercises the real failure path, a genuine Bedrock round trip that comes
+  // back a validation error, rather than a mock of one. Nothing is billed for
   // a request that never reaches a model.
   const result = await CoachingService.coachBlock(SHALLOW, {
     modelId: "definitely-not-a-model",

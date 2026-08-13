@@ -1,122 +1,62 @@
 # Backend Plan — `api`
 
-Companion to `PROJECT_PLAN.md`. This doc covers the Deno + Hono rehearsal agent in enough detail to build
-against: the endpoint/flow breakdown, the read-decide-act-write loop made concrete, cost controls, and
-production-readiness — plus the tools and docs needed to build it.
+Companion to `PROJECT_PLAN.md`. This doc covers the Deno + Hono rehearsal agent: the endpoint/flow
+breakdown, the read-decide-act-write loop made concrete, cost controls, and production readiness.
+
+**This is a decision record, not a status page.** It says why things are the way they are, and what each
+choice cost to learn. It deliberately does not track what is built; the README does that, and a doc that
+tracks state is a doc that is wrong within a week. Section numbers are stable because code comments cite
+them, so gaps in the numbering are intentional.
 
 ---
 
-## 0. Status
+## 0. Findings that cost something to learn
 
-**Done**: CockroachDB schema migrated — four migrations now (`001_init_schema.sql`, `002_pin_auth.sql`,
-`003_polly_voice_id.sql`, `004_beats_and_blocks.sql`) — and Merry Wives of Windsor imported and verified:
-1 play, 24 characters, **1,705 beats in ~1,060 blocks**, 193 stage directions. That row count is not the
-2,610 this doc used to quote: migration 004 changed what a row in `lines` *is*, from a line of verse to a
-**beat** (one thought). See §1a below and `docs/beats-and-blocks-plan.md`. `api` built on Deno + Hono with
-username+PIN auth (`features/auth`).
+Kept because each one was paid for once and would otherwise be paid for again.
 
-**Deployed, and deploying itself.** `.github/workflows/deploy-api.yml` builds `api/Dockerfile` and rolls the
-ECS Express service on every push to `main` touching `api/**`, authenticating through GitHub's OIDC provider
-rather than stored keys, with `COCKROACHDB_URL`/`ALLOWED_ORIGIN` delivered by Secrets Manager (the workflow
-passes the secret ARN and never reads the values). `infra/aws/ecs-deploy.sh` is **not** that path — it
-bootstraps IAM roles, the S3 cache bucket and the service itself, and stays local and human-run rather than
-handing CI `iam:CreateRole`. `GET /health` returns the deploying commit as `{version}` so a rollout can be
-verified against `git rev-parse --short HEAD` rather than assumed from a 200. Two things the first real runs
-taught, both now fixed in the workflow rather than in a checklist: the image must be built on an arm64 runner
-to match the service's ARM64 platform (an amd64 image dies with `exec format error` and the service silently
-rolls back to the previous revision), and the service endpoint has to be resolved from `ingressPaths` rather
-than a `url` field.
+**The deploy image must be built for arm64.** The ECS service runs on ARM64; an amd64 image dies with
+`exec format error` and the service *silently rolls back to the previous revision*, so the deploy looks
+like it merely didn't take effect. Related: the service endpoint has to be resolved from `ingressPaths`,
+not from a `url` field. Both are fixed in the workflow rather than in a checklist, because a checklist only
+protects whoever remembers to read it.
 
-Polly voice synthesis wired up (`features/polly`, `clients/polly-client`, `clients/s3-client`): `GET
-/polly/blocks/:blockId/audio?characterId=`, cached in S3 per `(block, voice, engine)` and served back via a
-signed URL; falls back to a `VOICE_UNAVAILABLE` error carrying the block text if Polly errors and no cache
-exists (§5 below). **The endpoint is keyed on the block, not the beat** — one speech is one render, and the
-client sends only the block id, because the grouping lives in the database (assigned at import) and must not
-be re-derived from a client-supplied list. No auth gate — like `/plays`, rehearsing (including hearing other
-characters) works fully as a guest; auth is only for persisting progress, which isn't built yet. Every miss
-is still a potential billed AWS call, but the whole play is pre-warmed/cached in S3, so real requests are
-almost always a cheap cache hit — revisit the no-auth call if a play is ever added without pre-warming it.
-Same code path locally and deployed — credentials come from the AWS SDK's default provider chain (env vars
-locally, ECS task role when deployed), not branched in code. `ecs-deploy.sh` also provisions the Polly cache
-S3 bucket and a task role scoped to `polly:SynthesizeSpeech` + bucket read/write/head/list.
+**`s3:ListBucket` on the bucket itself is required, not just object-level actions.** Without it, S3 masks
+"object doesn't exist" as a generic `403` rather than `404` for a scoped IAM principal, which breaks
+cache-miss detection outright. Confirmed by hitting it directly. Both `create-dev-user.sh` and the task
+role grant it.
 
-Cache key is `{play}/{character}/{blockId}__{voiceId}__{engine}.mp3` (slugified play title and character
-name), not a flat `{lineId}/{voiceId}.mp3` — grouped for browsability in the S3 console; see `PollyService`'s
-`cacheKey`/`slugify`. **The engine is in the key deliberately, and everything that varies the audio must
-be.** It wasn't originally, which is exactly how renders from the generative engine survived the switch away
-from it: a cache hit is an S3 `objectExists` — existence, not validity — and nothing re-renders on its own,
-so changing the engine alone could not dislodge them. `synthesizeAndCache` also guards duration
-(`assertPlausibleLength`): a render more than 1.75× longer than its text can account for is discarded rather
-than cached. That threshold is calibrated against the corpus, not guessed — across 1,064 renders the ratio
-of actual to estimated duration has its 99th percentile at 1.47, while the three known-bad renders sat at
-2.17, 2.55 and 4.51. Re-check it if the voices, engine, or speech-rate constants change.
+**Everything that varies the audio must be in the cache key.** The engine was not, originally, which is
+exactly how renders from the generative engine survived the switch away from it: a cache hit is an S3
+`objectExists`, which proves existence and not validity, and nothing ever re-renders on its own. The key
+is `{play}/{character}/{blockId}__{voiceId}__{engine}.mp3`.
 
-`s3:ListBucket` on the bucket itself (not just object-level actions) is required for this to work
-correctly — without it, S3 masks "object doesn't exist" as a generic `403` instead of `404` for a scoped IAM
-principal, which breaks cache-miss detection. Confirmed by hitting this directly; both `create-dev-user.sh`
-and `ecs-deploy.sh`'s task role grant it.
+**The duration guard is calibrated, not guessed.** `assertPlausibleLength` discards any render more than
+1.75× longer than its text can account for. Across 1,064 renders the ratio of actual to estimated duration
+has its 99th percentile at **1.47**, while the three known-bad generative renders sat at **2.17, 2.55 and
+4.51**. Re-check it if the voices, engine, or speech-rate constants change. Background:
+`docs/polly-gen-issue.md`.
 
-Local dev's AWS SDK calls (this is not the AWS CLI) cannot use `aws login` sessions — that session type isn't
-recognized by the SDK's credential chain. `./infra/aws/create-dev-user.sh` provisions a separate, scoped IAM
-user with a permanent key for this; see `infra/aws/README.md`.
+**Neural throttles far harder than expected.** The first neural warm of Merry Wives lost **254 of 1,064
+blocks** to `ThrottlingException` under the SDK's defaults, because "standard" retry mode's fixed backoff
+retries straight into the same wall. The client uses `retryMode: "adaptive"` with `maxAttempts: 8`, and
+bulk warming needs low `--concurrency`. This applies to the live endpoint too, which synthesizes on miss.
 
-Uses the **Neural** engine, and must not go back to Generative. Generative is the more expressive engine and
-was used here first for that reason, but it is LLM-based and non-deterministic: the same string renders
-differently on every call, and occasionally it doesn't stop at the end of the text. Three blocks were cached
-with invented sentences spoken after the real line — Evans's "The dozen white louses…" came back as 21.2s
-against a ~9s baseline, with a fabricated line about Saint George on the end. Neural returns byte-identical
-audio for identical input (verified: three runs of the same line, same md5), so a render cannot drift into
-invention, and it is cheaper — $16 vs $30 per 1M characters, against a 1M-character monthly free tier rather
-than generative's 100K. Full write-up in `docs/polly-gen-issue.md`. Neural also **throttles far harder**: the
-first neural warm of Merry Wives lost 254 of 1,064 blocks to `ThrottlingException` under the SDK's defaults,
-because "standard" retry mode's fixed backoff retries straight into the same wall. The client uses
-`retryMode: "adaptive"` with `maxAttempts: 8`, and bulk warming needs low `--concurrency` — this applies to
-the live endpoint too, which synthesizes on miss.
+**Voice assignment belongs at import, not in an `UPDATE`.** Voices live in `characters.polly_voice_id`
+rather than an env var, so two plays' same-named characters can differ and a change is a row edit rather
+than a redeploy. But a one-shot `UPDATE` survives exactly until the next re-import mints new character
+rows, which is how the original assignment was lost. It now happens in
+`packages/play-importer/src/voices.ts`. Gender is listed explicitly per play rather than inferred: the
+Moby source has no reliable signal, and the failure mode of a guess is voicing a character wrong for an
+entire play. A play with no list warns loudly rather than silently voicing every woman as a man.
 
-Voice is per-character, stored in `characters.polly_voice_id`
-(`infra/cockroachdb/migrations/003_polly_voice_id.sql`), not an env var — `characters` is already play-scoped
-in the schema, so this lets two plays' same-named characters carry different voices and lets a voice change
-via `UPDATE` rather than an env edit + redeploy. Merry Wives of Windsor is assigned British English voices
-(**Amy**/female, **Brian**/male) per character gender, sourced from stageagent.com's cast list; unassigned
-characters fall back to `POLLY_DEFAULT_VOICE_ID` (default `Brian`). The assignment now happens **at import**
-(`packages/play-importer/src/voices.ts`), not by a one-shot `UPDATE` — an UPDATE survives exactly until the
-next re-import mints new character rows, which is how the original assignment was lost. Gender is listed
-explicitly per play rather than guessed: the Moby source has no reliable signal, and the failure mode of a
-guess is voicing a character wrong for a whole play. A play with no list warns loudly rather than silently
-voicing every woman as a man. `getBlockAudio` takes `characterId`, not a character name, and joins through
-`line_speakers` to confirm the requested character actually speaks the requested block before resolving a
-voice (§1a).
+**The audio endpoint is keyed on the block, not the beat.** One speech is one render. The client sends
+only the block id because the grouping lives in the database, assigned at import, and must not be
+re-derived from a client-supplied list. `getBlockAudio` takes a `characterId` and joins through
+`line_speakers` to confirm that character actually speaks that block before resolving a voice (§1a).
 
-The picker/rehearsal read flow from §2 is also wired up (`features/plays`): `GET /plays`,
-`/plays/:playId/characters`, `/plays/:playId/scenes` (optional `?characterId=` adds that character's per-scene
-beat count, so the scene picker can lead with the scenes their part is actually in),
-`/plays/:playId/scenes/:act/:scene/dialogue`, `/plays/:playId/lines/:lineId`, and
-`/plays/:playId/lines/:lineId/block` (the block a beat belongs to — what the Prompt Book's single-beat drill
-opens, so she practises the thought with its run-up rather than in isolation) — all real CockroachDB reads,
-no auth gate (same reasoning as Polly above).
-`getSceneDialogue` interleaves `lines` and `stage_directions` into one ordered stream (a direction with
-`after_line_number = N` sorts immediately before line N) but doesn't compute `isUserLine` — that depends on
-which character the browser has locally selected to rehearse as (`selectRole`, still localStorage-only —
-`roles_in_progress` isn't wired up), which this endpoint has no notion of. `frontend/src/data/client.ts` now
-calls these for real instead of its mock fixtures, and `RehearsalPage.tsx` calls the Polly endpoint directly
-for other characters' lines — so Polly is no longer a standalone building block, it's in the real rehearsal
-flow now, just without session/mastery writes yet.
-
-**Transcribe and the session write are built** (`docs/capture-plan.md`, `features/capture`,
-`features/sessions`): mic → 16 kHz PCM → server-held WebSocket → Transcribe → a beat cursor, and a
-serializable transaction writing `session_history`/`line_mastery`/`mistake_log`. `WrapUpPage` reads
-`GET /sessions/summary` and its fixtures are deleted; `PromptBookPage` still renders mock data.
-`GET /sessions/plan` is built and verified but **has no caller** (`OPEN_ITEMS.md` §1f).
-
-**Bedrock is wired but not yet called.** `@aws-sdk/client-bedrock-runtime`, `clients/bedrock-client`
-(Converse on `bedrock-runtime`), `ConfigClient.Bedrock.comparisonModelId`, and `bedrock:InvokeModel` in both
-IAM scripts all exist. What does not exist is the comparison itself — `features/sessions/score.ts` is doing
-that job deterministically, as `BE_PLAN.md` §8's documented fallback built as the real scorer.
-
-**Not started**: the per-block coaching call and the scene-summary call, both designed in
-`docs/coaching-plan.md`. The open design question in front of them — the fuzzy-match threshold, which
-decides what the comparison prompt is even asking for, and which is now **two** cuts rather than one — is
-`docs/OPEN_ITEMS.md` §1a.
+**Rehearsing needs no account.** Like `/plays`, the audio path works fully as a guest; auth exists only to
+persist progress. Every cache miss is still a potentially billed AWS call, but the play is pre-warmed, so
+real requests are almost always a cheap hit. Revisit that if a play is ever added without pre-warming.
 
 ## 1b. Runtime note: Deno + Hono, not Node/Express
 
@@ -217,7 +157,7 @@ Discovered from the real Merry Wives of Windsor XML during import, not hypotheti
   for models that have no profile at all, where the bare id is the only thing that works.
 
   **The call is per block, not per beat** (`coaching-plan.md` §2), which is a ~1.6× reduction on its own —
-  ~1,705 beats live in ~1,060 blocks — before prompt caching. Nova supports caching on `system` with a
+  ~1,636 beats live in 1,060 blocks — before prompt caching. Nova supports caching on `system` with a
   5-minute TTL and a 1K-token minimum; the rubric is identical for every block in a scene and blocks land
   well inside five minutes of each other, so the checkpoint hits in practice rather than in theory.
 
@@ -267,80 +207,3 @@ Discovered from the real Merry Wives of Windsor XML during import, not hypotheti
   - Transcribe slow/down → let her mark the line as "said it" manually rather than blocking on STT.
 - These fallbacks double as accessibility fallbacks, not just uptime hedges — worth stating explicitly when
   narrating this for judges.
-
-## 6. Tools
-
-- AWS CLI — configured via `aws login` (short-lived credentials from the root console session, not a static
-  access key). See `infra/aws/README.md`.
-- CockroachDB `ccloud` CLI — **not scripted into `infra/cockroachdb`**, and not planned to be: the cluster
-  (`the-book-holder`, CockroachDB v26.2.1, AWS us-west-2) already existed and was connected to directly
-  rather than provisioned by this repo. If a from-scratch provisioning script is ever needed, it isn't built.
-- CockroachDB Cloud MCP server — **connected**, authorized with READ + WRITE scope, but the user has asked to
-  be checked with before any write (`create_database`/`create_table`/`insert_rows`) every time, regardless of
-  scope. In practice: used read-only (`list_tables`, `get_table_schema`, `select_query`, etc.) for
-  verification; schema/data writes go through `infra/cockroachdb/migrate.ts` and
-  `packages/play-importer` instead, not through MCP.
-- Bedrock, Polly, Transcribe, S3 SDKs (AWS SDK for JavaScript v3), pulled into `api` via `npm:` specifiers in
-  `deno.json` (Deno consumes npm packages directly, no `node_modules`/`npm install` step). **Polly, S3 and
-  `s3-request-presigner` are installed and wired**; Bedrock and Transcribe are not.
-- Docker — **done**, `api/Dockerfile` (`denoland/deno:2.9.4` base). Runs as the base image's non-root `deno`
-  user throughout the build, not just at runtime — `/app` is `chown`'d to `deno` before anything is copied
-  in or `deno install` runs, working around denoland/deno_docker#537 (installing as root then switching users
-  right before `CMD` avoids the bug too, but doesn't get non-root's least-privilege benefit during
-  dependency resolution). `deno install --frozen` fails the build loudly if `deno.lock` drifts from
-  `deno.json` instead of silently re-resolving. `api/.dockerignore` excludes `.env*`/`.git` so local secrets
-  can't end up baked into an image layer.
-- AWS CLI `ecs` commands (Express Mode is available via console, CLI, SDKs, CloudFormation, Terraform, and
-  the AWS Labs ECS MCP Server) for creating the Express Mode service and pushing images to ECR — **scripted**,
-  `infra/aws/ecs-deploy.sh` for bootstrap and `.github/workflows/deploy-api.yml` for the recurring deploy.
-  Only three inputs are required to stand it up: a container image, a task execution role, and an
-  infrastructure role — meaningfully less setup than hand-rolling task definitions/ALB/target groups.
-  `infra/aws/github-oidc-bootstrap.sh` and `infra/aws/secrets-bootstrap.sh` are the one-time companions,
-  creating the deploy role and moving `COCKROACHDB_URL`/`ALLOWED_ORIGIN` into Secrets Manager.
-- A request client for manual endpoint testing during development (curl, Postman, or Thunder Client) — no
-  need for a heavier API-testing framework at this scale.
-
-## 7. Docs to read before/while building
-
-- ~~CockroachDB vector column + distributed vector index syntax~~ — **confirmed** (v25.2+, preview, gated
-  behind `SET CLUSTER SETTING feature.vector_index.enabled = true`, L2 distance only). Documented in
-  `infra/cockroachdb/README.md`. Still not indexed — `lines.embedding`/`mistake_log.embedding` are populated
-  with real vectors first, per that file's TODO. The model is settled: Titan Text Embeddings V2
-  (`amazon.titan-embed-text-v2:0`), 1024 dimensions, embedded per beat. Leave Titan's `normalize` at its
-  default `true` — embedding models are trained for *cosine* distance and CockroachDB offers only *L2*; the
-  two rank identically only if every vector is unit-length, so turning normalization off silently degrades
-  every nearest-neighbour result rather than erroring (`OPEN_ITEMS.md` §2).
-- CockroachDB serializable transaction retry pattern — confirm the current recommended client-side retry
-  idiom for the Node driver in use. `packages/play-importer/src/ingest.ts` has a working example (bounded
-  retry on SQLSTATE `40001`) for the one-shot-import case; the live per-session write path needs the fuller
-  treatment described in §3 above.
-- Current Bedrock model IDs and pricing for Nova Micro/Lite and whichever stronger model is chosen for
-  summaries — verify at build time, not from memory (pricing/IDs shift).
-- ~~Polly voice catalog~~ — resolved: **Neural** engine, British English (Amy/Brian), assigned per character
-  at import into `characters.polly_voice_id`. See §0 above and `docs/polly-gen-issue.md`.
-- ~~Transcribe API docs — settle **streaming vs post-utterance** first~~ — **settled: streaming**, and built.
-  Full write-up in `docs/capture-plan.md`. The two do *not* price differently (identical per-minute rates, and
-  the 15-second per-request minimum applies to both), so the decision came down to the product: "Line?" has to
-  feed the next beat while she is still mid-speech, which no post-utterance transcript can do at any price.
-  The cost line is redone in that doc §5 — the 15-second floor costs **3.06× the audio** for Mistress Ford,
-  because 89% of the corpus's 1,064 blocks are under 15 seconds (median 4.6s). `PROJECT_PLAN.md` §9's
-  reasoning was right; a full scene run is $0.02–$0.20.
-- ~~**ECS Express Mode docs**~~ — confirmed and built. Default networking is the account's default VPC and
-  public subnets (no NAT Gateway), matching what we'd have chosen; ECR push and
-  `create`/`update-express-gateway-service` are scripted. Deps are resolved at build time via
-  `deno install --frozen`, which fails the build loudly if `deno.lock` drifts from `deno.json` rather than
-  silently re-resolving.
-- ~~Deno + Hono docs~~ — confirmed and built; see §1b.
-- **The rollout gap is real and worth knowing before trusting a deploy**: a green workflow run means the new
-  version is *answering*, not that the old one has drained. Both revisions serve behind the same endpoint for
-  a minute or two, so a request right after a green check can still hit the old code — which matters most on
-  the `/polly` cache-miss path. Watch the rollout in the ECS console when it matters. A wait-for-drain step
-  was tried in the workflow and reverted: CI doesn't hold the permission to make that call.
-
-## 8. Open items to verify
-
-- ~~Exact CockroachDB vector column + index syntax~~ — resolved, see §7.
-- Bedrock model IDs and current pricing at build time (carried over from `PROJECT_PLAN.md` §10) — still open.
-- ~~MCP Server read-only scoping~~ — resolved differently than assumed: the server itself supports read+write
-  and was authorized with both, but the user requires confirmation before every write regardless. Any future
-  in-app "coach's notes" view should still default to read-only MCP calls; nothing about that plan changes.

@@ -5,13 +5,13 @@ function encodeBase64Url(bytes: Uint8Array): string {
   return str.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-/** The raw token handed to the client (cookie value) — never stored as-is. */
+/** The raw token handed to the client (cookie value), never stored as-is. */
 export function generateSessionToken(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(TOKEN_LENGTH_BYTES));
   return encodeBase64Url(bytes);
 }
 
-/** What actually lands in auth_sessions.token_hash — so a leaked/dumped
+/** What actually lands in auth_sessions.token_hash, so a leaked/dumped
  * table alone can't be replayed as a live session cookie. */
 export async function hashSessionToken(token: string): Promise<string> {
   const digest = await crypto.subtle.digest(
