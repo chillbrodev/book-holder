@@ -100,6 +100,11 @@ export type ScoredBeat = {
    * scored this beat — "not judged", never "not solid" (migration 009). */
   band: "solid" | "close" | "dry" | null;
   confidenceScore: number;
+  /** True when this score came from the run being summarised. False means she
+   * ran the beat in an earlier session of the same scene and it still stands —
+   * which is what keeps a one-speech drill from looking like the rest of the
+   * rehearsal was wiped. */
+  ranThisSession: boolean;
 };
 
 type RawScoredBeatRow = {
@@ -109,6 +114,7 @@ type RawScoredBeatRow = {
   text: string;
   band: "solid" | "close" | "dry" | null;
   confidence_score: number | string;
+  ran_this_session: boolean;
   note: string;
 };
 
@@ -132,6 +138,7 @@ function groupIntoSpeeches(rows: RawScoredBeatRow[]): SpeechSummary[] {
       band: row.band,
       // `pg` hands back 64-bit numerics as strings.
       confidenceScore: Number(row.confidence_score),
+      ranThisSession: row.ran_this_session,
     };
 
     const previous = speeches[speeches.length - 1];
@@ -499,24 +506,49 @@ export const SessionService = {
      * interleaves speeches and puts several unrelated "beat 1"s together.
      */
     const speeches = await DbClient.getPool().query(
-      // One row per beat rather than one aggregated row per speech, and grouped
-      // in TypeScript below. Aggregating four parallel arrays (id, text, band,
-      // confidence) and trusting them to stay aligned is the kind of thing that
-      // is correct until one column is added to only three of the array_aggs.
-      `SELECT l.block_id,
+      // Every beat she has run in this SCENE, not only in this session, and the
+      // most recent score for each.
+      //
+      // Scoped to the session is what this used to be, and it broke the moment
+      // "Run this speech again" existed: a drill writes its own session_history
+      // row for the same act and scene, so it becomes the latest session and the
+      // scene's wrap-up resolved to it — showing one speech where four had been
+      // and reading as if the rest of the rehearsal had been erased. A drill is a
+      // piece of work on a scene, not a replacement for it.
+      //
+      // DISTINCT ON takes one row per line, and the ORDER BY decides which:
+      // this session's score first, then the most recent. That ordering is
+      // load-bearing. Newest-wins alone was wrong for any wrap-up but the very
+      // latest — revisiting an earlier run showed today's marks against it, so a
+      // scene she had since drilled looked like it had gone better at the time
+      // than it did. A wrap-up has to report the run it is summarising, and fill
+      // in the rest of the scene from whatever else she has done.
+      //
+      // The `ran_this_session` flag is what lets the screen still say which
+      // speeches she just did — the information the old query had, kept, rather
+      // than traded away for the wider view.
+      //
+      // One row per beat, grouped in TypeScript below: aggregating four parallel
+      // arrays and trusting them to stay aligned is the kind of thing that is
+      // correct until a column is added to only three of the array_aggs.
+      `SELECT DISTINCT ON (l.id)
+              l.block_id,
               l.line_number,
               l.id AS line_id,
               l.text,
               sbs.band,
               sbs.confidence_score,
+              (sbs.session_id = $1) AS ran_this_session,
               coalesce(bc.note, '') AS note
          FROM session_beat_score sbs
+         JOIN session_history sh ON sh.id = sbs.session_id
          JOIN lines l ON l.id = sbs.line_id
          LEFT JOIN block_coaching bc
                 ON bc.session_id = sbs.session_id AND bc.block_id = l.block_id
-        WHERE sbs.session_id = $1
-        ORDER BY l.line_number`,
-      [row.id],
+        WHERE sh.user_id = $2 AND sh.play_id = $3
+          AND sh.act = $4 AND sh.scene_range = $5
+        ORDER BY l.id, (sbs.session_id = $1) DESC, sbs.created_at DESC`,
+      [row.id, userId, row.play_id, row.act, row.scene_range],
     );
 
     // Intent versus achievement, which is the whole point of migration 008.
@@ -545,7 +577,14 @@ export const SessionService = {
         : new Date(row.completed_at).toISOString(),
       blocksPlanned: Number(coverage.rows[0]?.planned ?? 0),
       blocksRun: Number(coverage.rows[0]?.run ?? 0),
-      speeches: groupIntoSpeeches(speeches.rows),
+      // Sorted here rather than in SQL: DISTINCT ON requires its ORDER BY to
+      // lead with the distinct key, so the query orders by line id and this puts
+      // the beats back into the order she spoke them.
+      speeches: groupIntoSpeeches(
+        [...speeches.rows].sort((a, b) =>
+          Number(a.line_number) - Number(b.line_number)
+        ),
+      ),
       flagged: flagged.rows.map((
         beat: RawMasteryRow & {
           act: string;

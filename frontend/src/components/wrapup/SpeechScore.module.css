@@ -24,6 +24,19 @@
 /* The shape of the speech at a glance: one mark per beat, in the order she said
    them. Deliberately above the list rather than instead of it — the run of marks
    answers "how did that speech go", the list answers "which thought went". */
+.justRun {
+  font-family: var(--bh-font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--bh-gold-dark);
+  background: var(--bh-gold-light);
+  border-radius: var(--bh-radius-pill);
+  padding: 2px 8px;
+  flex: none;
+}
+
 .marks {
   display: flex;
   gap: 4px;

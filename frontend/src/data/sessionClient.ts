@@ -59,6 +59,9 @@ export interface ScoredBeat {
    * scored this beat — "not judged", never "not solid" (migration 009). */
   band: Band | null
   confidenceScore: number
+  /** True when this score came from the run being summarised. False means she
+   * ran it in an earlier session of the same scene and the mark still stands. */
+  ranThisSession: boolean
 }
 
 /** One of her speeches, with whatever the coach said about it. */
@@ -70,6 +73,12 @@ export interface SpeechSummary {
   note: string
   /**
    * Every beat, in the order she said them.
+   *
+   * Every speech she has run in this SCENE, not only in this session — a drill
+   * launched from the wrap-up ("Run this speech again") writes its own session,
+   * and scoping to it showed one speech where four had been, as if the rest of
+   * the rehearsal had been erased. Beats carry `ranThisSession` so the screen
+   * can still say which ones she just did.
    *
    * This replaced a bare `confidences: number[]` whose comment said bands were
    * deliberately not rendered because the cuts that turn a confidence into

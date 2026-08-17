@@ -44,6 +44,10 @@ export function SpeechScore({ speech, ordinal, onRunAgain }: SpeechScoreProps) {
   // Worth re-running when anything fell short. A speech she had needs no button:
   // offering to drill a clean speech is the app inventing work for her.
   const worthRunning = speech.beats.some((beat) => beat.band !== 'solid')
+  // Whether any of this speech came from the run just finished. False for the
+  // speeches carried over from an earlier session of the same scene, which is
+  // most of them after a one-speech drill.
+  const justRun = speech.beats.some((beat) => beat.ranThisSession)
 
   const summaryLine = (['solid', 'close', 'dry'] as const)
     .filter((band) => counts[band])
@@ -54,6 +58,11 @@ export function SpeechScore({ speech, ordinal, onRunAgain }: SpeechScoreProps) {
     <div className={styles.speech}>
       <div className={styles.head}>
         <span className={styles.title}>Speech {ordinal}</span>
+        {/* Says which speeches belong to the run she just finished, now that the
+            list covers the whole scene. Marking the few rather than dimming the
+            many: after a drill only one speech is new, and greying the other
+            three would read as them having been lost. */}
+        {justRun && <span className={styles.justRun}>this run</span>}
         <span className={styles.marks} aria-hidden="true">
           {speech.beats.map((beat, i) => (
             <span key={i} className={cx(styles.mark, beat.band && styles[beat.band])} />
