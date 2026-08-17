@@ -56,17 +56,17 @@ The honest counter-argument is written up in `docs/OPEN_ITEMS.md` §1e: recordin
 
 | Criterion | Where to look |
 |---|---|
-| **Agentic Memory Design** | `api/src/features/coach/`. A tool-calling agent with four read tools over its own history, whose recommendations are stored *and then checked* against what she went on to run. |
-| **Technical Implementation** | `infra/cockroachdb/migrations/`. Ten migrations, each carrying its reasoning. Real vector search over 1,636 embedded beats. MCP Server, `ccloud`, and Agent Skills all in use. |
+| **Agentic Memory Design** | `api/src/features/coach/`. A tool-calling agent with four read tools over its own history. Its recommendations are stored, checked against what she went on to run, **and graded against whether her marks improved** — so the next note is shaped by whether the last one worked. |
+| **Technical Implementation** | `infra/cockroachdb/migrations/`. Twelve migrations, each carrying its reasoning. Real vector search over 1,636 embedded beats. MCP Server, `ccloud`, and Agent Skills all in use. |
 | **Real-World Impact** | The story above. Built for one specific person, generalizing to anyone who cannot get a rehearsal partner on their schedule. |
 | **Production Readiness** | OIDC deploys with no long-lived credentials. CI that refuses to deploy when the task role is behind the code. Graceful degradation to a deterministic scorer when Bedrock is unreachable. An audio-duration guard that discards implausible renders rather than caching them. |
-| **Creativity & Originality** | Memory here is a *skill model over time*, closer to spaced repetition for embodied performance than to chatbot fact-memory. And the agent is allowed to recommend nothing, which is what keeps a recommendation worth reading. |
+| **Creativity & Originality** | Memory here is a *skill model over time*, closer to spaced repetition for embodied performance than to chatbot fact-memory. The agent is allowed to recommend nothing, which is what keeps a recommendation worth reading — and it has to show its working in her own marks, checked against the database before she sees it. |
 
 ---
 
 ## The memory loop
 
-The design principle behind every technical decision here: **the agent reads memory to decide what happens next, and writes memory as a direct result of what happened.** Not logging. Not a dashboard. The read changes the behavior.
+The design principle behind every technical decision here: **the agent reads memory to decide what happens next, writes memory as a direct result of what happened, and then grades its own advice against what changed.** Not logging. Not a dashboard. The read changes the behavior, and the outcome changes the next read.
 
 ```mermaid
 flowchart LR
@@ -74,10 +74,13 @@ flowchart LR
     DECIDE["DECIDE<br/>what to emphasize,<br/>what to recommend"]
     ACT["ACT<br/>rehearse the block,<br/>hear and score it"]
     WRITE["WRITE<br/>scores, bands, mastery,<br/>embedded mistakes"]
+    EVALUATE["EVALUATE<br/>did she take the advice,<br/>and did it work?"]
 
-    READ --> DECIDE --> ACT --> WRITE
-    WRITE -->|"next session reads what this one wrote"| READ
+    READ --> DECIDE --> ACT --> WRITE --> EVALUATE
+    EVALUATE -->|"the verdict on the last note<br/>shapes the next one"| READ
 ```
+
+**EVALUATE is the step most agent demos skip**, and it is the one that makes the rest more than a log. When she acts on a recommendation the session records which recommendation it came from, so the next run the agent can ask not only *"did she do what I said"* but *"and did it help"* — the bands on those speeches when it gave the advice, against the bands now. If the advice worked it says so and moves on. If she took it and nothing improved, the brief tells it in as many words that **the advice was wrong**: do not repeat it, change the angle.
 
 **Before a session.** The agent reads per-*beat* mastery for the chosen scene. A beat is one thought, and it is the unit of scoring throughout (see "Beats and blocks" below; it is not a line of verse).
 
@@ -85,7 +88,9 @@ flowchart LR
 
 **After each block.** One Bedrock call covers a whole speech and returns a judgement per beat. Scores, bands, and mastery all commit in a single serializable transaction. Only *dry* beats go to `mistake_log`, and only what you actually **said** gets embedded: a blank has nothing to cluster on, and embedding the expected text instead would mix "what she said" and "what she should have said" into one vector space.
 
-**At the wrap-up.** A tool-calling agent takes over. This is the part that makes it agentic rather than generative.
+**At the wrap-up.** A tool-calling agent takes over. This is the part that makes it agentic rather than generative. The wrap-up also shows the run back beat by beat — every speech, each beat marked *solid*, *close* or *dry* — because the memory the agent reasons over should be the same memory she can see.
+
+**Before the next one.** The recommendation is on the play page too, not only at the end of a scene. Waiting until a scene is finished is a long time to wait to see the thing decide something, and advice about what to work on is most useful on the way in. That screen *reads* the standing recommendation and never runs the agent: it is visited constantly, and re-running would bill a loop per visit and reword yesterday's advice each time, which is what makes advice feel arbitrary.
 
 ### The agent
 
@@ -95,15 +100,19 @@ Nova Lite, running a real multi-turn tool loop (`api/src/features/coach/`). It i
 |---|---|
 | `get_part_progress` | How much of this part does she have? Totals, plus a per-scene breakdown of what she ran and whether she finished it. |
 | `get_recent_misses` | Which beats does she keep getting wrong, worst first, including what she said instead. |
-| `get_last_recommendation` | What did I tell her last time, and did she do it? |
+| `get_last_recommendation` | What did I tell her last time, did she do it, **and did it work?** Returns the bands on those speeches when the advice was given against how they stand now. |
 | `find_similar_beats` | Is this mistake isolated or a pattern? Similar in *meaning*, not wording. Vector search. |
-| `submit_recommendation` | Terminal. Calling it *is* the answer. |
+| `submit_recommendation` | Terminal. Calling it *is* the answer. Four separate fields — the note, what keeps happening, what to do, and why this speech — because asking for one free-text sentence got one back that was nothing but the line, every time. |
 
-Three choices worth defending:
+Five choices worth defending:
 
 **It is allowed to say nothing.** `submit_recommendation` accepts `action: 'none'`. It is deliberately not a forced `toolChoice`, because a run with nothing worth saying should say nothing rather than invent a drill. An assistant that always has advice is an assistant whose advice is worthless.
 
-**Its recommendations are checkable.** Every recommendation writes to `coach_recommendation` along with the tool calls that produced it, and blocks she then runs are tagged `source = 'coach'`. So it can ask the one question a stateless model cannot: *"last time I said run these three, you ran two."* That closes the loop from advice to adherence.
+**Its recommendations are checkable, and the loop is actually closed.** Every recommendation writes to `coach_recommendation` with the tool calls that produced it. Acting on one carries its id into the rehearsal, which stamps `followed_session_id` on the row as the session opens and tags the blocks `source = 'coach'`. So it can ask the question a stateless model cannot — *"last time I said run these three, you ran two"* — and the harder one after it: *"and their marks did not move."* Two signals are kept rather than one, because they differ where it matters: she **took it up** (tapped the recommendation) and she **followed** it (every recommended speech actually got scored, however she got there — running the whole scene instead of the drill is following the advice by a better route).
+
+**It has to show its working.** A recommendation carries a rationale in her own marks — *"The speech has 11 beats, with 2 solid, 8 close, and 1 dry"* — from a per-speech tally the tools hand it. That turns an instruction into an argument she can disagree with, which is the difference between a coach and a notification.
+
+**What can be checked is checked in code, not asked for in the prompt.** Three times now the same lesson: the rubric could not stop the scorer inventing notes (`groundedNote` drops any note sharing no three-word run with the speech), the brief could not stop the agent returning the quoted line and nothing else (`isBareQuotation` rejects it and rebuilds from structured fields), and the tool description could not stop it citing numbers that were not hers. The last one shipped and was caught: it reported *two of nine beats dry* where the truth was *one of eleven*, having copied the example sentence out of the schema verbatim. Every figure in a rationale is now verified against the database, and an invented one is replaced with a composed sentence that is merely true. **A model will not be argued into a rule a machine can check.**
 
 **Its reasoning is inspectable.** `tool_calls JSONB` exists for exactly one reason: being able to answer "why did it say that" without re-running it. An agent whose reasoning cannot be audited is very hard to trust and harder to debug.
 
@@ -149,6 +158,9 @@ sequenceDiagram
 
     Note over API,BR: THE AGENT
     API->>BR: hand the run to Nova Lite
+    BR-->>API: get_last_recommendation
+    API->>DB: did she take the last note, and did her marks move?
+    DB-->>API: followed, plus before/after bands
     BR-->>API: get_part_progress
     BR-->>API: get_recent_misses
     BR-->>API: find_similar_beats
@@ -156,9 +168,14 @@ sequenceDiagram
     DB-->>API: rows
     API-->>BR: tool results
     BR-->>API: submit_recommendation, terminal
-    API->>DB: coach_recommendation with its tool_calls
+    API->>API: verify its cited counts against her marks
+    API->>DB: coach_recommendation, its rationale, and its tool_calls
     API-->>FE: wrap-up, and what to run next time
 ```
+
+The first two exchanges are the loop closing. The agent's opening move is to look
+up its own last note and what happened to it — which is only answerable because
+acting on a recommendation writes `followed_session_id` back onto it.
 
 ---
 
@@ -255,7 +272,7 @@ Both return identical rows. At 1,636 rows both return them fast. Nothing about t
 
 **`BEGIN` … DDL … `ROLLBACK` does not undo the DDL.** CockroachDB runs schema changes as asynchronous jobs, so the standard Postgres trick for dry-running a migration leaves the objects behind. The `ROLLBACK` returns successfully and `information_schema` still reads the objects inside the same session, so it looks like it worked. We verified this the expensive way: migration 006 was "validated" like that and persisted. There is no safe dry run here. Read the SQL, then apply it.
 
-Every migration in `infra/cockroachdb/migrations/` carries its reasoning in the file header. `007_vector_index.sql`, `008_session_scope.sql`, and `009_beat_band.sql` are each worth reading on their own.
+Every migration in `infra/cockroachdb/migrations/` carries its reasoning in the file header. `007_vector_index.sql`, `008_session_scope.sql`, and `009_beat_band.sql` are each worth reading on their own; `011_supabase_auth.sql` explains why this database stopped holding users at all, and `012_coach_rationale.sql` why the agent's reasoning is a column rather than more sentences in its note.
 
 ---
 
@@ -354,7 +371,9 @@ session_beat_score         what she actually ran: per-beat confidence + band
 block_coaching             the note shown per speech
 line_mastery               read before a session, written after, one transaction
 mistake_log                embedding of what she SAID, feeds nearest-neighbour search
-coach_recommendation       what the agent advised, and the tool calls behind it
+coach_recommendation       what the agent advised, why (rationale), the tool calls
+                           behind it, and followed_session_id — the run she went
+                           and did about it, which is what closes the loop
 ```
 
 **A session is a set of blocks. A whole scene is one kind of set, not the only kind.** That change (migration 008) is what lets mastery build per speech, which is how actors actually work: you drill four speeches on the bus and run the scene when you have it. `session_block` records intent and `session_beat_score` records reality, so "finished what I chose" and "gave up a third of the way in" stop being the same row.
