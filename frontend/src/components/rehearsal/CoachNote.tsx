@@ -1,5 +1,7 @@
 import type { CoachRecommendation } from '../../data/sessionClient'
 import { Button } from '../core/Button'
+import { BandHelp } from '../wrapup/BandHelp'
+import { splitQuotedLine } from '../../utils/quotedLine'
 import styles from './CoachNote.module.css'
 
 export interface CoachNoteProps {
@@ -67,7 +69,27 @@ export function CoachNote({ recommendation, loading, onAct }: CoachNoteProps) {
         Read across every rehearsal you've saved — one suggestion for what to
         work on next, and why. Take it or leave it.
       </p>
-      <p className={styles.note}>{recommendation.note}</p>
+      {/* The quoted line, set apart from the sentence carrying it.
+          Straight quotation marks alone were doing all the work, and against a
+          note full of elisions — "You've", "Herne's", "'twixt" — they simply
+          read as more apostrophes. The line is the subject of the whole note and
+          the thing she has to recognise, so it takes weight and colour and drops
+          the marks that were failing to signal it. Falls back to the raw note
+          when nothing was quoted, which is a real case: a scene-level
+          recommendation names a scene instead. */}
+      <p className={styles.note}>
+        {(() => {
+          const split = splitQuotedLine(recommendation.note)
+          if (!split) return recommendation.note
+          return (
+            <>
+              {split.before}
+              <span className={styles.quotedLine}>{split.quote}</span>
+              {split.after}
+            </>
+          )
+        })()}
+      </p>
       {/* The evidence, under the claim. Set quieter and smaller than the note
           because it is not addressed to her in the same way — the note is the
           coach speaking, this is it showing its working, and a reader who
@@ -79,7 +101,9 @@ export function CoachNote({ recommendation, loading, onAct }: CoachNoteProps) {
           a templated "2 dry, 4 close" would state the counts without saying why
           they add up to a recommendation. Absent entirely when it gave none. */}
       {recommendation.rationale && (
-        <p className={styles.rationale}>{recommendation.rationale}</p>
+        <p className={styles.rationale}>
+          {recommendation.rationale} <BandHelp />
+        </p>
       )}
       <Button variant="secondary" onClick={() => onAct(recommendation)}>
         {label}

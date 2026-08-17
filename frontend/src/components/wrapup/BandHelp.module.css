@@ -1,0 +1,108 @@
+.wrap {
+  position: relative;
+  display: inline-flex;
+  vertical-align: baseline;
+}
+
+/* A real button, sized to the surrounding type rather than to a tap-target
+   minimum: it sits inline in a sentence, and a 44px control there would push the
+   line apart. The hit area is widened by the padding on `.wrap`'s line box
+   instead of by making the circle bigger. */
+.trigger {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  border: 1px solid var(--bh-ash-mid);
+  background: transparent;
+  color: var(--bh-text-muted);
+  font-family: var(--bh-font-sans);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: help;
+  padding: 0;
+}
+
+.trigger:hover,
+.trigger:focus-visible {
+  border-color: var(--bh-gold-mid);
+  color: var(--bh-gold-dark);
+}
+
+.bubble {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 40;
+  width: max-content;
+  /* Capped so a long meaning wraps instead of running off a phone, and so the
+     bubble never grows wider than the card it explains. */
+  max-width: min(19rem, calc(100vw - 32px));
+  display: none;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  background: var(--bh-surface);
+  border: 1px solid var(--bh-border-hairline);
+  border-radius: var(--bh-radius-md);
+  box-shadow: 0 12px 28px rgb(43 29 20 / 18%);
+  font-family: var(--bh-font-sans);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--bh-text-muted);
+  text-align: left;
+  /* Never steals the pointer: the bubble sits above the button, and a mouse
+     travelling to it would otherwise flicker the tooltip closed and open. It is
+     read, not interacted with. */
+  pointer-events: none;
+}
+
+/* Hover on the trigger, and keyboard focus anywhere in the wrapper. Both, not
+   either: pointer-only would hide this from a keyboard entirely. */
+.wrap:hover .bubble,
+.wrap:focus-within .bubble {
+  display: flex;
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.name {
+  color: var(--bh-ink);
+  font-weight: 700;
+}
+
+/* The same three shapes as everywhere else — filled, half-filled, hollow — so
+   the bubble teaches the marks she is actually looking at. */
+.mark {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 2px solid var(--bh-ash-mid);
+  background: transparent;
+  flex: none;
+  position: relative;
+  top: 1px;
+}
+
+.solid {
+  border-color: var(--bh-gold-mid);
+  background: var(--bh-gold-mid);
+}
+
+.close {
+  border-color: var(--bh-gold-mid);
+  background: linear-gradient(to right, var(--bh-gold-mid) 50%, transparent 50%);
+}
+
+.dry {
+  border-color: var(--bh-terracotta-dark);
+  background: transparent;
+}

@@ -75,3 +75,12 @@
   line-height: 1.5;
   color: var(--bh-text-muted);
 }
+
+/* The line itself. Bolder and darker than the sentence around it, with no
+   quotation marks of its own — the weight is the delimiter now, which is the
+   point: single quotes were indistinguishable from the apostrophes inside the
+   verse they were meant to be enclosing. */
+.quotedLine {
+  font-weight: 700;
+  color: var(--bh-gold-dark);
+}
