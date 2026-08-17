@@ -26,7 +26,12 @@ export interface CoachNoteProps {
  * another look"; this is the book holder speaking, so it takes gold, the same
  * colour the app uses for a thing that is working.
  *
- * The standfirst under the heading exists because the panel was otherwise
+ * The standfirst is worded to hold on both screens this appears on — the
+ * wrap-up, where "this run" is on the page above it, and the play page, where
+ * there is no run yet. It says what the note is drawn from and what it is for,
+ * neither of which changes between the two.
+ *
+ * It exists because the panel was otherwise
  * unattributed: a sentence appeared, in the app's voice, with a button under it,
  * and nothing said who was talking or on what basis. It is one line, above the
  * note rather than below, and it says the two things that make the note worth
@@ -59,8 +64,8 @@ export function CoachNote({ recommendation, loading, onAct }: CoachNoteProps) {
     <div className={styles.card}>
       <div className={`bh-eyebrow ${styles.eyebrow}`}>From the book holder</div>
       <p className={styles.standfirst}>
-        Read across every rehearsal you've saved, not just this one — one
-        suggestion for what to do next, and why. Take it or leave it.
+        Read across every rehearsal you've saved — one suggestion for what to
+        work on next, and why. Take it or leave it.
       </p>
       <p className={styles.note}>{recommendation.note}</p>
       <Button variant="secondary" onClick={() => onAct(recommendation)}>

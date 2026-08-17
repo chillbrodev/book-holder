@@ -8,6 +8,8 @@ import { FilterTabs } from '../components/navigation/FilterTabs'
 import { AsyncStatus } from '../components/core/AsyncStatus'
 import { Button } from '../components/core/Button'
 import { Icon } from '../components/core/Icon'
+import { CoachNote } from '../components/rehearsal/CoachNote'
+import { getPlayCoachRecommendation } from '../data/sessionClient'
 import { pluralize, toDisplayName } from '../utils/format'
 import type { SceneSummary } from '../types/views'
 import styles from './PlayPage.module.css'
@@ -60,6 +62,28 @@ export function PlayPage() {
 
   const loading = playLoading || charactersLoading || scenesLoading || roleLoading || lastSceneLoading
   const error = playError ?? charactersError ?? scenesError ?? roleError
+  /**
+   * The coach, on the way in.
+   *
+   * A read of what it last decided, never a run — see `getPlayCoachRecommendation`.
+   * Renders nothing when there is nothing standing, which is the same rule the
+   * wrap-up follows: a coach that speaks every time you open a page is one you
+   * stop reading.
+   *
+   * Up here with the other hooks, and that placement is not cosmetic: this sat
+   * below the `AsyncStatus` early return at first, so on the render where the
+   * page had loaded it called one more hook than on the render where it hadn't.
+   * React threw "Rendered more hooks than during the previous render" and the
+   * whole page went blank. Neither tsc nor oxlint caught it. WrapUpPage already
+   * carries a comment about the same trap.
+   */
+  const coach = useAsync(() =>
+    getPlayCoachRecommendation(playId)
+      .then((r) => r.recommendation)
+      // A guest (401) or a play she has never finished a run of. Neither is an
+      // error worth a screen; the card simply isn't there.
+      .catch(() => null), [playId])
+
   if (loading || error || !play || !characters || !scenes) {
     return <AsyncStatus loading={loading} error={error} />
   }
@@ -106,6 +130,32 @@ export function PlayPage() {
   return (
     <div className={styles.wrap}>
       <h1 className={`bh-display ${styles.title}`}>{play.title}</h1>
+
+      {/* Above the two cards, and only on the way in.
+          "Resume rehearsal" and "Read a different part" are both things she
+          could do; this is the one thing the app thinks she *should* do, and it
+          is the only part of this screen that read her history to say so. Below
+          them it would be a footnote to a decision she had already made. */}
+      {view === 'resume' && (
+        <CoachNote
+          recommendation={coach.data}
+          // Deliberately not `coach.loading`. The wrap-up shows a skeleton
+          // because a note is expected there and reserving its height stops the
+          // page jumping when it lands. Here a recommendation may well not exist
+          // — a new actor has never finished a run — and a skeleton would flash
+          // a card that then never arrives, which reads as something failing.
+          // Appearing a moment late is the cheaper of the two.
+          loading={false}
+          onAct={(rec) => {
+            const back = encodeURIComponent(`/play/${playId}`)
+            navigate(
+              rec.action === 'drill'
+                ? `/play/${playId}/rehearse/${rec.act}/${rec.scene}?blocks=${rec.blockIds.join(',')}&back=${back}`
+                : `/play/${playId}/rehearse/${rec.act}/${rec.scene}?back=${back}`,
+            )
+          }}
+        />
+      )}
 
       {/* lastScene/existingRole are restated rather than relied on via
           canResume — `view` is a string, so narrowing doesn't carry through it. */}

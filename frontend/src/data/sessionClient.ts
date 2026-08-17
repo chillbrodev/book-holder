@@ -276,6 +276,22 @@ export function runCoach(
   })
 }
 
+/**
+ * The standing recommendation for this play, from whichever run last produced
+ * one. What the play page shows, so the coach is visible going *in* to a
+ * rehearsal rather than only coming out of one.
+ *
+ * A read. It never runs the agent — the play page is visited often, and billing
+ * a loop per visit to reword yesterday's advice is what makes advice read as
+ * arbitrary. Resolves `null` when there is nothing standing, which the page
+ * renders as nothing.
+ */
+export function getPlayCoachRecommendation(
+  playId: string,
+): Promise<{ recommendation: CoachRecommendation | null }> {
+  return apiRequest(`/sessions/coach?playId=${encodeURIComponent(playId)}`)
+}
+
 /** The recommendation already made for this session, without re-running the
  * agent, so revisiting a wrap-up costs nothing and says the same thing. */
 export function getCoachRecommendation(

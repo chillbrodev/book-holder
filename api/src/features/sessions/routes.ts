@@ -109,6 +109,32 @@ sessions.post("/:sessionId/coach", async (c) => {
   return c.json({ recommendation });
 });
 
+/**
+ * The standing recommendation for this play, whichever session produced it.
+ *
+ * For the play page, so the coach is visible on the way *in* to a rehearsal
+ * rather than only on the way out of one. Waiting until the end of a scene is a
+ * long time to wait to see the thing decide something.
+ *
+ * A read, never a run — deliberately, and it is the difference between this and
+ * the POST below. The play page is the first screen of a rehearsal and is
+ * visited often; running the agent here would bill a loop on every visit and
+ * reword yesterday's advice each time, which is what `coaching-plan.md` §5 says
+ * makes advice read as arbitrary. Nothing new is said until she finishes a run.
+ *
+ * `{ recommendation: null }` when the agent has never spoken about this play, or
+ * when what it last said has since been rejected as unusable. Silence is a real
+ * answer, and the play page renders nothing at all for it.
+ */
+sessions.get("/coach", async (c) => {
+  const user = c.get("user");
+  const recommendation = await CoachService.latest({
+    userId: user.id,
+    playId: c.req.query("playId") ?? "",
+  });
+  return c.json({ recommendation });
+});
+
 /** The recommendation already made for a session, without running the agent
  * again, so revisiting a wrap-up costs nothing and says the same thing. */
 sessions.get("/:sessionId/coach", async (c) => {

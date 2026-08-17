@@ -66,6 +66,11 @@ WHAT TO DO, IN THIS ORDER
 
 Then decide. Stop calling tools once you can name one thing.
 
+Address her as "you". The whole of this brief refers to her in the third person
+because it is describing her to you — but she reads the note, so "She has gone
+dry on this line" is the app talking about her over her shoulder. Write "You've
+gone dry on this line". That applies to note, observation and advice alike.
+
 WHAT MAKES A GOOD NOTE
 
 Build it in this order, and do not skip step 1.
