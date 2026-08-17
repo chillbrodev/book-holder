@@ -8,11 +8,14 @@ import {
   toAuthUser,
 } from './authClient'
 import { supabase } from './supabaseClient'
+import { clearLocalProgress } from '../data/client'
+import { clearPendingSessionSave } from '../data/pendingSessionSave'
 import { AuthContext } from './AuthContext'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [isCheckingSession, setIsCheckingSession] = useState(true)
+  const [resetKey, setResetKey] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -41,7 +44,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!cancelled) setIsCheckingSession(false)
       })
 
-    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: subscription } = supabase.auth.onAuthStateChange((event, session) => {
+      // Only on a real sign-out, never on "there is no session".
+      //
+      // The distinction matters: `onAuthStateChange` also fires INITIAL_SESSION
+      // with a null session on every load for a guest, and clearing there would
+      // wipe a guest's chosen part and place each time she opened the app —
+      // rehearsing without an account is supported, so that progress is hers to
+      // keep. SIGNED_OUT is the only event that means she has left.
+      //
+      // Handled here rather than inside `logout()` so it also covers signing out
+      // in another tab, which arrives through this subscription and not through
+      // any call this tab made.
+      if (event === 'SIGNED_OUT') {
+        clearLocalProgress()
+        clearPendingSessionSave()
+        setResetKey((n) => n + 1)
+      }
       setUser(session ? toAuthUser(session.user) : null)
       // A late event arriving before getSession() has settled would otherwise
       // leave the header hidden behind isCheckingSession forever.
@@ -72,7 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => apiLogout(), [])
 
   return (
-    <AuthContext.Provider value={{ user, isCheckingSession, register, login, logout }}>
+    <AuthContext.Provider value={{ user, isCheckingSession, resetKey, register, login, logout }}>
       {children}
     </AuthContext.Provider>
   )

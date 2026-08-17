@@ -32,6 +32,13 @@ interface PendingSave {
 
 let lastSave: PendingSave | null = null
 
+/** Drops any outstanding save. Called on sign-out: the parked promise belongs to
+ * the session that just ended, and a wrap-up opened afterwards must not await a
+ * write made as somebody else. */
+export function clearPendingSessionSave(): void {
+  lastSave = null
+}
+
 export function recordSessionSave(save: PendingSave): void {
   lastSave = save
 }

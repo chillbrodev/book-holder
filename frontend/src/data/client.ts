@@ -180,6 +180,34 @@ export async function getSelectedRole(playId: string): Promise<Character | null>
   return characters.find((c) => c.id === characterId) ?? null
 }
 
+/**
+ * Forgets which part she was reading and where she had got to, for every play.
+ *
+ * Called on sign-out. These two keys look like preferences and are not: they are
+ * *her* progress, and leaving them behind means the play page greets whoever
+ * opens the app next with "Pick up where you left off — Act IV, Scene VI as
+ * Fenton". That is stale for a guest and someone else's business if a second
+ * person signs in on the same browser.
+ *
+ * Prefix-scanned rather than cleared wholesale, because `localStorage` also
+ * holds things that genuinely are preferences (`bh:autoScroll`) and Supabase's
+ * own session keys. `localStorage.clear()` would take the lot, including the
+ * auth library's bookkeeping mid-sign-out.
+ *
+ * Keys are collected before any are removed: removing during iteration shifts
+ * the indices under `key(i)` and silently skips every other match.
+ */
+export function clearLocalProgress(): void {
+  const doomed: string[] = []
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i)
+    if (key && (key.startsWith('bh:role:') || key.startsWith('bh:lastScene:'))) {
+      doomed.push(key)
+    }
+  }
+  doomed.forEach((key) => localStorage.removeItem(key))
+}
+
 export function selectRole(playId: string, characterId: string): Promise<void> {
   localStorage.setItem(roleStorageKey(playId), characterId)
   return Promise.resolve()
