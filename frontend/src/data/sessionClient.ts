@@ -247,6 +247,10 @@ export interface CoachRecommendation {
   id: string
   /** One or two sentences, quoting a line from her own history. */
   note: string
+  /** Why this and not something else, in her marks — "Two of its nine beats are
+   * dry and four more are close." Empty when the agent gave none; the card omits
+   * the line rather than rendering a blank one. */
+  rationale: string
   /** `drill` runs the named speeches; `scene` runs the whole scene. */
   action: 'drill' | 'scene'
   act: string

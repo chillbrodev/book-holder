@@ -85,7 +85,7 @@ export const CoachService = {
     input: { userId: string; playId: string; sessionId?: string },
   ): Promise<CoachRecommendation | null> {
     const result = await DbClient.getPool().query(
-      `SELECT id, note, action, act, scene, block_ids
+      `SELECT id, note, rationale, action, act, scene, block_ids
          FROM coach_recommendation
         WHERE user_id = $1 AND play_id = $2
           AND ($3::uuid IS NULL OR session_id = $3::uuid)
@@ -109,6 +109,9 @@ export const CoachService = {
     return {
       id: row.id,
       note: row.note,
+      // Rows written before migration 012 have none, and neither does a run
+      // where the model skipped the field.
+      rationale: row.rationale ?? "",
       action: row.action,
       act: row.act,
       scene: row.scene,
@@ -195,6 +198,7 @@ interface RawRecommendation {
   note?: unknown;
   observation?: unknown;
   advice?: unknown;
+  rationale?: unknown;
   action?: unknown;
   act?: unknown;
   scene?: unknown;
@@ -229,6 +233,10 @@ function parseRecommendation(text: string): RawRecommendation | null {
 
 interface ValidRecommendation {
   note: string;
+  /** Why this speech, in her marks. Empty when the model didn't give one —
+   * which never costs the recommendation; the note is the part that must be
+   * there, and the screen simply omits the evidence line. */
+  rationale: string;
   action: "drill" | "scene";
   act: string;
   scene: string;
@@ -292,6 +300,82 @@ function composeNote(quoted: string, raw: RawRecommendation): string | null {
   // in, and without them the speech and the note about it run together into one
   // sentence that reads as neither.
   return `\u201C${quoted.trim()}\u201D ${body}`;
+}
+
+/** The true shape of the recommended speeches, straight from her marks. */
+export interface SpeechTally {
+  beats: number;
+  solid: number;
+  close: number;
+  dry: number;
+}
+
+/**
+ * Does every number the agent used actually appear in her marks?
+ *
+ * The rationale is shown to her as evidence — "two of its nine beats are dry" —
+ * and evidence that is wrong is worse than no evidence, because it is a
+ * confident false claim about her own rehearsal. Nova Lite got this wrong on the
+ * very first run: the tool description carried an example sentence and the model
+ * shipped its numbers verbatim, reporting two of nine dry where the truth was
+ * one of eleven.
+ *
+ * So it is checked, for the third time in this codebase and for the same reason
+ * as `groundedNote` and `isBareQuotation`: the rule is mechanically checkable.
+ * Every integer in the sentence must be one of the four real figures. That is
+ * deliberately loose — it does not care which number is which, only that no
+ * invented quantity appears — because tying each figure to its noun would need
+ * to parse English, and the failure being guarded against is wholesale
+ * fabrication, not a misattributed adjective.
+ *
+ * Numbers written as words are read too: the model writes "nine", not "9".
+ */
+export function rationaleMatchesMarks(
+  rationale: string,
+  tally: SpeechTally,
+): boolean {
+  const WORDS: Record<string, number> = {
+    zero: 0,
+    one: 1,
+    two: 2,
+    three: 3,
+    four: 4,
+    five: 5,
+    six: 6,
+    seven: 7,
+    eight: 8,
+    nine: 9,
+    ten: 10,
+    eleven: 11,
+    twelve: 12,
+  };
+  const truth = new Set([tally.beats, tally.solid, tally.close, tally.dry]);
+
+  const cited: number[] = [];
+  for (const digits of rationale.match(/\d+/g) ?? []) {
+    cited.push(Number(digits));
+  }
+  for (const [word, value] of Object.entries(WORDS)) {
+    if (new RegExp(`\\b${word}\\b`, "i").test(rationale)) cited.push(value);
+  }
+
+  // No numbers at all is not a lie, but it is not evidence either — the field
+  // exists to carry counts, and a rationale without one is just more advice.
+  if (cited.length === 0) return false;
+  return cited.every((n) => truth.has(n));
+}
+
+/** The sentence the app writes when the agent's own is not usable. Plain on
+ * purpose: it is a fallback, and its whole value is being true. */
+export function composeRationale(tally: SpeechTally): string {
+  const parts = [
+    tally.dry > 0 ? `${tally.dry} dry` : "",
+    tally.close > 0 ? `${tally.close} close` : "",
+    tally.solid > 0 ? `${tally.solid} solid` : "",
+  ].filter(Boolean);
+  if (parts.length === 0) return "";
+  const beats = `${tally.beats} ${tally.beats === 1 ? "beat" : "beats"}`;
+  return `Of its ${beats}: ${parts.join(", ")}.`;
 }
 
 export function isBareQuotation(note: string, playLines: string[]): boolean {
@@ -372,6 +456,16 @@ async function validate(
 
   const note = finalNote;
 
+  // Trimmed and collapsed, not validated further. The numbers in it are the
+  // model's claim about its own tool output; they are not re-derived here,
+  // because a rationale that disagreed with the counts would be a reason to fix
+  // the tool description rather than to silently rewrite what it said. It is
+  // shown as the coach's reasoning, and reasoning is allowed to be wrong out
+  // loud in a way a score never is.
+  const rationale = typeof raw.rationale === "string"
+    ? raw.rationale.trim().replace(/\s+/g, " ")
+    : "";
+
   const action = raw.action === "drill" || raw.action === "scene"
     ? raw.action
     : null;
@@ -388,7 +482,22 @@ async function validate(
       [scope.playId, scope.characterId, act, scene],
     );
     if (exists.rows.length === 0) return null;
-    return { note, action, act, scene, blockIds: [] };
+    // A whole-scene recommendation has no block tally to check against, so a
+    // counted claim cannot be verified here and is dropped rather than trusted.
+    // The uncounted case — "you have never run this scene to the end" — is the
+    // one that belongs on a scene action anyway.
+    return {
+      note,
+      rationale:
+        /\d|\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b/i
+            .test(rationale)
+          ? ""
+          : rationale,
+      action,
+      act,
+      scene,
+      blockIds: [],
+    };
   }
 
   const lineIds = Array.isArray(raw.lineIds)
@@ -416,12 +525,57 @@ async function validate(
     r.act === act && r.scene === scene
   );
 
+  const blockIds = sameScene.map((r: { block_id: string }) => r.block_id);
+
+  // Checked against her actual marks before it is shown as evidence. See
+  // `rationaleMatchesMarks` for why this is a code check and not a stronger
+  // instruction — it is the third time round on the same lesson.
+  const tally = await speechTally(blockIds, scope.userId);
+  const grounded = rationaleMatchesMarks(rationale, tally);
+  if (rationale && !grounded) {
+    console.warn(
+      `Coach rationale cited counts that are not hers (truth: ${
+        JSON.stringify(tally)
+      }): ${JSON.stringify(rationale)}`,
+    );
+  }
+
   return {
     note,
+    // Its own words when the numbers check out, the app's when they do not, and
+    // nothing at all when there is nothing true to say.
+    rationale: grounded ? rationale : composeRationale(tally),
     action,
     act,
     scene,
-    blockIds: sameScene.map((r: { block_id: string }) => r.block_id),
+    blockIds,
+  };
+}
+
+/** The real band counts across the recommended speeches. One query, because the
+ * agent's claim has to be checked against something. */
+async function speechTally(
+  blockIds: string[],
+  userId: string,
+): Promise<SpeechTally> {
+  if (blockIds.length === 0) return { beats: 0, solid: 0, close: 0, dry: 0 };
+  const result = await DbClient.getPool().query(
+    `SELECT count(*) AS beats,
+            count(*) FILTER (WHERE m.band = 'solid') AS solid,
+            count(*) FILTER (WHERE m.band = 'close') AS close,
+            count(*) FILTER (WHERE m.band = 'dry') AS dry
+       FROM lines l
+       LEFT JOIN line_mastery m ON m.line_id = l.id AND m.user_id = $2
+      WHERE l.block_id = ANY($1::uuid[])`,
+    [blockIds, userId],
+  );
+  const row = result.rows[0] ?? {};
+  // `pg` returns 64-bit counts as strings.
+  return {
+    beats: Number(row.beats ?? 0),
+    solid: Number(row.solid ?? 0),
+    close: Number(row.close ?? 0),
+    dry: Number(row.dry ?? 0),
   };
 }
 
@@ -432,14 +586,19 @@ async function store(
 ): Promise<CoachRecommendation> {
   const result = await DbClient.getPool().query(
     `INSERT INTO coach_recommendation
-       (user_id, play_id, session_id, note, action, act, scene, block_ids, tool_calls)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8::uuid[], $9::jsonb)
+       (user_id, play_id, session_id, note, rationale, action, act, scene,
+        block_ids, tool_calls)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::uuid[], $10::jsonb)
      RETURNING id`,
     [
       scope.userId,
       scope.playId,
       scope.sessionId ?? null,
       rec.note,
+      // NULL rather than '' when the model gave none: "not recorded" is the
+      // truth, and an empty string would read as a rationale it declined to
+      // give. Migration 012 makes the column nullable for exactly this.
+      rec.rationale || null,
       rec.action,
       rec.act,
       rec.scene,
@@ -452,6 +611,7 @@ async function store(
   return {
     id: result.rows[0].id,
     note: rec.note,
+    rationale: rec.rationale,
     action: rec.action,
     act: rec.act,
     scene: rec.scene,

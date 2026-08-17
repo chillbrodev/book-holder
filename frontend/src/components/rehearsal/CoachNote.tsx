@@ -68,6 +68,19 @@ export function CoachNote({ recommendation, loading, onAct }: CoachNoteProps) {
         work on next, and why. Take it or leave it.
       </p>
       <p className={styles.note}>{recommendation.note}</p>
+      {/* The evidence, under the claim. Set quieter and smaller than the note
+          because it is not addressed to her in the same way — the note is the
+          coach speaking, this is it showing its working, and a reader who
+          already agrees should be able to skip it.
+
+          The agent writes it from the per-speech tallies in get_recent_misses,
+          rather than the app composing it from the same numbers. That is
+          deliberate: which marks make a speech worth running is a judgement, and
+          a templated "2 dry, 4 close" would state the counts without saying why
+          they add up to a recommendation. Absent entirely when it gave none. */}
+      {recommendation.rationale && (
+        <p className={styles.rationale}>{recommendation.rationale}</p>
+      )}
       <Button variant="secondary" onClick={() => onAct(recommendation)}>
         {label}
       </Button>

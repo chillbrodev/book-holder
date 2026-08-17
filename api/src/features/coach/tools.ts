@@ -94,13 +94,23 @@ export function buildCoachTools(scope: ToolScope): AgentTool[] {
       name: "get_recent_misses",
       description:
         "The beats she keeps getting wrong, worst first. Includes what she " +
-        "actually said instead, and how many times she has missed each one.",
+        "actually said instead, how many times she has missed each one, and " +
+        "the shape of the whole speech it belongs to (how many of its beats " +
+        "are solid, close and dry) so you can say why that speech is worth " +
+        "running rather than just which line failed.",
       schema: { type: "object", properties: {} },
       run: async () => {
         const result = await pool().query(
-          `SELECT l.id AS line_id, l.act, l.scene, l.text,
+          // The per-speech tally is a correlated aggregate over *every* beat of
+          // the block, not only the missed ones — "two of its nine beats are
+          // dry" needs the nine. Counting solid explicitly rather than as
+          // "not dry and not close": a beat only ever scored by the
+          // deterministic fallback has a NULL band and belongs in none of the
+          // three (migration 009).
+          `SELECT l.id AS line_id, l.act, l.scene, l.text, l.block_id,
                   m.mistake_count, m.band,
-                  coalesce(recent.what_was_said, '') AS what_was_said
+                  coalesce(recent.what_was_said, '') AS what_was_said,
+                  speech.solid, speech.close, speech.dry, speech.beats
              FROM line_mastery m
              JOIN lines l ON l.id = m.line_id
              JOIN line_speakers ls ON ls.line_id = l.id AND ls.character_id = $2
@@ -109,6 +119,16 @@ export function buildCoachTools(scope: ToolScope): AgentTool[] {
                 WHERE ml.line_id = m.line_id AND ml.user_id = m.user_id
                 ORDER BY ml.created_at DESC LIMIT 1
              ) recent ON true
+             LEFT JOIN LATERAL (
+               SELECT count(*) AS beats,
+                      count(*) FILTER (WHERE bm.band = 'solid') AS solid,
+                      count(*) FILTER (WHERE bm.band = 'close') AS close,
+                      count(*) FILTER (WHERE bm.band = 'dry') AS dry
+                 FROM lines bl
+                 LEFT JOIN line_mastery bm
+                        ON bm.line_id = bl.id AND bm.user_id = m.user_id
+                WHERE bl.block_id = l.block_id
+             ) speech ON true
             WHERE m.user_id = $3 AND l.play_id = $1 AND m.mistake_count > 0
             ORDER BY m.mistake_count DESC, m.confidence_score ASC
             LIMIT $4`,
@@ -124,6 +144,16 @@ export function buildCoachTools(scope: ToolScope): AgentTool[] {
           heard: r.what_was_said,
           timesMissed: Number(r.mistake_count),
           band: r.band,
+          // The speech this beat belongs to. `speech` is what a rationale is
+          // built from: it says whether one line went or the whole thing is
+          // shaky, which are different problems and different advice.
+          speech: {
+            blockId: r.block_id,
+            beats: Number(r.beats ?? 0),
+            solid: Number(r.solid ?? 0),
+            close: Number(r.close ?? 0),
+            dry: Number(r.dry ?? 0),
+          },
         }));
       },
     },
@@ -224,6 +254,16 @@ export function buildCoachTools(scope: ToolScope): AgentTool[] {
               "What she should do about it, in one short sentence. No " +
               "quotation. Required.",
           },
+          rationale: {
+            type: "string",
+            description:
+              "Why this speech and not another, in terms of her marks. Take " +
+              "every number from the `speech` object on the beat you chose in " +
+              "get_recent_misses — its beats/solid/close/dry — and use those " +
+              "figures. No example is given here on purpose: the last one was " +
+              "copied verbatim and shipped counts that were not hers. " +
+              "Required.",
+          },
           action: {
             type: "string",
             enum: ["none", "drill", "scene"],
@@ -239,7 +279,7 @@ export function buildCoachTools(scope: ToolScope): AgentTool[] {
           act: { type: "string", description: "For 'scene'." },
           scene: { type: "string", description: "For 'scene'." },
         },
-        required: ["note", "observation", "advice", "action"],
+        required: ["note", "observation", "advice", "rationale", "action"],
       },
       // Never runs: the loop returns its arguments as the answer the moment the
       // model calls it.

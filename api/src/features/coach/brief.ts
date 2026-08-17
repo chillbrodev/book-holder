@@ -33,6 +33,7 @@ export const RECOMMENDATION_SCHEMA: ToolJsonSchema = {
     note: { type: "string" },
     observation: { type: "string" },
     advice: { type: "string" },
+    rationale: { type: "string" },
     action: { type: "string", enum: ["none", "drill", "scene"] },
     act: { type: "string" },
     scene: { type: "string" },
@@ -126,13 +127,25 @@ ANSWERING
 
 Call submit_recommendation. That is how you answer — not by writing prose.
 
-You must fill THREE text fields, and they are not the same field said three ways:
+You must fill FOUR text fields, and they are not the same field said four ways:
 
   note        — the whole thing, in your own words, as you would say it to her.
   observation — what keeps happening to that line. No quotation. "She has gone
                 dry on it in three of her last four runs."
   advice      — what to do. No quotation. "Take that speech on its own before
                 the scene."
+  rationale   — why THIS speech, in her marks. Every number in it must come
+                from the "speech" object on the beat you chose in
+                get_recent_misses: its beats, solid, close and dry. Shown to her
+                under the note as the evidence for it, so it has to be figures
+                she could check against her own screen, not a restatement of the
+                advice.
+
+                No example sentence is given, for the same reason no example
+                note is: the last version of this brief carried one and the
+                model shipped its numbers verbatim, telling an actor that two of
+                nine beats were dry when one of eleven was. Write it from the
+                object in front of you.
 
 "observation" and "advice" are required because "note" is the field you get
 wrong: you write the quoted line into it and stop. If that happens, they are

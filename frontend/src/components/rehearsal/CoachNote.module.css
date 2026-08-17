@@ -62,3 +62,16 @@
   line-height: 1.5;
   color: var(--bh-text-muted);
 }
+
+/* The working under the note. Same family as the standfirst above it — quiet,
+   13px — but set apart with a rule so the panel reads as three distinct things
+   (who is speaking, what they say, why) rather than three paragraphs. */
+.rationale {
+  margin: 10px 0 14px;
+  padding-left: 10px;
+  border-left: 2px solid var(--bh-border-hairline);
+  font-family: var(--bh-font-sans);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--bh-text-muted);
+}
