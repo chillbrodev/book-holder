@@ -34,3 +34,14 @@
 .partial {
   opacity: 0.6;
 }
+
+/* Bounded like the production readout above it. On a monologue this ran to
+   231px of transcript and was the single biggest thing pushing the mic controls
+   below the fold — in the dev build, which is where the app is actually used
+   while it is being built. Pinned to its tail by the same reasoning: the
+   interesting end of a live transcript is the end. */
+.transcript {
+  max-height: 7em;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}

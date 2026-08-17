@@ -95,6 +95,17 @@ export const CoachService = {
     );
     if (result.rows.length === 0) return null;
     const row = result.rows[0];
+
+    // Filtered on the way out as well as on the way in. `validate` now rejects a
+    // note that is nothing but a quoted line, but rows written before that check
+    // existed are still in the table — and one of them is on the most recent
+    // session, so the wrap-up would go on showing the actor her own script under
+    // "From the Book Holder" until she happened to run the agent again. Silence
+    // is a real answer here (`coaching-plan.md` §4); a bad note is not.
+    if (isBareQuotation(row.note, await quotableLines(input.playId))) {
+      return null;
+    }
+
     return {
       id: row.id,
       note: row.note,
@@ -182,6 +193,8 @@ async function runAgent(input: {
 
 interface RawRecommendation {
   note?: unknown;
+  observation?: unknown;
+  advice?: unknown;
   action?: unknown;
   act?: unknown;
   scene?: unknown;
@@ -232,12 +245,132 @@ interface ValidRecommendation {
  * at the point of *recommending* is better than recommending something that
  * fails when she taps it.
  */
+/**
+ * Rejects a "note" that is nothing but the line, copied out.
+ *
+ * The brief asks for a note in three steps: quote the line, say what keeps
+ * happening to it, say what to do. Nova Lite reliably performs step 1 and stops.
+ * Observed in production — a stored recommendation whose entire text was
+ * *"From time to time I have acquainted you With the dear love I bear to fair
+ * Anne Page; ..."*, with no sentence of coaching anywhere in it. `unwrap` then
+ * strips the surrounding quotation marks, so the wrap-up rendered a copy of her
+ * own script under the heading "From the Book Holder".
+ *
+ * Checked in code rather than argued in the prompt, for the reason
+ * `features/coaching`'s `groundedNote` already established: three rubric
+ * revisions failed to stop Nova emitting "All beats are dry", and the fix that
+ * worked was a mechanical check, because the rule is mechanically checkable.
+ * This one is too — does the note consist of a line of the play and nothing
+ * else? — so it is checked.
+ *
+ * Deliberately narrow. It does not require a minimum length, count sentences, or
+ * look for coaching vocabulary; any of those would reject a good short note. It
+ * asks one question: with the quoted play text removed, is there anything left?
+ */
+/**
+ * Builds a note out of the quoted line plus the model's own two sentences.
+ *
+ * Used only when `note` came back as the line and nothing else. The quotation is
+ * kept — it is what makes a note about a *line* rather than about a run — and
+ * the observation and advice are what turn it into something she can act on.
+ *
+ * Returns null when there is nothing to add, because a quoted line with an empty
+ * sentence after it is the same failure with punctuation.
+ */
+function composeNote(quoted: string, raw: RawRecommendation): string | null {
+  const sentence = (value: unknown) =>
+    typeof value === "string" ? value.trim().replace(/\s+/g, " ") : "";
+
+  const observation = sentence(raw.observation);
+  const advice = sentence(raw.advice);
+  if (!observation && !advice) return null;
+
+  const end = (text: string) => /[.!?]$/.test(text) ? text : `${text}.`;
+  const body = [observation, advice].filter(Boolean).map(end).join(" ");
+
+  // The line goes back inside quotation marks: `unwrap` stripped them on the way
+  // in, and without them the speech and the note about it run together into one
+  // sentence that reads as neither.
+  return `\u201C${quoted.trim()}\u201D ${body}`;
+}
+
+export function isBareQuotation(note: string, playLines: string[]): boolean {
+  // Apostrophes are *removed* rather than turned into spaces, unlike every
+  // other mark. Shakespeare is full of elisions — "answer'd", "'twixt",
+  // "you'll" — and a model requoting a line frequently drops the apostrophe.
+  // Mapping it to a space makes "answer'd" into two tokens and "answerd" into
+  // one, so the echo no longer matches its own source line and walks straight
+  // through the filter. Caught by a test, not in review.
+  const normalise = (text: string) =>
+    text
+      .toLowerCase()
+      .replace(/['\u2019]/g, "")
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
+
+  const normalisedNote = normalise(note);
+  if (!normalisedNote) return true;
+
+  for (const candidate of playLines) {
+    const line = normalise(candidate);
+    if (!line || !normalisedNote.includes(line)) continue;
+    // The quoted span is genuinely in there. What remains is what she would
+    // actually be told; under four words it is a label, not a note.
+    const remainder = normalisedNote.replace(line, " ").trim();
+    if (remainder.split(" ").filter(Boolean).length < 4) return true;
+  }
+
+  return false;
+}
+
+/** The play's quotable lines. Only ones long enough to be worth quoting: a
+ * three-word beat ("Hark, good mine host.") legitimately appears inside a real
+ * note with a sentence around it, and matching on it would reject that note. */
+async function quotableLines(playId: string): Promise<string[]> {
+  const rows = await DbClient.getPool().query(
+    `SELECT text FROM lines WHERE play_id = $1 AND length(text) >= 40`,
+    [playId],
+  );
+  return (rows.rows as { text: string }[]).map((row) => row.text);
+}
+
 async function validate(
   raw: RawRecommendation,
   scope: { userId: string; playId: string; characterId: string },
 ): Promise<ValidRecommendation | null> {
-  const note = unwrap(typeof raw.note === "string" ? raw.note : "");
-  if (note.length === 0) return null;
+  const modelNote = unwrap(typeof raw.note === "string" ? raw.note : "");
+  if (modelNote.length === 0) return null;
+  let finalNote = modelNote;
+  if (isBareQuotation(modelNote, await quotableLines(scope.playId))) {
+    // Rebuilt from the structured fields rather than thrown away.
+    //
+    // Nova Lite writes the quoted line into `note` and stops — reliably, and
+    // through a rubric revision written specifically to stop it, which is the
+    // second time this codebase has learned that a prompt cannot enforce a rule
+    // a machine can check (see `groundedNote` in features/coaching). So the
+    // model is no longer trusted to compose the sentence: it is asked
+    // separately what happened and what to do, which it answers well, and the
+    // sentence is assembled here.
+    //
+    // The composed form is deliberately plain. It is a floor, not the intended
+    // voice — when the model does write a real note, that note is used
+    // untouched, because a person's phrasing beats a template every time.
+    const composed = composeNote(modelNote, raw);
+    if (!composed) {
+      console.warn(
+        `Coach note unusable — bare quotation and no observation/advice: ${
+          JSON.stringify(modelNote.slice(0, 80))
+        }`,
+      );
+      return null;
+    }
+    console.warn(
+      "Coach note was a bare quotation; composed one from observation/advice.",
+    );
+    finalNote = composed;
+  }
+
+  const note = finalNote;
 
   const action = raw.action === "drill" || raw.action === "scene"
     ? raw.action

@@ -1,0 +1,81 @@
+.legend {
+  margin: 0 0 16px;
+  padding: 14px 16px;
+  background: var(--bh-surface);
+  border: 1px solid var(--bh-border-hairline);
+  border-radius: var(--bh-radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Term and meaning on one line above 600px, stacked below it. A two-column grid
+   would give the widest term ("Solid") a column of its own and leave the other
+   two hanging; flex with a fixed term width keeps the meanings aligned without
+   that. */
+.row {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.term {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex: none;
+  width: 5.5em;
+  font-family: var(--bh-font-sans);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--bh-ink);
+}
+
+.meaning {
+  margin: 0;
+  font-family: var(--bh-font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--bh-text-muted);
+}
+
+/* Deliberately the same three shapes as SpeechScore's marks — filled,
+   half-filled, hollow — so the legend and the thing it explains cannot drift.
+   Duplicated rather than imported because CSS modules have no cross-file
+   inheritance; if a third place ever needs them, they move to tokens. */
+.mark {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 2px solid var(--bh-ash-mid);
+  background: transparent;
+  flex: none;
+  position: relative;
+  top: 1px;
+}
+
+.solid {
+  border-color: var(--bh-gold-mid);
+  background: var(--bh-gold-mid);
+}
+
+.close {
+  border-color: var(--bh-gold-mid);
+  background: linear-gradient(to right, var(--bh-gold-mid) 50%, transparent 50%);
+}
+
+.dry {
+  border-color: var(--bh-terracotta-dark);
+  background: transparent;
+}
+
+@media (max-width: 600px) {
+  .row {
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .term {
+    width: auto;
+  }
+}

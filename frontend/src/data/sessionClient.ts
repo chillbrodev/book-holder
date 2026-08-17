@@ -1,4 +1,5 @@
 import { apiRequest } from './apiClient'
+import type { Band } from './captureClient'
 
 /**
  * The memory half of the loop: what to lean on before a scene, and what happened
@@ -50,6 +51,16 @@ export interface FlaggedBeat extends BeatMastery {
   whatWasSaid: string
 }
 
+/** One scored beat of a speech, as the wrap-up lists it. */
+export interface ScoredBeat {
+  lineId: string
+  text: string
+  /** What the coach judged. Null when only the deterministic fallback ever
+   * scored this beat — "not judged", never "not solid" (migration 009). */
+  band: Band | null
+  confidenceScore: number
+}
+
 /** One of her speeches, with whatever the coach said about it. */
 export interface SpeechSummary {
   blockId: string
@@ -57,12 +68,17 @@ export interface SpeechSummary {
   firstLineNumber: number
   /** Empty when there was nothing worth saying, which is common and correct. */
   note: string
-  /** Per-beat confidence, in beat order. Deliberately not rendered as bands
-   * here: the two cuts that turn a number into solid/close/dry are still unset
-   * (`docs/OPEN_ITEMS.md` §1a), and inventing them at the render layer is how a
-   * guess becomes product behaviour. Carried because the coach agent will want
-   * it. */
-  confidences: number[]
+  /**
+   * Every beat, in the order she said them.
+   *
+   * This replaced a bare `confidences: number[]` whose comment said bands were
+   * deliberately not rendered because the cuts that turn a confidence into
+   * solid/close/dry were unset. That stopped being true at migration 009 — the
+   * band the coach actually judged is stored per beat — so the band is read
+   * rather than derived, and deriving one here would invent a second answer that
+   * could disagree with the stored one.
+   */
+  beats: ScoredBeat[]
 }
 
 export interface SessionSummary {

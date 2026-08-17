@@ -75,10 +75,81 @@ export type SpeechSummary = {
   /** The coach's note, or empty, silence is the right answer more often than
    * not (`coaching-plan.md` §4) and an empty note is not a missing one. */
   note: string;
-  /** Per-beat confidence for this speech, in beat order. The band is derived
-   * from these at render time, never stored. See §6. */
-  confidences: number[];
+  /**
+   * Every beat of the speech, in the order she said them.
+   *
+   * This replaced a bare `confidences: number[]`, whose comment claimed the band
+   * was "derived from these at render time, never stored". That stopped being
+   * true at migration 009: `session_beat_score.band` is what the coach actually
+   * judged, and deriving a band from a confidence in the client would have
+   * invented a second, disagreeing answer from the same row. The band is read,
+   * not recomputed.
+   *
+   * The text comes with it because the wrap-up now shows the speech back beat by
+   * beat, and asking the client to re-fetch the scene to caption its own scores
+   * would be a round trip for text this query already has in hand.
+   */
+  beats: ScoredBeat[];
 };
+
+/** One scored beat of a speech, as the wrap-up lists it. */
+export type ScoredBeat = {
+  lineId: string;
+  text: string;
+  /** What the coach judged. Null when only the deterministic fallback ever
+   * scored this beat — "not judged", never "not solid" (migration 009). */
+  band: "solid" | "close" | "dry" | null;
+  confidenceScore: number;
+};
+
+type RawScoredBeatRow = {
+  block_id: string;
+  line_number: number | string;
+  line_id: string;
+  text: string;
+  band: "solid" | "close" | "dry" | null;
+  confidence_score: number | string;
+  note: string;
+};
+
+/**
+ * Beat rows into speeches, preserving the order they were spoken in.
+ *
+ * Groups *consecutive* rows sharing a block_id rather than bucketing by id, for
+ * the same reason the frontend's `toDialogueItems` does: order is the thing
+ * being preserved, and adjacency preserves it for free. The query already
+ * orders by `line_number`, which is the scene-local **beat** sequence despite
+ * its name — ordering by `beat_number` would interleave speeches, since that is
+ * the beat's index *within* its block.
+ */
+function groupIntoSpeeches(rows: RawScoredBeatRow[]): SpeechSummary[] {
+  const speeches: SpeechSummary[] = [];
+
+  for (const row of rows) {
+    const beat: ScoredBeat = {
+      lineId: row.line_id,
+      text: row.text,
+      band: row.band,
+      // `pg` hands back 64-bit numerics as strings.
+      confidenceScore: Number(row.confidence_score),
+    };
+
+    const previous = speeches[speeches.length - 1];
+    if (previous?.blockId === row.block_id) {
+      previous.beats.push(beat);
+      continue;
+    }
+
+    speeches.push({
+      blockId: row.block_id,
+      firstLineNumber: Number(row.line_number),
+      note: row.note,
+      beats: [beat],
+    });
+  }
+
+  return speeches;
+}
 
 export type SessionSummary = {
   sessionId: string;
@@ -428,17 +499,23 @@ export const SessionService = {
      * interleaves speeches and puts several unrelated "beat 1"s together.
      */
     const speeches = await DbClient.getPool().query(
+      // One row per beat rather than one aggregated row per speech, and grouped
+      // in TypeScript below. Aggregating four parallel arrays (id, text, band,
+      // confidence) and trusting them to stay aligned is the kind of thing that
+      // is correct until one column is added to only three of the array_aggs.
       `SELECT l.block_id,
-              min(l.line_number) AS first_line_number,
-              coalesce(max(bc.note), '') AS note,
-              array_agg(sbs.confidence_score ORDER BY l.line_number) AS confidences
+              l.line_number,
+              l.id AS line_id,
+              l.text,
+              sbs.band,
+              sbs.confidence_score,
+              coalesce(bc.note, '') AS note
          FROM session_beat_score sbs
          JOIN lines l ON l.id = sbs.line_id
          LEFT JOIN block_coaching bc
                 ON bc.session_id = sbs.session_id AND bc.block_id = l.block_id
         WHERE sbs.session_id = $1
-        GROUP BY l.block_id
-        ORDER BY first_line_number`,
+        ORDER BY l.line_number`,
       [row.id],
     );
 
@@ -468,20 +545,7 @@ export const SessionService = {
         : new Date(row.completed_at).toISOString(),
       blocksPlanned: Number(coverage.rows[0]?.planned ?? 0),
       blocksRun: Number(coverage.rows[0]?.run ?? 0),
-      speeches: speeches.rows.map((
-        speech: {
-          block_id: string;
-          first_line_number: number | string;
-          note: string;
-          confidences: (number | string)[];
-        },
-      ) => ({
-        blockId: speech.block_id,
-        firstLineNumber: Number(speech.first_line_number),
-        note: speech.note,
-        // `pg` hands back 64-bit numerics as strings; the array is no exception.
-        confidences: speech.confidences.map(Number),
-      })),
+      speeches: groupIntoSpeeches(speeches.rows),
       flagged: flagged.rows.map((
         beat: RawMasteryRow & {
           act: string;

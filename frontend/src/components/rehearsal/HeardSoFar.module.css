@@ -34,4 +34,13 @@
   color: var(--bh-text-muted);
   margin: 0;
   overflow-wrap: anywhere;
+  /* Bounded for the same reason the speech above it is: a monologue's transcript
+     runs to a couple of hundred words, and unbounded it pushed Continue and the
+     mic controls off the bottom of the screen — the thing that made a long speech
+     unusable. It scrolls itself, and is pinned to its own bottom below, so what
+     is on screen is the tail: the words she has just said, which is the part
+     worth reading while she is still speaking. */
+  max-height: 8.5em;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }

@@ -16,8 +16,10 @@
  * missing, it was just a wrong number.
  */
 import type { Play, Character } from '../types/domain'
-import type { PlaySummary, SceneSummary, DialogueBlock, DialogueItem } from '../types/views'
+import type { PlaySummary, SceneSummary, DialogueItem } from '../types/views'
 import { apiRequest } from './apiClient'
+export { blockVerseLines, blockDisplayLines, blockPrompterLines } from './blockText'
+export type { PrompterLine } from './blockText'
 import { MOCK_USER_ID } from './mock/roles'
 
 const FOCUS_PLAY_ID = 'merry-wives-of-windsor'
@@ -146,25 +148,6 @@ function toDialogueItems(raw: RawDialogueEntry[], userCharacterId: string): Dial
   }
 
   return items
-}
-
-/** A block's verse lines, each exactly once, what a verse display renders.
- *
- * A beat boundary usually falls mid-line, so that line is the last entry of one
- * beat and the first of the next. `sharesFirstSourceLine` marks exactly that,
- * rather than comparing the text: a song refrain can legitimately repeat an
- * identical line inside one block, and equality would swallow the repeat. */
-export function blockVerseLines(block: DialogueBlock): string[] {
-  return block.beats.flatMap((beat) =>
-    beat.sharesFirstSourceLine ? beat.sourceLines.slice(1) : beat.sourceLines,
-  )
-}
-
-/** What the screen shows for a block: verse keeps its lineation, prose flows.
- * Prose "lines" are only Moby's fixed-width typesetting and would look
- * arbitrary at any width but the one they were set for. */
-export function blockDisplayLines(block: DialogueBlock): string[] {
-  return block.isVerse ? blockVerseLines(block) : [block.beats.map((b) => b.text).join(' ')]
 }
 
 export async function getPlays(): Promise<PlaySummary[]> {

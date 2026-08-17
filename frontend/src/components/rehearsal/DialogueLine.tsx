@@ -3,6 +3,7 @@ import { blockDisplayLines } from '../../data/client'
 import type { DialogueBlock } from '../../types/views'
 import { cx } from '../../utils/cx'
 import { BlockDebugInfo } from './BlockDebugInfo'
+import { Teleprompter } from './Teleprompter'
 import styles from './DialogueLine.module.css'
 
 export interface DialogueLineProps {
@@ -12,10 +13,23 @@ export interface DialogueLineProps {
   /** Replaces the block's text entirely, the held-back prompt on her own
    * lines, or the empty string when "Other lines" is toggled off. */
   overrideText?: string
-  /** Shown after the block when she's called for a prompt: the next beat only,
-   * never the whole speech. A block can be sixteen thoughts long, and handing
-   * her all of them isn't a prompt, it's the answer. */
-  promptedBeat?: string
+  /**
+   * Turns the block into a prompter that follows her, for her own live speech.
+   *
+   * Present only on the active user block; every other block on the page is
+   * static text and renders exactly as before. See Teleprompter.tsx for why a
+   * long speech cannot be laid out in page flow.
+   *
+   * Supersedes the old `promptedBeat`, which appended each revealed beat to a
+   * growing paragraph and joined `beat.text` — losing verse lineation entirely,
+   * because `text` is the source lines already run together.
+   */
+  prompter?: {
+    beatIndex: number
+    /** Draw the shape only, without the words. */
+    masked?: boolean
+    frozen?: boolean
+  }
   children?: ReactNode
 }
 
@@ -32,7 +46,7 @@ export function DialogueLine({
   active = false,
   micError = false,
   overrideText,
-  promptedBeat,
+  prompter,
   children,
 }: DialogueLineProps) {
   const showBlockText = overrideText === undefined
@@ -72,8 +86,17 @@ export function DialogueLine({
   return (
     <div className={cx(styles.active, micError ? styles.activeAsh : styles.activeGold)}>
       {header}
-      {body}
-      {promptedBeat && <div className={styles.promptedBeat}>{promptedBeat}</div>}
+      {prompter
+        ? (
+          <Teleprompter
+            block={block}
+            beatIndex={prompter.beatIndex}
+            masked={prompter.masked}
+            frozen={prompter.frozen}
+            className={styles.prompterPane}
+          />
+        )
+        : body}
       <BlockDebugInfo block={block} />
       {children}
     </div>

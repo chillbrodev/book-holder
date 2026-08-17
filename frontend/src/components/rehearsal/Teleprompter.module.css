@@ -1,0 +1,102 @@
+/* The bounded pane. Bounding it is the fix, not decoration: an unbounded block
+   is what pushed the mic controls off the bottom of a long speech and what let
+   page-level auto-scroll drag the line she was reading off the top.
+
+   `min()` rather than a flat vh so a short speech is never given a tall empty
+   box, and a long one never eats a laptop screen whole. Content shorter than the
+   cap simply doesn't scroll — one component covers a two-line answer and a
+   45-line monologue with no branch. */
+.pane {
+  /* Makes the pane the offsetParent of its rows, which the auto-scroll depends
+     on: `offsetTop` is measured from the nearest *positioned* ancestor, so
+     without this the rows reported their distance from the top of the page and
+     the pane scrolled to an offset that included the whole header. It looked
+     correct only while the pane happened to sit at the top of the document,
+     which is exactly the case a first test lands in. */
+  position: relative;
+  max-height: min(46vh, 520px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 2px 0;
+  /* The auto-scroll is a smooth scrollTo. Anyone who has asked their OS for
+     less motion gets the jump instead, which still keeps her place. */
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pane {
+    scroll-behavior: auto;
+  }
+}
+
+.row {
+  font-family: var(--bh-font-sans);
+  font-size: 18px;
+  line-height: 1.5;
+  margin: 0;
+  padding: 2px 0 2px 12px;
+  /* Reserved on every row, not added when a row becomes current — a border that
+     appears on highlight shifts the text sideways by 3px as the beat moves,
+     which on a prompter reads as a twitch. */
+  border-left: 3px solid transparent;
+  transition: opacity 180ms ease, color 180ms ease;
+}
+
+/* A pentameter line too long for the viewport wraps with a hanging indent, so
+   the wrap reads as continuation rather than as a new line of verse. */
+.verse {
+  padding-left: calc(12px + 1.4em);
+  text-indent: -1.4em;
+}
+
+.prose + .prose {
+  margin-top: 10px;
+}
+
+/* Said. Recedes, but stays legible — she may well glance back at the line she
+   has just come off, and it is the run-up to the one she is on. */
+.said {
+  opacity: 0.42;
+}
+
+/* Now. The lit thought.
+
+   Marked with a rule and a warmer ground rather than by dimming everything else,
+   because what is *ahead* must stay at full readability: verse is read several
+   lines before it is spoken, and a prompter that fades the future is worse than
+   no prompter. */
+.now {
+  border-left-color: var(--bh-gold-mid);
+  background: var(--bh-gold-light);
+  color: var(--bh-ink);
+  border-radius: 0 var(--bh-radius-sm) var(--bh-radius-sm) 0;
+}
+
+/* Held back. The row keeps its height and the block keeps its shape, so asking
+   for a line fills it in where it already was instead of growing the speech and
+   moving everything under her — which is what the old reveal did on every tap. */
+.hidden {
+  opacity: 1;
+}
+
+.mask {
+  display: block;
+  height: 1.5em;
+  /* Width varies with the row so the masked speech still has the silhouette of
+     verse rather than reading as a stack of identical bars. Deterministic per
+     row via nth-child, not random, or it would reshuffle on every render. */
+  width: 82%;
+  border-bottom: 1px dashed var(--bh-border-hairline);
+}
+
+.row:nth-child(3n) .mask {
+  width: 68%;
+}
+
+.row:nth-child(3n + 1) .mask {
+  width: 91%;
+}
+
+.row:nth-child(4n) .mask {
+  width: 54%;
+}

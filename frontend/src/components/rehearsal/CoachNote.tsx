@@ -25,6 +25,13 @@ export interface CoachNoteProps {
  * It is also deliberately not styled as an alert. Terracotta belongs to "worth
  * another look"; this is the book holder speaking, so it takes gold, the same
  * colour the app uses for a thing that is working.
+ *
+ * The standfirst under the heading exists because the panel was otherwise
+ * unattributed: a sentence appeared, in the app's voice, with a button under it,
+ * and nothing said who was talking or on what basis. It is one line, above the
+ * note rather than below, and it says the two things that make the note worth
+ * reading — that this looked at every rehearsal rather than only this one, and
+ * that it is a suggestion rather than a verdict.
  */
 export function CoachNote({ recommendation, loading, onAct }: CoachNoteProps) {
   if (loading) {
@@ -51,6 +58,10 @@ export function CoachNote({ recommendation, loading, onAct }: CoachNoteProps) {
   return (
     <div className={styles.card}>
       <div className={`bh-eyebrow ${styles.eyebrow}`}>From the book holder</div>
+      <p className={styles.standfirst}>
+        Read across every rehearsal you've saved, not just this one — one
+        suggestion for what to do next, and why. Take it or leave it.
+      </p>
       <p className={styles.note}>{recommendation.note}</p>
       <Button variant="secondary" onClick={() => onAct(recommendation)}>
         {label}

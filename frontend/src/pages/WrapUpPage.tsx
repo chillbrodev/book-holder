@@ -15,6 +15,8 @@ import { ApiError } from '../data/apiClient'
 import { useAsync } from '../hooks/useAsync'
 import { StatCard } from '../components/cards/StatCard'
 import { FlaggedLineRow } from '../components/lists/FlaggedLineRow'
+import { SpeechScore } from '../components/wrapup/SpeechScore'
+import { BandLegend } from '../components/wrapup/BandLegend'
 import { Button } from '../components/core/Button'
 import { Icon } from '../components/core/Icon'
 import { AsyncStatus } from '../components/core/AsyncStatus'
@@ -104,7 +106,19 @@ export function WrapUpPage() {
   // the right answer more often than not (`coaching-plan.md` §4), and a list of
   // blank rows would suggest something failed rather than that a speech went
   // fine.
-  const notedSpeeches = summary?.speeches.filter((speech) => speech.note.length > 0) ?? []
+  /** Every speech she ran, not only the ones the coach spoke about. A clean
+   * speech is a result too, and a list that showed only the flawed ones would
+   * make a good run look like an empty page. */
+  const speeches = summary?.speeches ?? []
+  /** Across the whole run, for the stat card. Counts the band the coach judged;
+   * a beat only ever scored by the deterministic fallback has none and is left
+   * out of all three rather than assumed solid. */
+  const bandTally = speeches
+    .flatMap((speech) => speech.beats)
+    .reduce<Record<string, number>>((tally, beat) => {
+      if (beat.band) tally[beat.band] = (tally[beat.band] ?? 0) + 1
+      return tally
+    }, {})
 
   /**
    * Play the speech a flagged beat belongs to, in her own part's voice.
@@ -202,7 +216,16 @@ export function WrapUpPage() {
               value={`${summary.blocksRun}/${summary.blocksPlanned}`}
               label="Speeches run"
             />
-            <StatCard value={summary.flagged.length} label="Worth another look" tone="terracotta" />
+            {/* The run in bands rather than a count of problems. "Worth another
+                look" said only how much went wrong; this says how it went, and
+                the tone stays terracotta only when something actually did.
+                Beats the fallback scored are in none of the three — they were
+                never judged, and rolling them into "solid" would be a claim. */}
+            <StatCard
+              value={`${bandTally.solid ?? 0}/${bandTally.close ?? 0}/${bandTally.dry ?? 0}`}
+              label="Solid · close · dry"
+              tone={bandTally.dry ? 'terracotta' : undefined}
+            />
           </div>
           {/* Said plainly rather than left to be inferred from the fraction
               above. Stopping early is a normal way to rehearse and no longer
@@ -214,9 +237,33 @@ export function WrapUpPage() {
               — everything you ran is saved.
             </p>
           )}
-          {/* Above the notes and the flagged list on purpose: this is the one
-              thing on the page that read her *whole* history and decided
-              something, and everything below it is the evidence. Renders
+          {speeches.length > 0 && (
+            <>
+              <div className={`bh-eyebrow ${styles.sectionLabel}`}>Your lines read</div>
+              {/* What the marks mean, before the marks. Above rather than below
+                  because a legend read after the list is a legend read twice. */}
+              <BandLegend />
+              <div className={styles.speeches}>
+                {speeches.map((speech, i) => (
+                  <SpeechScore
+                    key={speech.blockId}
+                    speech={speech}
+                    ordinal={i + 1}
+                    onRunAgain={() =>
+                      navigate(
+                        `/play/${playId}/rehearse/${act}/${scene}?blocks=${speech.blockId}&back=${backParam}`,
+                      )}
+                  />
+                ))}
+              </div>
+            </>
+          )}
+          {/* Below the speeches, not above them, and that ordering was reversed
+              deliberately. It used to lead the page on the grounds that it was
+              the one thing here that read her *whole* history and decided
+              something, with the evidence beneath it. But a conclusion offered
+              before its evidence is just an assertion: she now reads how the run
+              actually went, and then what the book holder makes of it. Renders
               nothing at all when the agent had nothing to say. */}
           <CoachNote
             recommendation={coach.data}
@@ -233,32 +280,6 @@ export function WrapUpPage() {
               )
             }}
           />
-          {notedSpeeches.length > 0 && (
-            <>
-              <div className={`bh-eyebrow ${styles.sectionLabel}`}>From the wings</div>
-              <div className={styles.notes}>
-                {notedSpeeches.map((speech) => {
-                  const flaggedHere = summary.flagged.filter(
-                    (beat) => beat.blockId === speech.blockId,
-                  ).length
-                  return (
-                    <div key={speech.blockId} className={styles.note}>
-                      <p className={styles.noteText}>{speech.note}</p>
-                      {/* A count rather than a band. The two cuts that turn a
-                          confidence into solid/close/dry are still unset, and
-                          this number is already stored and already means
-                          exactly one thing. */}
-                      {flaggedHere > 0 && (
-                        <span className={`bh-meta ${styles.noteMeta}`}>
-                          {flaggedHere} {flaggedHere === 1 ? 'beat' : 'beats'} worth another look
-                        </span>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            </>
-          )}
           {summary.flagged.length > 0 && (
             <>
               <div className={`bh-eyebrow ${styles.sectionLabel}`}>Worth another look</div>

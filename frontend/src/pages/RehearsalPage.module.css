@@ -119,12 +119,17 @@
      around it widened for the control row. */
   max-width: 640px;
   margin: 16px auto 0;
-  /* Just enough to keep the active card's mic controls off the viewport edge.
-     This was 50vh, which bought scrollIntoView somewhere to settle but meant
-     the page always had a half-screen of empty scroll below the script — a
-     scrollbar from the first line, and an "end of page" nowhere near the end
-     of the scene. */
-  padding-bottom: 32px;
+  /* Clearance for `.liveBar`, which is fixed and so takes no part in flow.
+     Without it the end of a speech — and the score that lands under it — sits
+     behind the controls and cannot be scrolled into view.
+
+     This was 50vh once, which bought scrollIntoView somewhere to settle but
+     meant the page always had a half-screen of empty scroll below the script: a
+     scrollbar from the first line, and an "end of page" nowhere near the end of
+     the scene. The bar's real height is published by RehearsalPage rather than
+     assumed, because it wraps to two rows when several buttons are showing and
+     a bar taller than its clearance silently eats the last line. */
+  padding-bottom: calc(32px + var(--bh-live-bar-height, 76px));
 }
 
 /* scrollIntoView's block:'end' aligns the target's bottom edge flush with the
@@ -132,7 +137,18 @@
    up so the card settles with breathing room instead of jammed against the
    edge. Only reachable while there's scrollable content below; on the last
    line the scroll simply stops at the end, which is the intent. */
+/* Clears the sticky header when the active speech is scrolled to.
+   `scrollIntoView({ block: 'start' })` aligns to the scroll container's top edge
+   and has no idea the header is floating over it, so without this margin the
+   speaker name and the opening lines land behind it. The height is published by
+   RehearsalPage's ResizeObserver — it differs between the phone layout and the
+   desktop one, and a hardcoded value would be wrong on one of them. The
+   fallback is the desktop measurement, used only for the first frame.
+
+   `scroll-margin-bottom` stays for `jumpToActiveLine` and for any 'end'-aligned
+   scroll: a speech that ends flush against the viewport edge reads as cut off. */
 .lineAnchor {
+  scroll-margin-top: calc(var(--bh-rehearsal-header, 204px) + 12px);
   scroll-margin-bottom: 12vh;
 }
 
@@ -164,16 +180,40 @@
   background: var(--bh-gold-dark);
 }
 
-.micRow {
-  margin-top: 16px;
+/* The live controls, pinned to the viewport for the length of her speech.
+
+   `fixed`, and it resolves against the viewport even though it renders inside
+   the page wrapper: `position: sticky` on the header above does not create a
+   containing block for fixed descendants (only transform/filter/perspective/
+   contain do), which is the same reasoning `.jumpToLine` already relies on.
+
+   Mic dial on the left, buttons on the right — the dial is a status light that
+   happens to be tappable, so it should not sit in the row of things you press.
+
+   `bottom` is offset by a variable rather than 0: on a phone the four text
+   toggles are themselves a fixed bottom bar, and this has to stack above them.
+   Zero everywhere else, so no branch is needed here. */
+.liveBar {
+  position: fixed;
+  right: 0;
+  bottom: var(--bh-live-bar-offset, 0px);
+  left: 0;
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 20px calc(10px + env(safe-area-inset-bottom, 0px));
+  background: var(--bh-parchment);
+  border-top: 1px solid var(--bh-border-hairline);
 }
 
-.actions {
+.liveActions {
   display: flex;
   gap: 10px;
-  margin-top: 16px;
+  margin-left: auto;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-end;
 }
 
 .debugLink {
@@ -330,9 +370,17 @@
      side-by-side layout there and the row is one line of type tall. NARROW
      raises both numbers for the portrait bar, where the toggles stack their
      icon over the label and the row is ~84px. Measured, not guessed — a bar
-     taller than its clearance silently eats the last line of the scene. */
+     taller than its clearance silently eats the last line of the scene.
+
+     Doubled up here because on a phone there are two stacked bars: the toggles,
+     and `.liveBar` above them while her speech is live. */
   .lines {
-    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(80px + var(--bh-live-bar-height, 76px) + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Lift the live controls clear of the toggle bar underneath them. */
+  .wrap {
+    --bh-live-bar-offset: calc(80px + env(safe-area-inset-bottom, 0px));
   }
 
   /* Lifted above the bar for the same reason; at bottom:28px it landed on top

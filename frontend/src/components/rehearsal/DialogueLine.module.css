@@ -23,6 +23,14 @@
   line-height: 1.5;
 }
 
+/* The live speech. Only the prompter inside it is bounded now — the mic dial
+   and the buttons moved out to a viewport-pinned bar (RehearsalPage `.liveBar`),
+   so this card no longer has to fit a whole interaction into one screen and
+   does not need a height of its own. An earlier attempt bounded the card and let
+   the prompter absorb the difference; it worked until the dev diagnostics were
+   on, at which point the prompter hit its floor and the buttons spilled through
+   the bottom border. Pinning the controls removes the constraint rather than
+   balancing against it. */
 .active {
   margin: 18px 0;
   border-radius: var(--bh-radius-lg);
@@ -56,12 +64,6 @@
   margin-top: 0;
 }
 
-/* The prompt: one beat, set apart from the held-back block above it. */
-.promptedBeat {
-  font-family: var(--bh-font-sans);
-  font-size: 18px;
-  line-height: 1.5;
-  margin-top: 10px;
-  padding-left: 12px;
-  border-left: 3px solid var(--bh-gold-mid);
-}
+/* `.promptedBeat` lived here: the held-back reveal, appended under the block.
+   Gone with the mechanism — the reveal now happens in place, inside the
+   prompter pane, where the row already was. See Teleprompter.module.css. */

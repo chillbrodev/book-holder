@@ -211,6 +211,19 @@ export function buildCoachTools(scope: ToolScope): AgentTool[] {
             description:
               "One or two sentences for the actor, quoting the line you mean.",
           },
+          observation: {
+            type: "string",
+            description:
+              "What has actually been happening to that line — how often she " +
+              "has missed it, or what she said instead. No quotation, just the " +
+              "fact. Required.",
+          },
+          advice: {
+            type: "string",
+            description:
+              "What she should do about it, in one short sentence. No " +
+              "quotation. Required.",
+          },
           action: {
             type: "string",
             enum: ["none", "drill", "scene"],
@@ -226,7 +239,7 @@ export function buildCoachTools(scope: ToolScope): AgentTool[] {
           act: { type: "string", description: "For 'scene'." },
           scene: { type: "string", description: "For 'scene'." },
         },
-        required: ["note", "action"],
+        required: ["note", "observation", "advice", "action"],
       },
       // Never runs: the loop returns its arguments as the answer the moment the
       // model calls it.

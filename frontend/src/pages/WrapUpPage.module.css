@@ -115,32 +115,17 @@
   margin: -8px 0 24px;
 }
 
-.notes {
+/* Every speech she ran, in the order she ran them. `.notes` and its `.note` /
+   `.noteText` / `.noteMeta` rules lived here and are gone with the section they
+   styled: the coach's per-speech note is now one part of SpeechScore rather
+   than a list of its own, because a note without the beats it is about was the
+   least useful half of the pair. */
+.speeches {
   display: flex;
   flex-direction: column;
-  gap: 12px;
   margin-bottom: 28px;
-}
-
-/* Gold rather than terracotta: a note is the coach speaking, not a flag. The
-   flagged list below is where "worth another look" lives, and the two should
-   not read as the same kind of thing. */
-.note {
-  padding: 14px 16px;
+  padding: 4px 16px;
   background: var(--bh-surface);
-  border-left: 3px solid var(--bh-gold-mid);
-  border-radius: 0 var(--bh-radius-md) var(--bh-radius-md) 0;
-}
-
-.noteText {
-  margin: 0;
-  font-family: var(--bh-font-sans);
-  font-size: 15px;
-  line-height: 1.5;
-  color: var(--bh-ink);
-}
-
-.noteMeta {
-  display: block;
-  margin-top: 6px;
+  border-radius: var(--bh-radius-md);
+  border: 1px solid var(--bh-border-hairline);
 }

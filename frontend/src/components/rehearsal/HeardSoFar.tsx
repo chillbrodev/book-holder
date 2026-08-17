@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import type { MicState } from '../../hooks/useMicCapture'
 import styles from './HeardSoFar.module.css'
 
@@ -32,6 +33,17 @@ export interface HeardSoFarProps {
  * rather than as provisionality.
  */
 export function HeardSoFar({ micState, transcript }: HeardSoFarProps) {
+  const textRef = useRef<HTMLParagraphElement>(null)
+
+  // Held at the tail as the transcript grows. The box is bounded (see the CSS),
+  // so without this a long speech would leave her reading its opening words
+  // while she is forty lines further on — a readout that stops tracking her is
+  // worse than none, because it looks like the mic has stalled.
+  useEffect(() => {
+    const el = textRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [transcript])
+
   // Absent rather than empty before she has said anything: an empty quoted box
   // under her line looks like the mic has failed, which is the one thing this
   // screen must never imply falsely (style guide §9).
@@ -45,7 +57,9 @@ export function HeardSoFar({ micState, transcript }: HeardSoFarProps) {
   return (
     <div className={styles.heard}>
       <div className={styles.label}>Heard</div>
-      <p className={styles.text}>{transcript}</p>
+      <p className={styles.text} ref={textRef}>
+        {transcript}
+      </p>
     </div>
   )
 }

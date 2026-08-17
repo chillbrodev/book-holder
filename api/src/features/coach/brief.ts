@@ -31,6 +31,8 @@ export const RECOMMENDATION_SCHEMA: ToolJsonSchema = {
   type: "object",
   properties: {
     note: { type: "string" },
+    observation: { type: "string" },
+    advice: { type: "string" },
     action: { type: "string", enum: ["none", "drill", "scene"] },
     act: { type: "string" },
     scene: { type: "string" },
@@ -87,6 +89,14 @@ These all FAIL, and they are the only examples you get:
   "You missed some beats in Act I."               (names nothing)
   "Beat 3 was dry and beat 5 was close."          (she can see her own marks)
   "You have not been advised before."             (about you, not about her)
+  "From time to time I have acquainted you With
+   the dear love I bear to fair Anne Page;"       (THE LINE AND NOTHING ELSE.
+                                                   This is step 1 of 3. You have
+                                                   not written a note yet.)
+
+The last one is the failure that actually happens, and it is rejected before she
+ever sees it. A quoted line is where a note STARTS. If your note stops at the
+closing quotation mark, you have given her back her own script.
 
 A passing note quotes a line from her own history. There is deliberately no
 example of one here: write it from the tool results in front of you.
@@ -110,6 +120,18 @@ CHOOSING WHAT SHE RUNS NEXT
 ANSWERING
 
 Call submit_recommendation. That is how you answer — not by writing prose.
+
+You must fill THREE text fields, and they are not the same field said three ways:
+
+  note        — the whole thing, in your own words, as you would say it to her.
+  observation — what keeps happening to that line. No quotation. "She has gone
+                dry on it in three of her last four runs."
+  advice      — what to do. No quotation. "Take that speech on its own before
+                the scene."
+
+"observation" and "advice" are required because "note" is the field you get
+wrong: you write the quoted line into it and stop. If that happens, they are
+what she is told instead, so a blank one costs her the note entirely.
 
 - action "drill": include lineIds from get_recent_misses. act and scene are
   taken from those lines, so you need not supply them.

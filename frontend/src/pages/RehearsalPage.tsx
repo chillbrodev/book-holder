@@ -14,7 +14,6 @@ import { StageDirection } from '../components/rehearsal/StageDirection'
 import { MicStateIndicator } from '../components/rehearsal/MicStateIndicator'
 import { CaptureDebugInfo } from '../components/rehearsal/CaptureDebugInfo'
 import { HeardSoFar } from '../components/rehearsal/HeardSoFar'
-import { BlockCoachingNote } from '../components/rehearsal/BlockCoachingNote'
 import type { BlockScored } from '../hooks/useMicCapture'
 import { Button } from '../components/core/Button'
 import { Icon } from '../components/core/Icon'
@@ -44,36 +43,19 @@ const SCORE_SEEN_MS = 900
 const SCORE_WAIT_CAP_MS = 1500
 
 /**
- * How long a speech worth looking at stays up before the scene moves on itself.
+ * `worthAPause` and `AUTO_CONTINUE_MS` lived here.
  *
- * The backstop behind the Continue button, not the expected path, she taps
- * when she has read it. It exists so that putting the phone down mid-scene
- * doesn't leave the rehearsal parked forever, and it is generous because being
- * hurried through a note is the thing this whole mechanism exists to prevent.
+ * The scene used to stop after any speech with a non-solid beat or a note, so
+ * she could read the marks under it, and a "Continue" button skipped the
+ * remaining wait. Both are gone: the per-beat bands now live on the wrap-up,
+ * where they are a record rather than an interruption, and a pause that displays
+ * nothing is just the scene hanging.
+ *
+ * What survives is the short wait for the score itself (`SCORE_WAIT_CAP_MS`,
+ * `SCORE_SEEN_MS`), because the socket still has to be given a moment to deliver
+ * one — it is written to the session either way, and it is what the wrap-up
+ * reads back.
  */
-const AUTO_CONTINUE_MS = 6000
-
-/**
- * Whether a scored speech is worth stopping for.
- *
- * The split that keeps the Continue button from becoming the per-line
- * confirmation tap this page deliberately removed once, "pure friction… a
- * small piece of admin" is the comment on the effect below, and it was right.
- * A speech she had needs no acknowledgement: the pills going by *are* the
- * acknowledgement, and there is nothing to read.
- *
- * So the scene stops only when there is something to look at, a beat that
- * wasn't solid, or a note. Which is roughly when a person holding the book
- * would stop you, and not otherwise.
- *
- * Notes are trusted here because the server now drops ungrounded ones
- * (`coaching/service.ts`). Before that filter a note meant almost nothing,
- * Nova would emit "All beats are dry", and stopping the scene on one would
- * have been stopping it for filler.
- */
-function worthAPause(score: BlockScored): boolean {
-  return score.note.length > 0 || score.beats.some((beat) => beat.band !== 'solid')
-}
 const AUTO_SCROLL_STORAGE_KEY = 'bh:autoScroll'
 
 export function RehearsalPage() {
@@ -124,14 +106,20 @@ export function RehearsalPage() {
   const [showYourLines, setShowYourLines] = useState(false)
   const [showOtherLines, setShowOtherLines] = useState(true)
   const [readingPaused, setReadingPaused] = useState(false)
-  // How many beats she's called for, counted *from wherever the mic thinks she
-  // is*, not from the top of the speech. 0 = nothing revealed; each "Line?"
-  // hands over one more thought, never the whole speech.
-  const [beatsRevealed, setBeatsRevealed] = useState(0)
-  // Which beat the reveal starts from, pinned at the moment she asks. Without
-  // pinning it, the revealed text would slide forward under her as the mic
-  // cursor moves, she asked to see *this* thought, not a rolling window.
-  const [revealAnchor, setRevealAnchor] = useState<number | null>(null)
+  /**
+   * Whether she has asked to see the live speech, when her lines are held back.
+   *
+   * One flag for the whole speech, not a set of beats. Two earlier designs got
+   * this wrong in the same direction: revealing one thought per tap made an
+   * eleven-beat speech eleven taps, and the reason for rationing it — that
+   * handing over a long speech at once is the answer rather than a prompt — only
+   * held while the speech arrived as an undifferentiated wall of text. With the
+   * prompter lighting the beat she is on, the whole speech on screen *is* a
+   * prompt. Ration nothing; mark her place instead.
+   *
+   * Reset per block, so the next speech is a fresh test.
+   */
+  const [linesRevealed, setLinesRevealed] = useState(false)
   // Which block is currently being read aloud to her, if any, so the button can
   // say so and can't be triggered twice over itself.
   const [readingAloudBlockId, setReadingAloudBlockId] = useState<string | null>(null)
@@ -224,11 +212,6 @@ export function RehearsalPage() {
     capturedAtRef.current = micState === 'captured' ? Date.now() : null
   }, [micState, activeUserBlockId])
 
-  /** The scene is holding on this speech because there is something on it worth
-   * reading, which is also the only condition under which Continue appears. */
-  const activeScore = activeUserBlockId ? coachingByBlock.get(activeUserBlockId) : undefined
-  const holdingForScore = !!activeScore && worthAPause(activeScore)
-
   // Every beat she's attempted this scene, keyed by lineId so a block re-entered
   // (a retry, or a re-render delivering the same `complete`) overwrites rather
   // than duplicates. A ref, not state: nothing renders from it, and appending to
@@ -299,25 +282,110 @@ export function RehearsalPage() {
     }
   }, [heard])
 
+  // Reveals belong to one speech. Carrying them into the next block would mean
+  // arriving at a fresh speech with beats already filled in that she never asked
+  // for, which is the app rehearsing for her.
   useEffect(() => {
-    setBeatsRevealed(0)
-    setRevealAnchor(null)
+    setLinesRevealed(false)
   }, [activeLineKey])
 
   const activeLineRef = useRef<HTMLDivElement>(null)
+  const headerRef = useRef<HTMLElement>(null)
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const liveBarRef = useRef<HTMLDivElement>(null)
 
-  // Re-runs on cursor changes (a new line becomes active) and on anything
-  // that grows the active card after the fact (text reveal, mic-state
-  // buttons), otherwise those can push the mic controls below the fold
-  // with no follow-up scroll. `.lines` carries generous bottom padding
-  // (see RehearsalPage.module.css) so 'end' has room to settle instead of
-  // snapping against the viewport edge. Also fires right when autoScroll
-  // flips back on, so resuming catches up to wherever the rehearsal is
-  // instead of waiting for the next line.
+  /**
+   * Publishes the sticky header's height as `--bh-rehearsal-header`, which
+   * `.lineAnchor`'s `scroll-margin-top` consumes.
+   *
+   * `scrollIntoView({ block: 'start' })` aligns to the top of the *scroll
+   * container*, and knows nothing about a sticky header floating over it — so
+   * without this the active speech lands underneath the header and the speaker
+   * name and first two lines are simply not there.
+   *
+   * Measured rather than hardcoded because the header is two different heights:
+   * on a phone the play title and the change links collapse behind
+   * `data-meta-open`, and a constant tuned on a laptop would leave a phone with
+   * ~90px of dead space above every speech. Re-measured on resize and on the
+   * toggle, which are the only two things that change it.
+   */
+  useEffect(() => {
+    const header = headerRef.current
+    const wrap = wrapRef.current
+    if (!header || !wrap) return
+
+    const publish = () => {
+      wrap.style.setProperty('--bh-rehearsal-header', `${header.offsetHeight}px`)
+      // And how much room is left under it, which is what bounds the live
+      // speech card. Derived from the header's own bottom edge rather than by
+      // subtracting a guess at the app chrome: the header is sticky to the top
+      // of the scroll region, so its bottom *is* the top of the usable area,
+      // whether or not it has stuck yet. One measurement, no magic numbers, and
+      // correct on any viewport.
+      const available = window.innerHeight - header.getBoundingClientRect().bottom
+      wrap.style.setProperty('--bh-rehearsal-available', `${Math.max(240, Math.round(available))}px`)
+    }
+    publish()
+    window.addEventListener('resize', publish)
+
+    const observer = new ResizeObserver(publish)
+    observer.observe(header)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', publish)
+    }
+    // `dialogue` is in here because the first render returns <AsyncStatus/> —
+    // no header exists yet, the effect bails, and without a re-run the custom
+    // properties would never be published at all. Found exactly that way: both
+    // variables read back as empty strings in the live page.
+  }, [sceneMetaOpen, dialogue])
+
+  /**
+   * Publishes the pinned bar's height as `--bh-live-bar-height`, which `.lines`
+   * turns into bottom clearance.
+   *
+   * Measured rather than assumed because the bar's height is not fixed: it holds
+   * between one and three buttons depending on mic state, and wraps to a second
+   * row on a narrow screen. A constant would be too small in exactly the case
+   * that matters — several buttons showing, which is when she needs to see both
+   * them and the end of her speech.
+   */
+  useEffect(() => {
+    const bar = liveBarRef.current
+    const wrap = wrapRef.current
+    if (!wrap) return
+    if (!bar) {
+      // No bar while another character is speaking; drop the clearance with it
+      // rather than leaving a bar-shaped gap under the script all scene.
+      wrap.style.setProperty('--bh-live-bar-height', '0px')
+      return
+    }
+
+    const publish = () => wrap.style.setProperty('--bh-live-bar-height', `${bar.offsetHeight}px`)
+    publish()
+    const observer = new ResizeObserver(publish)
+    observer.observe(bar)
+    return () => observer.disconnect()
+  }, [activeUserBlockId, micState, linesRevealed, showYourLines])
+
+  // Brings the active card into view when the rehearsal moves to a new line.
+  //
+  // `block: 'start'` rather than 'end', and that is the fix for the second half
+  // of the long-speech problem. Aligning the *end* of a card taller than the
+  // viewport puts its bottom at the bottom of the screen — which pushes the top
+  // of the speech, where she is actually reading, off the top. It was right when
+  // every block was a few lines and wrong the moment one wasn't. Aligning the
+  // start puts the speaker name and the first line where she expects them, and
+  // the speech's own pane handles everything below that.
+  //
+  // The reveal no longer appears in the deps, because a reveal no longer changes
+  // the card's height: a held-back row already occupies its full size (see
+  // Teleprompter.module.css). That dependency was re-firing a page scroll on
+  // every "Line?" tap, on top of the pane's own scroll.
   useEffect(() => {
     if (!autoScroll) return
-    activeLineRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
-  }, [cursor, showYourLines, showOtherLines, beatsRevealed, micState, autoScroll])
+    activeLineRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [cursor, showYourLines, showOtherLines, micState, autoScroll])
 
   // With auto-scroll off, the rehearsal keeps advancing while the view stays
   // put, so the live line silently ends up below the fold with nothing on
@@ -339,7 +407,7 @@ export function RehearsalPage() {
   }, [cursor, dialogue, autoScroll])
 
   function jumpToActiveLine() {
-    activeLineRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+    activeLineRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
   function advance() {
@@ -508,11 +576,11 @@ export function RehearsalPage() {
     // ran. The effect re-runs when the score lands, and a cap restarted from
     // there would be a second full wait rather than the remainder of the first.
     const waitedFor = capturedAtRef.current === null ? 0 : Date.now() - capturedAtRef.current
-    const delay = !score
-      ? Math.max(0, SCORE_WAIT_CAP_MS - waitedFor)
-      : worthAPause(score)
-      ? AUTO_CONTINUE_MS
-      : SCORE_SEEN_MS
+    // One wait, whatever the score said. The scene used to hold six seconds on a
+    // speech that went badly so its marks could be read; the marks are on the
+    // wrap-up now, and stopping the rehearsal to display nothing would be the
+    // per-line confirmation tap this page removed once already.
+    const delay = score ? SCORE_SEEN_MS : Math.max(0, SCORE_WAIT_CAP_MS - waitedFor)
 
     const timer = setTimeout(() => advance(), delay)
     return () => clearTimeout(timer)
@@ -583,14 +651,19 @@ export function RehearsalPage() {
   }
 
   const visible = dialogue?.slice(0, cursor + 1) ?? []
+  /** The speech she is delivering right now, or undefined when it is somebody
+   * else's turn. Drives the pinned control bar, which exists only while there is
+   * something for her to press. */
+  const current = dialogue?.[cursor]
+  const activeUserBlock = current?.type === 'speech' && current.isUserLine ? current : undefined
 
   return (
-    <div className={styles.wrap}>
+    <div className={styles.wrap} ref={wrapRef}>
       {/* data-meta-open governs the phone layout only — it gates the play title
           and the two change links, which above 600px are shown unconditionally.
           One flag on the header rather than a prop on each, because they hide
           and reveal together and are not adjacent in the DOM. */}
-      <header className={styles.header} data-meta-open={sceneMetaOpen || undefined}>
+      <header className={styles.header} ref={headerRef} data-meta-open={sceneMetaOpen || undefined}>
         {play && <h1 className={`bh-display ${styles.playTitle}`}>{play.title}</h1>}
         <div className={styles.sceneLine}>
           <span className={styles.sceneLabel}>
@@ -694,7 +767,9 @@ export function RehearsalPage() {
             offIcon="eye-off"
             onClick={() => {
               setShowYourLines((v) => !v)
-              setBeatsRevealed(0)
+              // Turning the text off again re-hides it: showing it was an answer
+              // to "I'm stuck", and she has just said she wants to be tested.
+              setLinesRevealed(false)
             }}
           />
           <ToggleButton
@@ -730,57 +805,37 @@ export function RehearsalPage() {
             // Speaker name stays even when the text is hidden, she still needs
             // to follow who's talking to know when her cue lands.
             //
-            // Her own blocks keep their annotation after the mic has moved on,
-            // so scrolling back shows how a speech went rather than a blank.
-            // Other characters' blocks get nothing: they were never scored, and
-            // a reserved slot under every line of the scene would be a lot of
-            // empty space to buy nothing.
-            const scoredBefore = entry.isUserLine ? coachingByBlock.get(entry.blockId) : undefined
+            // No annotation on a finished speech any more: the marks are on the
+            // wrap-up. `coachingByBlock` is still filled as scores arrive — it is
+            // what the session write and the wrap-up read — it simply is not
+            // rendered here.
             return (
               <div key={entry.blockId} ref={ref} className={styles.lineAnchor}>
-                <DialogueLine block={entry} overrideText={showOtherLines ? undefined : ''}>
-                  {scoredBefore && (
-                    <BlockCoachingNote coaching={scoredBefore} beatCount={entry.beats.length} />
-                  )}
-                </DialogueLine>
+                <DialogueLine block={entry} overrideText={showOtherLines ? undefined : ''} />
               </div>
             )
           }
-          // Her own block. Shown outright only if "Your lines" is on; otherwise
-          // held back, and each "Line?" hands over one more beat, one thought
-          // at a time, so a sixteen-beat speech isn't given away in one tap.
-          // "Line?" hands over the beat she's actually stuck on. The mic keeps a
-          // beat cursor across the block (docs/OPEN_ITEMS.md §1b), so this starts
-          // where she dried up rather than at the top of a speech she'd already
-          // half-delivered.
-          const revealFrom = revealAnchor ?? beatIndex
-          const revealedBeats = entry.beats.slice(revealFrom, revealFrom + beatsRevealed)
-          const nextBeat = entry.beats[revealFrom + beatsRevealed]
+          // Her own block: the prompter, and nothing else. The mic dial and the
+          // buttons used to live in here and are now in the pinned bar below —
+          // see `.liveBar`. Inside the card they sat under a speech that could
+          // be taller than the screen, so on a monologue they were simply not
+          // reachable.
           return (
             <div key={entry.blockId} ref={ref} className={styles.lineAnchor}>
               <DialogueLine
                 block={entry}
-                overrideText={
-                  showYourLines
-                    ? undefined
-                    : beatsRevealed === 0
-                      ? "Line's held back — call for it below if you need it."
-                      : ''
-                }
-                promptedBeat={showYourLines ? undefined : revealedBeats.map((b) => b.text).join(' ')}
+                prompter={{
+                  beatIndex: Math.min(beatIndex, entry.beats.length - 1),
+                  // Masked until she asks, unless "Your lines" is on outright.
+                  masked: !showYourLines && !linesRevealed,
+                  // Once the mic has stopped, the speech stops following
+                  // anything. She is reading back what she just did, and a pane
+                  // still chasing a cursor would move under her while she does.
+                  frozen: micState === 'captured' || micState === 'cantHear',
+                }}
                 active
                 micError={micState === 'cantHear'}
               >
-                <div className={styles.micRow}>
-                  <MicStateIndicator
-                    state={micState}
-                    onTap={tapMic}
-                    beatsCompleted={beatsCompleted}
-                    beatCount={beatCount}
-                    stalled={stalled}
-                    holding={holdingForScore}
-                  />
-                </div>
                 {/* Her words in production; the cursor/mic diagnostics only in
                     dev. Both read the same transcript — the difference is who
                     each is for. */}
@@ -791,72 +846,70 @@ export function RehearsalPage() {
                   beatCount={entry.beats.length}
                   transcript={transcript}
                 />
-                {/* Directly beneath the words it is judging, and beneath the
-                    live transcript that produced them — HeardSoFar shows what
-                    was heard, this shows what was made of it. Reserved from the
-                    moment the block becomes active, so the score landing a
-                    second later moves nothing. */}
-                <BlockCoachingNote
-                  coaching={coachingByBlock.get(entry.blockId)}
-                  beatCount={entry.beats.length}
-                />
-                <div className={styles.actions}>
-                  {/* Shown only while the scene is holding on this speech, which
-                      is only when there was something to look at. On a clean
-                      speech it never appears and nothing is asked of her — that
-                      split is what keeps this from being the per-line
-                      confirmation tap removed below.
-
-                      It skips the remaining wait rather than causing the
-                      advance: the scene was going to move on by itself either
-                      way, so tapping it is never the difference between
-                      rehearsing and not. */}
-                  {micState === 'captured' && holdingForScore && (
-                    <Button variant="primary" onClick={() => advance()}>
-                      Continue
-                    </Button>
-                  )}
-                  {micState === 'cantHear' && (
-                    <Button variant="secondary" onClick={retry}>
-                      Try again
-                    </Button>
-                  )}
-                  {/* The way out when the app can't tell she's finished — a real
-                      button, because the tappable mic dial reads as a status
-                      light and nobody finds it. Promoted to primary once she's
-                      gone quiet mid-thought, when it's the likeliest thing she
-                      wants. */}
-                  {micState === 'listening' && (
-                    <Button variant={stalled ? 'primary' : 'secondary'} onClick={tapMic}>
-                      I've said it
-                    </Button>
-                  )}
-                  {!showYourLines && micState !== 'captured' && nextBeat && (
-                    <Button
-                      variant="ghost"
-                      onClick={() => {
-                        setRevealAnchor((anchor) => anchor ?? beatIndex)
-                        setBeatsRevealed((n) => n + 1)
-                      }}
-                    >
-                      {beatsRevealed === 0 ? 'Line?' : 'Next bit?'}
-                    </Button>
-                  )}
-                  {beatsRevealed > 0 && !showYourLines && entry.speakerId && (
-                    <Button
-                      variant="secondary"
-                      onClick={() => void readLineAloud(entry.blockId, entry.speakerId!)}
-                      disabled={readingAloudBlockId !== null}
-                    >
-                      {readingAloudBlockId === entry.blockId ? 'Reading…' : 'Read line aloud'}
-                    </Button>
-                  )}
-                </div>
               </DialogueLine>
             </div>
           )
         })}
       </div>
+
+      {/* The live controls, pinned to the viewport rather than trailing the
+          speech.
+
+          They were inside the active card until a monologue proved that wrong:
+          Fenton's IV.vi speech is 45 lines of verse, so "I've said it" and
+          "Line?" sat a screen and a half below the fold, and the reveal walked
+          them further down with every tap. Nothing about a control that is only
+          reachable by scrolling away from the words you are performing is
+          salvageable by making the card shorter.
+
+          Rendered only while her own speech is live. There is deliberately no
+          bar during another character's lines: there is nothing to press, and a
+          persistent empty bar would eat the bottom of the script all scene. */}
+      {activeUserBlock && (
+        <div className={styles.liveBar} ref={liveBarRef}>
+          <MicStateIndicator
+            state={micState}
+            onTap={tapMic}
+            beatsCompleted={beatsCompleted}
+            beatCount={beatCount}
+            stalled={stalled}
+          />
+          <div className={styles.liveActions}>
+            {micState === 'cantHear' && (
+              <Button variant="secondary" onClick={retry}>
+                Try again
+              </Button>
+            )}
+            {/* The way out when the app can't tell she's finished — a real
+                button, because the tappable mic dial reads as a status light and
+                nobody finds it. Promoted to primary once she's gone quiet
+                mid-thought, when it's the likeliest thing she wants. */}
+            {micState === 'listening' && (
+              <Button variant={stalled ? 'primary' : 'secondary'} onClick={tapMic}>
+                I've said it
+              </Button>
+            )}
+            {/* One tap, and the whole speech is there with her place marked.
+                "Line?" then "Next bit?" over and over was the old shape, and it
+                was rationing something that stopped being dangerous the moment
+                the prompter could show her where she is. */}
+            {!showYourLines && !linesRevealed && micState !== 'captured' && (
+              <Button variant="ghost" onClick={() => setLinesRevealed(true)}>
+                Show lines
+              </Button>
+            )}
+            {linesRevealed && !showYourLines && activeUserBlock.speakerId && (
+              <Button
+                variant="secondary"
+                onClick={() => void readLineAloud(activeUserBlock.blockId, activeUserBlock.speakerId)}
+                disabled={readingAloudBlockId !== null}
+              >
+                {readingAloudBlockId === activeUserBlock.blockId ? 'Reading…' : 'Read line aloud'}
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
 
       {activeLineOffscreen && (
         <button type="button" className={styles.jumpToLine} onClick={jumpToActiveLine}>

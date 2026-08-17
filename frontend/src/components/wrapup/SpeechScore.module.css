@@ -1,0 +1,149 @@
+.speech {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--bh-border-hairline);
+}
+
+.speech:last-child {
+  border-bottom: none;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.title {
+  font-family: var(--bh-font-sans);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--bh-ink);
+}
+
+/* The shape of the speech at a glance: one mark per beat, in the order she said
+   them. Deliberately above the list rather than instead of it — the run of marks
+   answers "how did that speech go", the list answers "which thought went". */
+.marks {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.tally {
+  margin-left: auto;
+  color: var(--bh-text-muted);
+}
+
+.mark {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  /* Never left as a bare colour difference: `solid` is filled, `close` is
+     half-filled by its border weight, `dry` is hollow. Someone who cannot
+     separate the golds still reads the run, and the text tally beside it says
+     the same thing in words. */
+  border: 2px solid var(--bh-ash-mid);
+  background: transparent;
+  flex: none;
+}
+
+/* Filled, half-filled, hollow — a difference in *shape*, not only in colour.
+   The first version distinguished close from dry by a pale gold fill against a
+   transparent one, and at 9px the two were indistinguishable in the rendered
+   page: a run of close beats read as a run of dry ones, which is the single
+   worst thing this row could get wrong. The gradient is a real half, so the
+   three states separate in greyscale and for a colour-blind reader. */
+.solid {
+  border-color: var(--bh-gold-mid);
+  background: var(--bh-gold-mid);
+}
+
+.close {
+  border-color: var(--bh-gold-mid);
+  background: linear-gradient(to right, var(--bh-gold-mid) 50%, transparent 50%);
+}
+
+.dry {
+  border-color: var(--bh-terracotta-dark);
+  background: transparent;
+}
+
+.beats {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.beat {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+/* Nudged down so a round mark sits on the text's baseline rather than its cap
+   height, which reads as floating. */
+.beatMark {
+  position: relative;
+  top: 1px;
+}
+
+.beatText {
+  font-family: var(--bh-font-sans);
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--bh-text-muted);
+}
+
+/* The ones she actually lost come forward. Everything else is context for them. */
+.dryText {
+  color: var(--bh-ink);
+}
+
+.badge {
+  font-family: var(--bh-font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: var(--bh-radius-pill);
+  white-space: nowrap;
+  flex: none;
+}
+
+/* The badge reuses the mark's band classes, so these override the dot shapes
+   with a chip's fill. Same names, so a band can never be styled two ways. */
+.badge.close {
+  background: var(--bh-gold-light);
+  color: var(--bh-gold-dark);
+  border: none;
+}
+
+.badge.dry {
+  background: var(--bh-terracotta-light);
+  color: var(--bh-terracotta-dark);
+  border: none;
+}
+
+.unjudged {
+  color: var(--bh-text-faint);
+  white-space: nowrap;
+}
+
+.note {
+  font-family: var(--bh-font-sans);
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--bh-ink);
+  margin: 12px 0 0;
+  padding-left: 12px;
+  border-left: 3px solid var(--bh-gold-mid);
+}
+
+.actions {
+  margin-top: 12px;
+}
