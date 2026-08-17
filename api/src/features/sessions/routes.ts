@@ -12,15 +12,17 @@ const sessions = new Hono<AppEnv>();
  * Auth-gated, unlike /plays, /polly and /capture.
  *
  * Not a policy choice so much as a schema one: `session_history.user_id`,
- * `line_mastery.user_id` and `mistake_log.user_id` are all NOT NULL REFERENCES
- * users(id), so there is nowhere to put a guest's history. Rehearsing still works
- * fully as a guest; she can hear the other parts, be listened to, and call for
- * lines; she just isn't remembered, which is what the header's "Save Progress"
- * has always been offering.
+ * `line_mastery.user_id` and `mistake_log.user_id` are all NOT NULL, so there is
+ * nowhere to put a guest's history. (They no longer reference a local `users`
+ * table — since migration 011 they hold the Supabase user's id — but NOT NULL is
+ * what matters here, and that is unchanged.) Rehearsing still works fully as a
+ * guest; she can hear the other parts, be listened to, and call for lines; she
+ * just isn't remembered, which is what the header's "Save Progress" has always
+ * been offering.
  *
- * `sessionMiddleware` throws UNAUTHENTICATED without a valid cookie, so the guest
- * case surfaces as a clean 401 that the client can treat as "nothing to save"
- * rather than as a failure.
+ * `sessionMiddleware` throws UNAUTHENTICATED without a valid access token, so the
+ * guest case surfaces as a clean 401 that the client can treat as "nothing to
+ * save" rather than as a failure.
  */
 sessions.use("*", sessionMiddleware);
 

@@ -47,11 +47,13 @@ async function main() {
   );
   const beats = beatRows.rows as { id: string; text: string }[];
 
-  const user = await pool.query(
-    `INSERT INTO users (username, name) VALUES ($1, $2) RETURNING id`,
-    [`lifecycle-probe-${crypto.randomUUID().slice(0, 8)}`, "Lifecycle Probe"],
-  );
-  const userId: string = user.rows[0].id;
+  // Just a UUID, with no row behind it. There is no `users` table to insert
+  // into since migration 011 — identity lives in Supabase, and `user_id` holds
+  // an id minted there. Nothing in the session path looks the owner up, it only
+  // records and filters by them, so an id that belongs to no real account is
+  // exactly what a throwaway probe wants: no account to create, none to clean
+  // up, and no chance of colliding with a real actor's history.
+  const userId = crypto.randomUUID();
   console.log(`throwaway user ${userId}\n`);
 
   let sessionId: string | undefined;
@@ -278,7 +280,6 @@ async function main() {
       await pool.query(`DELETE FROM session_history WHERE id = $1`, [id]);
     }
     await pool.query(`DELETE FROM line_mastery WHERE user_id = $1`, [userId]);
-    await pool.query(`DELETE FROM users WHERE id = $1`, [userId]);
     console.log(`\ncleaned up user ${userId}`);
   }
 }

@@ -1,16 +1,16 @@
 {
   "tasks": {
-    "dev": "deno run --watch --allow-net --allow-env --allow-read=../.env --allow-sys=osRelease src/main.ts",
+    "dev": "deno run --watch --allow-net --allow-env --allow-read=.env --allow-sys=osRelease src/main.ts",
     "production": "deno run --allow-net --allow-env --allow-sys=osRelease src/main.ts",
-    "start": "deno run --allow-net --allow-env --allow-read=../.env --allow-sys=osRelease src/main.ts",
-    "test": "deno test --allow-net --allow-env --allow-read=../.env --allow-sys=osRelease",
-    "warm-polly-cache": "deno run --allow-net --allow-env --allow-read=../.env --allow-sys=osRelease src/scripts/warmPollyCache.ts",
-    "test-polly-line": "deno run --allow-net --allow-env --allow-read=../.env --allow-sys=osRelease src/scripts/testPollyLine.ts",
-    "test-coach-block": "deno run --allow-net --allow-env --allow-read=../.env --allow-sys=osRelease src/scripts/testCoachBlock.ts",
-    "embed-beats": "deno run --allow-net --allow-env --allow-read=../.env --allow-sys=osRelease src/scripts/embedBeats.ts",
-    "test-capture-socket": "deno run --allow-net --allow-env --allow-read=../.env --allow-sys=osRelease src/scripts/testCaptureSocket.ts",
-    "test-session-lifecycle": "deno run --allow-net --allow-env --allow-read=../.env --allow-sys=osRelease src/scripts/testSessionLifecycle.ts",
-    "backfill-bands": "deno run --allow-net --allow-env --allow-read=../.env --allow-sys=osRelease src/scripts/backfillBands.ts"
+    "start": "deno run --allow-net --allow-env --allow-read=.env --allow-sys=osRelease src/main.ts",
+    "test": "deno test --allow-net --allow-env --allow-read=.env --allow-sys=osRelease",
+    "warm-polly-cache": "deno run --allow-net --allow-env --allow-read=.env --allow-sys=osRelease src/scripts/warmPollyCache.ts",
+    "test-polly-line": "deno run --allow-net --allow-env --allow-read=.env --allow-sys=osRelease src/scripts/testPollyLine.ts",
+    "test-coach-block": "deno run --allow-net --allow-env --allow-read=.env --allow-sys=osRelease src/scripts/testCoachBlock.ts",
+    "embed-beats": "deno run --allow-net --allow-env --allow-read=.env --allow-sys=osRelease src/scripts/embedBeats.ts",
+    "test-capture-socket": "deno run --allow-net --allow-env --allow-read=.env --allow-sys=osRelease src/scripts/testCaptureSocket.ts",
+    "test-session-lifecycle": "deno run --allow-net --allow-env --allow-read=.env --allow-sys=osRelease src/scripts/testSessionLifecycle.ts",
+    "backfill-bands": "deno run --allow-net --allow-env --allow-read=.env --allow-sys=osRelease src/scripts/backfillBands.ts"
   },
   "imports": {
     "hono": "jsr:@hono/hono",
@@ -21,6 +21,7 @@
     "@std/assert": "jsr:@std/assert@1",
     "@std/dotenv": "jsr:@std/dotenv@0",
     "@std/fmt": "jsr:@std/fmt@1",
+    "jose": "npm:jose@^6",
     "pg": "npm:pg@^8.13.0",
     "@aws-sdk/client-polly": "npm:@aws-sdk/client-polly@^3",
     "@aws-sdk/client-transcribe-streaming": "npm:@aws-sdk/client-transcribe-streaming@^3",

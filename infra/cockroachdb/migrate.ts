@@ -6,16 +6,22 @@ import { Pool } from "pg";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-// Load the root .env explicitly — CWD isn't reliable here since this runs via
+// Load api/.env explicitly — CWD isn't reliable here since this runs via
 // `npm run db:migrate` from the repo root, but we don't want to depend on that.
-config({ path: resolve(__dirname, "../../.env") });
+//
+// api/'s file rather than a root one because there is no root .env any more:
+// each runtime owns its own (api/.env, frontend/.env), and COCKROACHDB_URL
+// belongs to exactly one of them. Two copies of a database URL is how the
+// migrator ends up applying schema to a cluster the API isn't reading — which
+// surfaces as "the migration ran but nothing changed", not as an error.
+config({ path: resolve(__dirname, "../../api/.env") });
 
 const migrationsDir = join(__dirname, "migrations");
 
 async function main() {
   const connectionString = process.env.COCKROACHDB_URL;
   if (!connectionString) {
-    throw new Error("COCKROACHDB_URL is not set. Copy .env.example to .env and fill it in.");
+    throw new Error("COCKROACHDB_URL is not set. Copy api/.env.example to api/.env and fill it in.");
   }
 
   const pool = new Pool({ connectionString });

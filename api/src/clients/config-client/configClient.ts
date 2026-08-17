@@ -1,23 +1,29 @@
 import { loadSync } from "@std/dotenv";
 import { bold, red } from "@std/fmt/colors";
 
-// Repo root.env (one level above api/), shared with infra/cockroachdb's
-// migrate.ts and packages/play-importer, which read the same
-// COCKROACHDB_URL. Resolved relative to CWD: `deno task` sets CWD to
-// api/ (deno.json's directory), so "../.env" lands on the repo root in
-// local dev.
+// `api/.env` — this service's own file, not the repo's. One .env per runtime:
+// the frontend has `frontend/.env` (Vite reads only that), and this is the
+// matching half. There is no repo-root .env any more; deploys inject their
+// environment from CI, so the root file existed purely to be shared, and
+// sharing it meant every runtime's config was every other runtime's business.
+//
+// No path is passed because loadSync defaults to `.env` in the CWD, and
+// `deno task` sets CWD to deno.json's directory — api/ — for every task in
+// this project. That is also why the tasks grant `--allow-read=.env` rather
+// than a path with a `../` in it. Running `deno run src/main.ts` by hand from
+// somewhere else will therefore not find it, which is the one sharp edge here.
 //
 // Skipped entirely in production, ECS injects the task definition's
 // environment variables directly into the process before the container's
 // CMD even runs, so there's no .env file to load there (see
-// api/.dockerignore) and no reason to grant read-file permission to attempt
-// one. Deno's permission check happens before the file-existence check, so
-// the "production" deno task deliberately doesn't grant
-// --allow-read=../.env, attempting loadSync unconditionally would throw
+// api/.dockerignore, which excludes it from the image) and no reason to grant
+// read-file permission to attempt one. Deno's permission check happens before
+// the file-existence check, so the "production" deno task deliberately doesn't
+// grant --allow-read=.env, attempting loadSync unconditionally would throw
 // PermissionDenied on every boot instead of the graceful no-op a missing
 // file would otherwise get.
 if (Deno.env.get("DENO_ENV") !== "production") {
-  loadSync({ envPath: "../.env", export: true });
+  loadSync({ export: true });
 }
 
 // `KEY=` (blank, not removed) is how `.env.example` marks an unfilled var,
@@ -133,13 +139,36 @@ export const ConfigClient = {
     ),
   },
   Auth: {
-    sessionCookieName: "book_holder_session",
     allowedOrigin: getDenoEnvValueOrDefault(
       "ALLOWED_ORIGIN",
       "http://localhost:5173",
     ),
-    sessionTtlDays: Number.parseInt(
-      getDenoEnvValueOrDefault("SESSION_TTL_DAYS", "30"),
-    ),
+  },
+  Supabase: {
+    // Supabase is the identity provider; CockroachDB holds no `users` table and
+    // no credentials. What arrives here is an access token the browser got from
+    // Supabase directly, and all this API does with it is check the signature.
+    //
+    // Only the project URL is configured, and the absence of a secret beside it
+    // is the point rather than an omission. This project signs access tokens
+    // with an asymmetric key (ES256) and publishes the *public* half at
+    // /auth/v1/.well-known/jwks.json, so verifying one is a public-key
+    // operation that needs no credential at all. `SUPABASE_SECRET` (the
+    // `sb_secret_…` admin key) is the opposite kind of thing: it can read and
+    // rewrite every user in the project, and it would buy this service nothing
+    // it does not already have. It stays out of the container.
+    //
+    // Trailing slashes are stripped because both derived URLs are built by
+    // concatenation, and `https://x.supabase.co//auth/v1` is not the issuer
+    // string Supabase actually stamps into the token — it would fail every
+    // verification with an error about the issuer rather than about the config.
+    url: getDenoEnvValueOrThrow("SUPABASE_URL").replace(/\/+$/, ""),
+    get jwksUrl(): string {
+      return `${this.url}/auth/v1/.well-known/jwks.json`;
+    },
+    /** Exactly what lands in the token's `iss` claim, and checked against it. */
+    get issuer(): string {
+      return `${this.url}/auth/v1`;
+    },
   },
 };

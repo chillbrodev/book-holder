@@ -1,11 +1,10 @@
 import { Hono } from "hono";
 import { CaptureSession } from "./service.ts";
 import { CaptureError } from "./errors.ts";
-import { getCookie } from "hono/cookie";
 import { CoachingService } from "../coaching/service.ts";
 import { AuthService } from "../auth/service.ts";
+import { SOCKET_AUTH_PROTOCOL, socketToken } from "../auth/bearer.ts";
 import { SessionLifecycle } from "../sessions/lifecycle.ts";
-import { ConfigClient } from "../../clients/config-client/configClient.ts";
 import type { AppEnv } from "../../types.ts";
 
 const capture = new Hono<AppEnv>();
@@ -51,18 +50,28 @@ capture.get("/blocks/:blockId", (c) => {
   //
   // `Deno.upgradeWebSocket` below hands the connection over to the WebSocket
   // protocol and closes the underlying Request. Anything that touches its
-  // headers afterwards, which `getCookie` does, throws `TypeError: Request
-  // closed`. Doing this inside `socket.onopen` is therefore always wrong, and
-  // wrong in a way that reads like a server fault rather than a lifecycle
-  // mistake: the client gets INTERNAL_SERVER_ERROR and the actor gets "Can't
-  // hear you, check your mic", pointing at a microphone that is working fine.
+  // headers afterwards throws `TypeError: Request closed`. Doing this inside
+  // `socket.onopen` is therefore always wrong, and wrong in a way that reads
+  // like a server fault rather than a lifecycle mistake: the client gets
+  // INTERNAL_SERVER_ERROR and the actor gets "Can't hear you, check your mic",
+  // pointing at a microphone that is working fine.
   //
-  // The token is a string, so capturing it costs nothing; resolving it into a
-  // user is a database round trip and stays inside onopen where it can be
-  // awaited.
-  const sessionToken = getCookie(c, ConfigClient.Auth.sessionCookieName);
+  // The token is a string, so capturing it costs nothing; verifying it stays
+  // inside onopen where it can be awaited.
+  //
+  // It arrives on `Sec-WebSocket-Protocol` because a browser `WebSocket` cannot
+  // send an `Authorization` header and a query parameter would write the
+  // credential into every access log. See features/auth/bearer.ts.
+  const accessToken = socketToken(c.req.header("sec-websocket-protocol"));
 
-  const { socket, response } = Deno.upgradeWebSocket(c.req.raw);
+  // The subprotocol is echoed only when one was actually offered: RFC 6455
+  // requires the server's selection to be one of the client's, and Deno
+  // enforces that by throwing. A guest connects without offering anything, and
+  // answering "bearer" to that would fail the handshake for the one case that
+  // is supposed to work without credentials.
+  const { socket, response } = Deno.upgradeWebSocket(c.req.raw, {
+    ...(accessToken ? { protocol: SOCKET_AUTH_PROTOCOL } : {}),
+  });
 
   let session: CaptureSession | undefined;
   // Audio that arrives before the DB lookup finishes. Without this the first
@@ -90,10 +99,10 @@ capture.get("/blocks/:blockId", (c) => {
   socket.onopen = async () => {
     try {
       // Resolved here rather than by middleware, because this route must work
-      // for nobody as well as for someone. `findSessionUser` is the non-throwing
-      // half of `getSessionUser` for exactly this caller. The token itself was
-      // captured before the upgrade. See above for why that is not optional.
-      const user = await AuthService.findSessionUser(sessionToken);
+      // for nobody as well as for someone. `findUser` is the non-throwing half
+      // of `getUser` for exactly this caller. The token itself was captured
+      // before the upgrade. See above for why that is not optional.
+      const user = await AuthService.findUser(accessToken);
 
       session = await CaptureSession.open({ blockId, characterId }, send);
       for (const chunk of early) session.pushAudio(chunk);
@@ -125,8 +134,8 @@ capture.get("/blocks/:blockId", (c) => {
         // Persist, if there is anywhere to persist to.
         //
         // This is `coaching-plan.md` §7's "auth-aware but not auth-gated" in
-        // its entirety: the socket read a cookie if one was sent, and a guest
-        // simply has no session to write into. She got the mic, the other
+        // its entirety: the socket verified a token if one was offered, and a
+        // guest simply has no session to write into. She got the mic, the other
         // parts, and the same live coaching a signed-in actor got, only the
         // memory is missing, which is exactly what "Save Progress" offers.
         //

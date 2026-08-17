@@ -34,7 +34,7 @@ Instead, run:
 ```
 
 Creates a scoped IAM user (`book-holder-local-dev`) with a permanent access key, writes
-`AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` straight into the root `.env` (never printed to the terminal —
+`AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` straight into `api/.env` (never printed to the terminal —
 that's the only moment AWS reveals the secret half of the pair), and grants exactly `polly:SynthesizeSpeech`
 plus read/write/head/list on the Polly cache bucket — nothing broader. Idempotent: re-running updates the
 policy in place and skips creating a second access key if one already exists (IAM caps a user at 2 keys,
@@ -96,7 +96,7 @@ Also provisions, idempotently, what the Polly workflow needs at runtime:
   live in `characters.polly_voice_id` (DB, not env) — see `docs/BE_PLAN.md` §4.
 - Also passes `DENO_ENV=production` (hardcoded — required for the auth cookie's cross-origin
   `Secure`/`SameSite=None` flags, since Amplify and ECS are different origins), plus `COCKROACHDB_URL` and
-  `ALLOWED_ORIGIN`, pulled from the root `.env` (or exported to override — e.g.
+  `ALLOWED_ORIGIN`, pulled from `api/.env` (or exported to override — e.g.
   `ALLOWED_ORIGIN=https://your-domain ./infra/aws/ecs-deploy.sh`). The script parses just those two specific
   keys out of `.env` rather than sourcing the whole file — sourcing it would also export
   `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` (the scoped Polly-only local-dev user's keys, see
@@ -104,9 +104,9 @@ Also provisions, idempotently, what the Polly workflow needs at runtime:
   other AWS call in this script relies on. Fails fast with a clear message if either is blank/missing —
   `ALLOWED_ORIGIN` in particular needs to be the *deployed frontend's* real origin, not `localhost`, or CORS
   blocks it. Set it in `infra/aws/.env.production` (gitignored — not a secret, just kept out of git since
-  it's deploy-only config) rather than the root `.env`, which should stay blank so local dev keeps falling
+  it's deploy-only config) rather than `api/.env`, which should stay blank so local dev keeps falling
   back to `http://localhost:5173` (see `configClient.ts`). Precedence is shell-exported value >
-  `infra/aws/.env.production` > root `.env`, so a one-off `ALLOWED_ORIGIN=... ./infra/aws/ecs-deploy.sh`
+  `infra/aws/.env.production` > `api/.env`, so a one-off `ALLOWED_ORIGIN=... ./infra/aws/ecs-deploy.sh`
   still works too — but `.env.production` means you never have to toggle anything for local dev again.
 
 `BEDROCK_MODEL_ID_COMPARISON` is passed **only when set**, because `configClient.ts` already carries a
@@ -127,7 +127,7 @@ what is already right. `S3_RECORDINGS_BUCKET` is read by nothing and is expected
 deliberately does not store user audio (`docs/OPEN_ITEMS.md` §1e). `BEDROCK_MODEL_ID_SUMMARY` has been
 dropped; nothing ever read it.
 
-For **local dev**, set `POLLY_CACHE_BUCKET` in the root `.env` to whatever bucket name you're using (run
+For **local dev**, set `POLLY_CACHE_BUCKET` in `api/.env` to whatever bucket name you're using (run
 `ecs-deploy.sh` once to have it create `book-holder-polly-cache-<account-id>` and reuse that name locally, or
 create your own bucket manually first). Local Polly calls use the same code path as deployed — no mock — with
 credentials resolved from `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` in `.env` rather than a task role.

@@ -44,7 +44,7 @@ Your voice is **never stored**. Mic audio streams to Amazon Transcribe, is trans
 
 What persists is text. The transcript of each beat, its score, and (only for beats you actually fumbled) a vector embedding of what you said, so the coach can notice you have missed this line before.
 
-An account is a username and a hashed PIN. There is no email column in the schema, because there is no email.
+An account is an email address and a password, and neither is ours: Supabase holds them. This database has no `users` table at all — a rehearsal row is stamped with the Supabase user's id and nothing else, so the most personal thing we store about you is which lines you keep forgetting.
 
 This began as a deferred feature and became a stance. Rehearsal is where you are allowed to be bad at something, and a room that records you is a different room. Storing personal audio would also mean owing a retention window and a delete path, obligations worth taking on only for a feature that earns them.
 
@@ -191,9 +191,13 @@ flowchart TB
     POLLY["Amazon Polly<br/>neural engine"]
     S3[("Amazon S3<br/>block audio cache")]
     AMP["AWS Amplify Hosting"]
+    SUPA["Supabase Auth<br/>email sign-in only"]
 
     AMP -.serves.-> UI
-    UI -->|"HTTPS / REST"| API
+    UI -->|"email + password"| SUPA
+    SUPA -->|"ES256 access token"| UI
+    SUPA -.->|"public JWKS, fetched once"| API
+    UI -->|"HTTPS / REST · Bearer token"| API
     MIC -->|"WebSocket, PCM frames"| API
     API <-->|"audio out, transcript back"| TR
     API --> MICRO
@@ -208,7 +212,7 @@ flowchart TB
     LITE -.->|"tool calls read memory"| API
 ```
 
-Three things this is meant to make obvious:
+Four things this is meant to make obvious:
 
 - **No AWS credential ever reaches the browser.** Every Bedrock, Polly, Transcribe and S3 call routes through
   the API, which holds an ECS task role in production and a scoped IAM user locally. The same client code
@@ -219,6 +223,10 @@ Three things this is meant to make obvious:
 - **The agent's arrow points back at the API.** Nova Lite does not receive a prepared summary; it calls tools
   that query CockroachDB, and decides for itself what to look up. That arrow is the difference between an
   agent and a prompt with a database attached.
+- **No password ever reaches the API either.** The sign-in arrows run browser-to-Supabase and stop there;
+  the only Supabase arrow touching the API is the dotted one, a public key fetched once. Everything the API
+  sees is a token it verifies offline — so there is no auth secret in the container, and an identity outage
+  cannot interrupt a rehearsal already under way.
 
 ---
 
@@ -337,7 +345,7 @@ plays, characters          characters carry their own polly_voice_id
 lines                      one row per BEAT: block_id, source_lines, is_verse, embedding
 line_speakers              many-to-many; real speeches sometimes have several <SPEAKER>s
 stage_directions           blocking cues, not spoken, but real content
-users, auth_sessions       username + hashed PIN
+(no users table)           identity is Supabase's; user_id holds its UUID (migration 011)
 
 ── the memory layer ──
 session_history            one rehearsal. scope is 'scene' or 'blocks'
@@ -382,7 +390,8 @@ git clone <repo-url> book-holder
 cd book-holder
 npm install
 
-cp .env.example .env      # five values are required; the file marks which
+cp api/.env.example api/.env            # six values are required; the file marks which
+cp frontend/.env.example frontend/.env  # the Supabase project the browser signs in against
 
 npm run db:migrate                                    # migrations, in order
 npm run import:play -- --play merry_wives_of_windsor  # parse XML, seed CockroachDB
@@ -391,7 +400,9 @@ npm run dev                                           # frontend + api together
 
 `--dry-run` renders the parse to `packages/play-importer/output/<slug>/` and writes nothing, which is worth doing first when the parser changed. `--file <path>` reads local XML instead of fetching. The importer refuses to import a play that already exists.
 
-**A fresh install has an empty audio cache**, so the first time you hear any speech it is synthesized from Polly and written to S3: real, billable, and slow on that one request, then instant and free forever after. Nothing re-renders on its own. The frontend needs no `.env` locally; `VITE_API_BASE_URL` defaults to `http://localhost:8000`.
+**A fresh install has an empty audio cache**, so the first time you hear any speech it is synthesized from Polly and written to S3: real, billable, and slow on that one request, then instant and free forever after. Nothing re-renders on its own.
+
+**Each side has its own `.env`** — `api/.env` and `frontend/.env`, with no repo-root file. Vite reads `frontend/.env` and nothing else, so the API's `SUPABASE_URL` is invisible to it. `VITE_API_BASE_URL` still defaults to `http://localhost:8000`, but `VITE_SUPABASE_URL`/`VITE_SUPABASE_KEY` have no defaults and the app throws on load without them. They must name the **same** Supabase project as the API's `SUPABASE_URL`; two different projects fail as a sign-in that appears to work followed by a 401 on everything.
 
 ### Day-to-day
 
@@ -403,7 +414,7 @@ cd frontend && npx tsc -b    # typecheck
 cd frontend && npx oxlint    # lint
 ```
 
-`.env` lives at the **repo root** and is shared by `api/`, the importer, and the migrator. `api/` reads it via `../.env`, which is why its deno tasks grant `--allow-read=../.env`. No AWS keys ever reach the frontend; every Bedrock, Polly, Transcribe and S3 call routes through `api/`.
+`api/.env` is the API's own file — `deno task` sets CWD to `api/`, which is why the tasks grant `--allow-read=.env`. The migrator and the importer read it too, by explicit path, so `COCKROACHDB_URL` lives in exactly one place. No AWS keys ever reach the frontend; every Bedrock, Polly, Transcribe and S3 call routes through `api/`.
 
 ---
 

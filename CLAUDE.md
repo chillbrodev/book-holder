@@ -45,8 +45,17 @@ deno task test-session-lifecycle # start/record/complete writes, then deletes wh
 deno task embed-beats            # backfill lines.embedding; dry run unless --yes
 ```
 
-`.env` lives at the **repo root** and is shared by `api/`, the importer, and the migrator.
-`api/` reads it via `../.env` — which is why its deno tasks grant `--allow-read=../.env`.
+**One `.env` per runtime, and there is no repo-root one.** `api/.env` and `frontend/.env`,
+each read only by its own side. Deploys read neither — CI injects the container's environment
+and Vite inlines the frontend's at build time.
+
+- `api/.env` — `deno task` sets CWD to `api/`, so `loadSync` needs no path and the tasks grant
+  `--allow-read=.env`. Running `deno run src/main.ts` by hand from elsewhere won't find it.
+- `frontend/.env` — Vite reads only this. A `VITE_` var anywhere else looks right and does nothing.
+- **`infra/cockroachdb/migrate.ts` and `packages/play-importer` also read `api/.env`**, by
+  explicit path, for `COCKROACHDB_URL`. Deliberate: a second copy of a database URL is how the
+  migrator applies schema to a cluster the API isn't reading, which surfaces as "the migration
+  ran but nothing changed" rather than as an error.
 
 ## Domain model: beats and blocks
 
@@ -178,6 +187,39 @@ one note. Scored per beat, called per block; `docs/coaching-plan.md` is the desi
 - `deno task test-coach-block` is the regression for all of it and fails on an ungrounded
   note. Re-run it after touching the rubric.
 
+## Auth
+
+**Supabase is the identity provider, for email/password and nothing else.** No Postgres, no
+storage, no realtime — the play, the rehearsals and every score stay in CockroachDB behind
+our own API.
+
+**There is no `users` table** (migration 011). `user_id` columns are still `UUID` and still
+mean the same thing; they hold the Supabase user's id, with no local row and no foreign key
+behind them. A join to `users` will not compile against this schema, and adding one back
+would recreate the drift the move was meant to end.
+
+- **The reason for the move was the cookie, not the PIN.** The frontend (Amplify) and the API
+  (ECS) are unrelated domains, so a session cookie between them was necessarily third-party:
+  `SameSite=None; Secure`, and blocked outright by Safari's ITP. The credential had to stop
+  being a cookie. It is now `Authorization: Bearer <supabase access token>`, and
+  `credentials: 'include'` is gone from the frontend clients — putting it back only forces a
+  credentialed CORS preflight for a cookie nobody sends.
+- **Verification needs no secret and must not acquire one.** The project signs ES256 and
+  publishes the public half at `<SUPABASE_URL>/auth/v1/.well-known/jwks.json`, so
+  `verifySupabaseToken` is a public-key check. `SUPABASE_SECRET` (the `sb_secret_…` admin key)
+  can read and rewrite every user in the project and is deliberately **not** passed to the
+  container. If a change seems to need it, the change is probably wrong.
+- **`SUPABASE_URL` is required and has no default**, so a container without it throws on boot
+  rather than silently accepting nothing. It is wired as plain env (not a secret) in both
+  `.github/workflows/deploy-api.yml` and `infra/aws/ecs-deploy.sh` — as ever, two files.
+- **The capture socket takes its token as a WebSocket subprotocol**, `["bearer", "<jwt>"]`, not
+  a query parameter: a browser `WebSocket` cannot set headers, and a URL is written into every
+  access log along the way. The server echoes the `bearer` sentinel and must echo it *only*
+  when one was offered — Deno throws if the selected protocol wasn't in the client's list, and
+  a guest offers none. Guest capture working is the case to check after touching this.
+- **The socket stays auth-aware but not auth-gated.** An absent *or invalid* token is a guest,
+  never an error: a token expiring mid-speech must cost her the writing-down, not the take.
+
 ## Database
 
 CockroachDB via `pg`. One thing bites repeatedly:
@@ -226,7 +268,7 @@ than failing to compile.
 > Read the SQL, then apply it for real with `npm run db:migrate`.
 
 **Dev and production share one database.** `infra/aws/.env.production` has its own
-`COCKROACHDB_URL`, but the host and database are identical to the root `.env`. Anything
+`COCKROACHDB_URL`, but the host and database are identical to `api/.env`'s. Anything
 run against the local dev database is run against what production reads — including
 migrations, which is why they are additive and `IF NOT EXISTS`.
 
@@ -251,8 +293,9 @@ than trusting the green check.
 
 **`DENO_ENV` is hardcoded `production` in the deploy path**, in both the workflow and
 `ecs-deploy.sh`. It is *not* sourced from `infra/aws/.env.production` — the local dev
-`.env` deliberately says `LOCAL`, and only `COCKROACHDB_URL` / `ALLOWED_ORIGIN` flow
-from that file to production, via Secrets Manager. Editing `DENO_ENV` there does nothing.
+`api/.env` deliberately says `LOCAL`. From that file, `COCKROACHDB_URL` / `ALLOWED_ORIGIN` reach
+production via Secrets Manager and `SUPABASE_URL` as plain env (it is public, and not a
+credential). Editing `DENO_ENV` there does nothing.
 
 ## Conventions
 

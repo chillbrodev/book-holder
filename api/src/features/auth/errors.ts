@@ -1,18 +1,14 @@
 import { BaseError } from "../../errors/base-error.ts";
 
-type AuthErrorName =
-  | "VALIDATION_ERROR"
-  | "INVALID_CREDENTIALS"
-  | "UNAUTHENTICATED"
-  | "ACCOUNT_LOCKED"
-  | "USERNAME_TAKEN";
+// One case, deliberately. Registration, password checking and lockout all live
+// in Supabase now, so the only thing this API can say about a credential is
+// whether the token it was handed verifies. Expired, forged, wrong project and
+// missing are all UNAUTHENTICATED: the client's response to every one of them is
+// to sign in again, and telling a prober which of them it was helps only them.
+type AuthErrorName = "UNAUTHENTICATED";
 
 export class AuthError extends BaseError<AuthErrorName> {
   override nameToErrorCodeLookup = new Map<AuthErrorName, number>([
-    ["VALIDATION_ERROR", 400],
-    ["INVALID_CREDENTIALS", 401],
     ["UNAUTHENTICATED", 401],
-    ["ACCOUNT_LOCKED", 423],
-    ["USERNAME_TAKEN", 409],
   ]);
 }

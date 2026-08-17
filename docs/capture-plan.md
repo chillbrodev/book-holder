@@ -311,10 +311,18 @@ this document:
   partial mistakenly treated as final would produce a wrong score in a POST some
   minutes later. Now it produces a wrong band under her block while she is still
   in the scene. `IsPartial: false` remains the only evidence about what she said.
-- **The socket becomes auth-aware, but stays un-gated.** It reads the session
-  cookie if present: signed in, results are persisted; guest, results are shown
-  and discarded. Rehearsing as a guest still works fully, which is the property
-  §4's no-auth decision was protecting.
+- **The socket becomes auth-aware, but stays un-gated.** It verifies a Supabase
+  access token if one is offered: signed in, results are persisted; guest,
+  results are shown and discarded. Rehearsing as a guest still works fully,
+  which is the property §4's no-auth decision was protecting.
+
+  The token arrives as a WebSocket subprotocol — the client offers
+  `["bearer", "<jwt>"]` and the server echoes the `bearer` sentinel. Not a
+  header, because a browser `WebSocket` has no way to set one; not a query
+  parameter, because a URL is written into every access log between here and
+  the ALB, which would turn each rehearsal into a logged credential. An
+  *invalid* token is treated exactly like an absent one: her session expiring
+  mid-speech must cost her the writing-down, not the take.
 
 ## 8. Still open after this doc
 

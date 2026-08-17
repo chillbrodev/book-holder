@@ -34,8 +34,8 @@ that reads the memory this now produces.
 
 - The capture socket calls `coachBlock` at `complete` and sends a `scored` event
   (`deno task test-capture-socket`)
-- The auth-aware socket (§7) — reads the cookie if one is sent, writes only when there is a
-  session, and a guest gets identical live coaching
+- The auth-aware socket (§7) — verifies a token if one is offered, writes only when there is
+  a session, and a guest gets identical live coaching
 - Incremental writes, and the session row created at rehearsal start
   (`deno task test-session-lifecycle`, 17 checks)
 - The band and note rendered under the block, with the scene holding on a speech worth
@@ -304,8 +304,14 @@ rehearsing works fully as a guest. `session_history.user_id` is `NOT NULL`, so
 there is nowhere to hang a guest's history.
 
 Per-block writes put those in direct conflict. The resolution is that the socket
-becomes **auth-aware but not auth-gated**: it reads the session cookie if one is
-present.
+becomes **auth-aware but not auth-gated**: it verifies an access token if one is
+offered on the handshake.
+
+The token arrives as a WebSocket subprotocol (`["bearer", "<jwt>"]`) rather than
+in a header, because a browser `WebSocket` cannot set one, and rather than in the
+query string, because a URL is written into every access log along the way. A
+guest offers nothing and the socket opens anyway — which is the case that has to
+keep working.
 
 - Signed in — score, display, persist.
 - Guest — score, display, persist nothing.

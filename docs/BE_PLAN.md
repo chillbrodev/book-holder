@@ -70,7 +70,8 @@ real requests are almost always a cheap hit. Revisit that if a play is ever adde
   organized by feature (`features/auth`, `features/plays`, `features/polly`, `features/app`), each exporting
   a `Hono` sub-app.
 - Permissions stay narrow rather than blanket `-A`: `--allow-net --allow-env --allow-sys=osRelease`, plus
-  `--allow-read=../.env` in every task **except** `production`. That omission is load-bearing — ECS injects
+  `--allow-read=.env` — api/'s own file, since `deno task` sets CWD to api/ — in every task
+  **except** `production`. That omission is load-bearing: ECS injects
   the task definition's environment directly, so there's no `.env` to read, and Deno checks permission
   *before* file existence, so an unconditional `loadSync` would throw `PermissionDenied` on every boot
   instead of the graceful no-op a missing file gets. `ConfigClient` skips the load entirely when
@@ -205,5 +206,14 @@ Discovered from the real Merry Wives of Windsor XML during import, not hypotheti
     the line text" fallback (also serves as an accessibility fallback for the older-user audience if audio
     fails).
   - Transcribe slow/down → let her mark the line as "said it" manually rather than blocking on STT.
+  - **Supabase slow/down → almost nothing happens**, and that is a property of the design rather than
+    luck. Verification is offline: the API checks a signature against a JWKS it fetched once and cached,
+    so a signed-in actor keeps rehearsing, keeps being scored, and keeps having it written down through
+    an outage. Only *new* sign-ins fail, and a guest can rehearse anyway. The one thing that would break
+    this is verifying by calling `/auth/v1/user` per request instead — which is why it doesn't.
 - These fallbacks double as accessibility fallbacks, not just uptime hedges — worth stating explicitly when
   narrating this for judges.
+- **No auth secret is deployed at all.** Passwords, lockout and session lifetime are Supabase's; the API
+  holds only the project URL, because ES256 verification needs the public key and nothing else. The
+  `sb_secret_…` admin key — which can read and rewrite every user — is deliberately absent from the task
+  definition, so compromising the container does not compromise any account.

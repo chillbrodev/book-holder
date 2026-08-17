@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { openCaptureSocket, type CaptureEvent, type CaptureSocket } from '../data/captureClient'
+import { getAccessToken } from '../auth/supabaseClient'
 
 /**
  * The real mic pipeline, replacing `useMicSimulation`'s timers: getUserMedia →
@@ -313,6 +314,15 @@ export function useMicCapture(
         await context.audioWorklet.addModule(WORKLET_URL)
         if (cancelled) return
 
+        // Read here rather than passed in as a prop, and read fresh rather than
+        // held: it refreshes an expired token before returning it, and a
+        // rehearsal is exactly the situation where a token quietly ages out
+        // mid-session. Null for a guest, which opens the same socket without
+        // offering a subprotocol — she is coached either way, and only the
+        // saving needs to know who she is.
+        const accessToken = await getAccessToken()
+        if (cancelled) return
+
         const socket = openCaptureSocket(blockId!, characterId!, {
           onEvent: (event: CaptureEvent) => {
             // Handled before the `cancelled` guard, and that ordering is the
@@ -386,7 +396,7 @@ export function useMicCapture(
             // past a speech nobody heard.
             setMicState((current) => (current === 'captured' ? current : wasClean ? current : 'cantHear'))
           },
-        }, sessionId)
+        }, sessionId, accessToken)
         socketRef.current = socket
 
         const source = context.createMediaStreamSource(stream)

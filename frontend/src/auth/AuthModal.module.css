@@ -86,16 +86,16 @@
   outline-offset: 1px;
 }
 
-.pinWrapper {
+.passwordWrapper {
   position: relative;
 }
 
-.pinWrapper input {
+.passwordWrapper input {
   width: 100%;
   padding-right: 44px;
 }
 
-.pinToggle {
+.passwordToggle {
   position: absolute;
   top: 0;
   right: 0;
@@ -110,7 +110,7 @@
   cursor: pointer;
 }
 
-.pinToggle:hover {
+.passwordToggle:hover {
   color: var(--bh-ink);
 }
 

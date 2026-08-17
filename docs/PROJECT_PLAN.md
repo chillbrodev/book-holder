@@ -46,7 +46,7 @@ That loop — read memory → decide → act → write memory — is the whole p
 | Agentic Memory Design | CockroachDB doing more than toy queries | Multi-table serializable transactions on every session write (session + line mastery + mistake log together); memory is read before every session to shape behavior, not just displayed after the fact |
 | Technical Implementation | Quality use of vector index, MCP Server, ccloud CLI | Vector index used for real nearest-neighbor mistake-pattern search; MCP Server used read-only during dev (and optionally a "coach's notes" admin view) — connected and authorized READ+WRITE, used read-only in practice, with every write confirmed first; schema and data changes go through `infra/cockroachdb/migrate.ts` and `packages/play-importer`, not MCP. **ccloud CLI: installed August 11 2026** (0.8.23) — the reasoning below still holds (the `the-book-holder` cluster already existed, so there is nothing to provision), but the judging requirements ask for two CockroachDB tools and there is no reason to stop at the minimum. The **Agent Skills repo** is installed too (34 skills, `.agents/skills/`), and earned its place immediately: its schema-design reference is where the correction came from that CockroachDB supports three vector distance operators rather than L2 alone. With the Cloud MCP server and vector indexing that is four of four |
 | Real-World Impact | Meaningful use case, not just a demo | Lead pitch with the actress's story; generalize to community theater / drama students / ESL practice |
-| Production Readiness | Security, observability, resilience, cost control | No keys in client code; retry logic around Cockroach serializable transactions; graceful degradation if Bedrock/Polly are slow or down; AWS Budget alert. Built so far: no long-lived AWS keys anywhere — GitHub OIDC for deploys, Secrets Manager for `COCKROACHDB_URL`/`ALLOWED_ORIGIN`, signed URLs rather than public S3 objects; hashed PINs with lockout; `GET /health` returning the deployed commit so a rollout can be verified rather than assumed; adaptive retry against Polly's throttling; and a duration guard that refuses to cache an implausibly long render (`docs/polly-gen-issue.md`) |
+| Production Readiness | Security, observability, resilience, cost control | No keys in client code; retry logic around Cockroach serializable transactions; graceful degradation if Bedrock/Polly are slow or down; AWS Budget alert. Built so far: no long-lived AWS keys anywhere — GitHub OIDC for deploys, Secrets Manager for `COCKROACHDB_URL`/`ALLOWED_ORIGIN`, signed URLs rather than public S3 objects; passwords and sessions delegated to Supabase, with tokens verified against its published JWKS so no auth secret is deployed at all; `GET /health` returning the deployed commit so a rollout can be verified rather than assumed; adaptive retry against Polly's throttling; and a duration guard that refuses to cache an implausibly long render (`docs/polly-gen-issue.md`) |
 | Creativity & Originality | Genuine insight into agentic systems | Explicitly frame memory as a *skill/mastery model over time*, closer to spaced repetition for embodied performance than to chatbot fact-memory — say this out loud in the submission, don't leave it implicit |
  
 ---
@@ -99,11 +99,17 @@ CockroachDB   Bedrock        Polly + Transcribe   S3
   `{play}/{character}/{blockId}__{voiceId}__{engine}.mp3` and served to the client as a signed URL rather
   than a public object. Still to come: session recordings (her voice, or her + AI voices), IN the MVP per
   project scope. `S3Client` takes the bucket per call so the same wrapper covers both.
-- **Accounts:** username + PIN, built (`api/src/features/auth`, migration `002_pin_auth.sql`). Deliberately
-  not Cognito — with multi-user rehearsal cut (§7), all that's needed is enough identity to attribute
-  `session_history` / `line_mastery` / `mistake_log` rows to a person. PINs are hashed, attempts are
-  rate-limited by a lockout column, and a logged-in browser session is a row in `auth_sessions` — named
-  distinctly from `session_history`, which means a *rehearsal* session.
+- **Accounts:** Supabase email auth (`api/src/features/auth`, migration `011_supabase_auth.sql`). This
+  started as username + PIN in our own `users`/`auth_sessions` tables, and what killed it was not the PIN
+  but the **cookie**: the frontend is on Amplify and the API is on ECS, unrelated domains, so the session
+  cookie between them was necessarily third-party — `SameSite=None; Secure`, and blocked outright by
+  Safari's ITP. No amount of work on a self-hosted session table fixes that; the credential had to stop
+  being a cookie. Supabase now issues an access token, the browser sends it as `Authorization: Bearer`,
+  and the API verifies its ES256 signature against Supabase's published JWKS — a public-key check needing
+  no credential of its own, which is why the `sb_secret_…` admin key is deliberately not deployed.
+  Everything else stays: CockroachDB has no `users` table, and `user_id` columns hold the Supabase user's
+  UUID, so `session_history` / `line_mastery` / `mistake_log` attribute exactly as before. Supabase is used
+  for identity and nothing else — no Postgres, no storage, no realtime.
 - **Deploy:** automatic, off `main`. A push touching `api/**` runs `.github/workflows/deploy-api.yml`
   (build → ECR → roll the ECS Express service); Amplify rebuilds the frontend off the same push,
   independently. No manual step. Credentials come from GitHub's OIDC provider assuming an AWS role, so
@@ -140,9 +146,8 @@ lines             (id, play_id, act, act_order, scene, scene_order, scene_descri
 line_speakers     (line_id, character_id)
                   -- many-to-many, NOT lines.character_id — see below
 stage_directions  (id, play_id, act, act_order, scene, scene_order, sequence, after_line_number, text)
-users             (id, name, created_at, username, pin_hash, failed_pin_attempts, locked_until)
-auth_sessions     (id, user_id, token_hash, created_at, expires_at)
-                  -- a logged-in browser session; session_history is a *rehearsal* session (migration 002)
+                  -- NO users / auth_sessions table: identity is Supabase's (migration 011). Every user_id
+                  -- below is the Supabase user's UUID, with no local row and no foreign key behind it
 roles_in_progress (id, user_id, play_id, character_id)
 session_history   (id, user_id, play_id, act, scene_range, started_at, duration_seconds)
 line_mastery      (id, user_id, line_id, confidence_score, last_practiced_at, mistake_count)
@@ -268,7 +273,7 @@ No fallback source is needed; the importer builds against this corpus directly.
 - Play → role → act/scene picker. Built as **one play page with two steps** (part, then the scenes that part
   is actually in) rather than three separate pages — the old `/play/:id/role` and `/play/:id/scenes` URLs
   redirect to it so bookmarks and the back stack don't 404
-- Username + PIN accounts, so practice history belongs to somebody (see §4)
+- Supabase email accounts, so practice history belongs to somebody (see §4)
 - Polly-voiced other characters, cached **per block** (one speech, one render — not per line, see §4)
 - Record-and-compare rehearsal flow (tap to advance, not live streaming STT). The capture design has since
   moved on, though the code hasn't: the mic stays open across a whole **block** at natural pace, with beats

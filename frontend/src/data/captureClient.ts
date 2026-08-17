@@ -78,6 +78,18 @@ export interface CaptureSocket {
   close: () => void
 }
 
+/**
+ * `accessToken` is how a rehearsal gets remembered, and its absence is never an
+ * error — a guest opens the same socket, gets the same mic and the same live
+ * coaching, and only the writing-down is missing.
+ *
+ * It travels as a WebSocket *subprotocol* rather than a query parameter,
+ * because a browser `WebSocket` cannot set an `Authorization` header and a URL
+ * is written into every access log along the way. The server reads the second
+ * offered protocol as the token and echoes back the `bearer` sentinel; see
+ * api/src/features/auth/bearer.ts. Both entries are valid protocol tokens — a
+ * JWT is base64url plus dots, all of which RFC 7230 allows.
+ */
 export function openCaptureSocket(
   blockId: string,
   characterId: string,
@@ -87,8 +99,11 @@ export function openCaptureSocket(
     onClose?: (wasClean: boolean) => void
   },
   sessionId?: string,
+  accessToken?: string | null,
 ): CaptureSocket {
-  const socket = new WebSocket(captureUrl(blockId, characterId, sessionId))
+  const socket = accessToken
+    ? new WebSocket(captureUrl(blockId, characterId, sessionId), ['bearer', accessToken])
+    : new WebSocket(captureUrl(blockId, characterId, sessionId))
   // The server reads binary frames as PCM and text frames as control messages,
   // so the frames it sends back must arrive as something we can JSON.parse
   // rather than as a Blob we'd have to await.

@@ -1,176 +1,79 @@
-// Route-level tests via Hono's app.request(). AuthService is a plain
-// exported object (like DbClient/ConfigClient), so tests fake it by
-// swapping a method for the duration of the test and restoring it after,
-// no DB, no real business logic, just verifying the HTTP wiring: status
-// codes, cookie-setting, response shape, and that thrown AuthErrors reach
-// the client via app.ts's onError. Business-logic behavior (validation
-// rules, lockout counting, etc.) is AuthService's own concern. See
-// service.test.ts.
-import { assertEquals, assertMatch } from "@std/assert";
+// Route-level wiring via Hono's app.request(). AuthService is a plain exported
+// object (like DbClient/ConfigClient), so tests fake it by swapping a method for
+// the duration of the test and restoring it after — no network, no Supabase,
+// no real tokens. What's verified here is the HTTP shape: that a token reaches
+// the verifier at all, and that a thrown AuthError comes back as a 401 through
+// app.ts's onError rather than a 500. Whether a given token is *valid* is
+// supabaseJwt.test.ts's job.
+import { assertEquals } from "@std/assert";
 import { app } from "../../app/app.ts";
 import { AuthService } from "../service.ts";
 import { AuthError } from "../errors.ts";
 
-function withFakeRegister(
-  fn: typeof AuthService.register,
+function withFakeGetUser(
+  fn: typeof AuthService.getUser,
   test: () => Promise<void>,
 ) {
-  const original = AuthService.register;
-  AuthService.register = fn;
+  const original = AuthService.getUser;
+  AuthService.getUser = fn;
   return test().finally(() => {
-    AuthService.register = original;
+    AuthService.getUser = original;
   });
 }
 
-function withFakeLogin(
-  fn: typeof AuthService.login,
-  test: () => Promise<void>,
-) {
-  const original = AuthService.login;
-  AuthService.login = fn;
-  return test().finally(() => {
-    AuthService.login = original;
-  });
-}
+const fakeUser = {
+  id: "6f1d2a54-0000-4000-8000-000000000001",
+  email: "beatrice@example.com",
+  name: "Beatrice",
+};
 
-function withFakeGetSessionUser(
-  fn: typeof AuthService.getSessionUser,
-  test: () => Promise<void>,
-) {
-  const original = AuthService.getSessionUser;
-  AuthService.getSessionUser = fn;
-  return test().finally(() => {
-    AuthService.getSessionUser = original;
-  });
-}
-
-const fakeUser = { id: "fake-id", username: "mom", name: "Mom" };
-
-Deno.test("POST /auth/register returns the created user and sets a session cookie", async () => {
-  await withFakeRegister(
-    () =>
-      Promise.resolve({
-        user: fakeUser,
-        token: "fake-token",
-        expiresAt: new Date(),
-      }),
-    async () => {
-      const res = await app.request("/auth/register", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ username: "mom", name: "Mom", pin: "4242" }),
-      });
-      assertEquals(res.status, 201);
-      const body = await res.json();
-      assertEquals(body, fakeUser);
-      assertMatch(
-        res.headers.get("set-cookie") ?? "",
-        /book_holder_session=fake-token/,
-      );
-    },
-  );
-});
-
-Deno.test("POST /auth/register surfaces AuthService's validation error as a 400", async () => {
-  await withFakeRegister(
-    () => {
-      throw new AuthError(
-        "VALIDATION_ERROR",
-        "username, name, and pin are all required.",
-      );
-    },
-    async () => {
-      const res = await app.request("/auth/register", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      assertEquals(res.status, 400);
-      const body = await res.json();
-      assertEquals(body.error.name, "VALIDATION_ERROR");
-    },
-  );
-});
-
-Deno.test("POST /auth/register surfaces AuthService's username-taken error as a 409", async () => {
-  await withFakeRegister(
-    () => {
-      throw new AuthError("USERNAME_TAKEN", "That username is already in use.");
-    },
-    async () => {
-      const res = await app.request("/auth/register", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ username: "mom", name: "Mom", pin: "4242" }),
-      });
-      assertEquals(res.status, 409);
-    },
-  );
-});
-
-Deno.test("POST /auth/login returns the user and sets a session cookie on success", async () => {
-  await withFakeLogin(
-    () =>
-      Promise.resolve({
-        user: fakeUser,
-        token: "fake-token",
-        expiresAt: new Date(),
-      }),
-    async () => {
-      const res = await app.request("/auth/login", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ username: "mom", pin: "4242" }),
-      });
-      assertEquals(res.status, 200);
-      const body = await res.json();
-      assertEquals(body, fakeUser);
-      assertMatch(
-        res.headers.get("set-cookie") ?? "",
-        /book_holder_session=fake-token/,
-      );
-    },
-  );
-});
-
-Deno.test("POST /auth/login surfaces AuthService's lockout error as a 423", async () => {
-  await withFakeLogin(
-    () => {
-      throw new AuthError(
-        "ACCOUNT_LOCKED",
-        "Too many failed attempts. Try again in 900 seconds.",
-      );
-    },
-    async () => {
-      const res = await app.request("/auth/login", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ username: "mom", pin: "0000" }),
-      });
-      assertEquals(res.status, 423);
-    },
-  );
-});
-
-Deno.test("GET /auth/me returns the session user on success", async () => {
-  await withFakeGetSessionUser(
+Deno.test("GET /auth/me returns the actor the token verifies to", async () => {
+  await withFakeGetUser(
     () => Promise.resolve(fakeUser),
     async () => {
-      const res = await app.request("/auth/me");
+      const res = await app.request("/auth/me", {
+        headers: { authorization: "Bearer good.token.here" },
+      });
       assertEquals(res.status, 200);
-      const body = await res.json();
-      assertEquals(body, fakeUser);
+      assertEquals(await res.json(), fakeUser);
     },
   );
 });
 
-Deno.test("GET /auth/me surfaces AuthService's unauthenticated error as a 401", async () => {
-  await withFakeGetSessionUser(
-    () => {
-      throw new AuthError("UNAUTHENTICATED", "Not logged in.");
+Deno.test("GET /auth/me hands the bearer token to AuthService, not the whole header", async () => {
+  // The scheme belongs to the transport; passing "Bearer x" through to the
+  // verifier would fail every request, and only in a deployed environment.
+  let seen: string | undefined = "unset";
+  await withFakeGetUser(
+    (token) => {
+      seen = token;
+      return Promise.resolve(fakeUser);
     },
     async () => {
-      const res = await app.request("/auth/me");
+      await app.request("/auth/me", {
+        headers: { authorization: "Bearer good.token.here" },
+      });
+    },
+  );
+  assertEquals(seen, "good.token.here");
+});
+
+Deno.test("GET /auth/me is a 401 when nothing is signed in", async () => {
+  const res = await app.request("/auth/me");
+  assertEquals(res.status, 401);
+  const body = await res.json();
+  assertEquals(body.error.name, "UNAUTHENTICATED");
+});
+
+Deno.test("GET /auth/me surfaces a rejected token as a 401, not a 500", async () => {
+  await withFakeGetUser(
+    () => {
+      throw new AuthError("UNAUTHENTICATED", "That sign-in has expired.");
+    },
+    async () => {
+      const res = await app.request("/auth/me", {
+        headers: { authorization: "Bearer stale.token.here" },
+      });
       assertEquals(res.status, 401);
       const body = await res.json();
       assertEquals(body.error.name, "UNAUTHENTICATED");

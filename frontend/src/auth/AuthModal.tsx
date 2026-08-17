@@ -3,7 +3,7 @@ import type { FormEvent } from 'react'
 import { Button } from '../components/core/Button'
 import { useAuth } from './useAuth'
 import { AuthApiError } from './authClient'
-import { PinInput } from './PinInput'
+import { PasswordInput } from './PasswordInput'
 import styles from './AuthModal.module.css'
 
 export interface AuthModalProps {
@@ -15,13 +15,13 @@ type Mode = 'register' | 'login'
 const COPY: Record<Mode, { title: string; subhead: string; submitLabel: string; toggleLabel: string }> = {
   register: {
     title: 'Save Your Progress',
-    subhead: "Choose a username and a PIN, and next time you'll pick up right where you left off.",
+    subhead: "Sign up with your email, and next time you'll pick up right where you left off.",
     submitLabel: 'Save My Progress',
     toggleLabel: 'Already have an account? Log in',
   },
   login: {
     title: 'Welcome Back',
-    subhead: 'Enter your username and PIN to get back to your rehearsal.',
+    subhead: 'Enter your email and password to get back to your rehearsal.',
     submitLabel: 'Log In',
     toggleLabel: "Don't have an account? Save your progress",
   },
@@ -33,14 +33,19 @@ const COPY: Record<Mode, { title: string; subhead: string; submitLabel: string; 
 export function AuthModal({ onClose }: AuthModalProps) {
   const { register, login } = useAuth()
   const [mode, setMode] = useState<Mode>('register')
-  const [username, setUsername] = useState('')
-  const [pin, setPin] = useState('')
-  const [confirmPin, setConfirmPin] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
+  // The one non-error, non-signed-in outcome: the account exists and Supabase
+  // has sent a confirmation link. Closing the modal on that would look exactly
+  // like a successful sign-in and leave her a guest with no explanation.
+  const [confirmationSentTo, setConfirmationSentTo] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const firstFieldRef = useRef<HTMLInputElement>(null)
 
-  const pinsMismatched = mode === 'register' && confirmPin.length > 0 && pin !== confirmPin
+  const passwordsMismatched =
+    mode === 'register' && confirmPassword.length > 0 && password !== confirmPassword
 
   useEffect(() => {
     firstFieldRef.current?.focus()
@@ -56,7 +61,7 @@ export function AuthModal({ onClose }: AuthModalProps) {
 
   function toggleMode() {
     setMode((current) => (current === 'register' ? 'login' : 'register'))
-    setConfirmPin('')
+    setConfirmPassword('')
     setError(null)
   }
 
@@ -64,17 +69,21 @@ export function AuthModal({ onClose }: AuthModalProps) {
     event.preventDefault()
     setError(null)
 
-    if (mode === 'register' && pin !== confirmPin) {
-      setError("Those PINs don't match. Try entering them again.")
+    if (mode === 'register' && password !== confirmPassword) {
+      setError("Those passwords don't match. Try entering them again.")
       return
     }
 
     setSubmitting(true)
     try {
       if (mode === 'register') {
-        await register(username, pin)
+        const { signedIn } = await register(email, password)
+        if (!signedIn) {
+          setConfirmationSentTo(email)
+          return
+        }
       } else {
-        await login(username, pin)
+        await login(email, password)
       }
       onClose()
     } catch (err) {
@@ -99,48 +108,70 @@ export function AuthModal({ onClose }: AuthModalProps) {
           &times;
         </button>
 
-        <h2 id="auth-modal-title" className="bh-h2">
-          {copy.title}
-        </h2>
-        <p className={styles.subhead}>{copy.subhead}</p>
+        {confirmationSentTo ? (
+          <>
+            <h2 id="auth-modal-title" className="bh-h2">
+              Check Your Inbox
+            </h2>
+            <p className={styles.subhead}>
+              We've sent a confirmation link to {confirmationSentTo}. Open it, then come back and log
+              in — your rehearsals will be saved from then on.
+            </p>
+            <Button type="button" onClick={onClose} className={styles.submit}>
+              Back to Rehearsal
+            </Button>
+          </>
+        ) : (
+          <>
+            <h2 id="auth-modal-title" className="bh-h2">
+              {copy.title}
+            </h2>
+            <p className={styles.subhead}>{copy.subhead}</p>
 
-        <form onSubmit={handleSubmit} className={styles.form}>
-          <label className={styles.field}>
-            <span className={styles.label}>Username</span>
-            <input
-              ref={firstFieldRef}
-              type="text"
-              value={username}
-              onChange={(event) => setUsername(event.target.value)}
-              autoComplete="username"
-              required
-            />
-          </label>
+            <form onSubmit={handleSubmit} className={styles.form}>
+              <label className={styles.field}>
+                <span className={styles.label}>Email</span>
+                <input
+                  ref={firstFieldRef}
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  autoComplete="email"
+                  required
+                />
+              </label>
 
-          <PinInput
-            label="PIN (4–8 digits)"
-            value={pin}
-            onChange={setPin}
-            autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
-          />
+              <PasswordInput
+                label="Password"
+                value={password}
+                onChange={setPassword}
+                autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
+              />
 
-          {mode === 'register' && (
-            <>
-              <PinInput label="Confirm PIN" value={confirmPin} onChange={setConfirmPin} autoComplete="new-password" />
-              {pinsMismatched && <p className={styles.hint}>PINs don't match yet.</p>}
-            </>
-          )}
+              {mode === 'register' && (
+                <>
+                  <PasswordInput
+                    label="Confirm password"
+                    value={confirmPassword}
+                    onChange={setConfirmPassword}
+                    autoComplete="new-password"
+                  />
+                  {passwordsMismatched && <p className={styles.hint}>Passwords don't match yet.</p>}
+                </>
+              )}
 
-          {error && <p className={styles.error}>{error}</p>}
+              {error && <p className={styles.error}>{error}</p>}
 
-          <Button type="submit" disabled={submitting || pinsMismatched} className={styles.submit}>
-            {submitting ? 'One moment…' : copy.submitLabel}
-          </Button>
-        </form>
+              <Button type="submit" disabled={submitting || passwordsMismatched} className={styles.submit}>
+                {submitting ? 'One moment…' : copy.submitLabel}
+              </Button>
+            </form>
 
-        <button type="button" className={styles.toggle} onClick={toggleMode}>
-          {copy.toggleLabel}
-        </button>
+            <button type="button" className={styles.toggle} onClick={toggleMode}>
+              {copy.toggleLabel}
+            </button>
+          </>
+        )}
       </div>
     </div>
   )

@@ -11,6 +11,7 @@
     "npm:@aws-sdk/client-s3@3": "3.1095.0",
     "npm:@aws-sdk/client-transcribe-streaming@3": "3.1104.0",
     "npm:@aws-sdk/s3-request-presigner@3": "3.1095.0",
+    "npm:jose@6": "6.2.9",
     "npm:pg@^8.13.0": "8.22.0"
   },
   "jsr": {
@@ -392,6 +393,9 @@
     "bowser@2.14.1": {
       "integrity": "sha512-tzPjzCxygAKWFOJP011oxFHs57HzIhOEracIgAePE4pqB3LikALKnSzUyU4MGs9/iCEUuHlAJTjTc5M+u7YEGg=="
     },
+    "jose@6.2.9": {
+      "integrity": "sha512-XrchZOFZUl/T3vTwRe8XK+cJrGtMF4th1ARnDfwbBXFKThGhlsxEE4Zu03AD/bjJSt/9jT/mxrOCkJWOg77aPA=="
+    },
     "pg-cloudflare@1.4.0": {
       "integrity": "sha512-Vo7z/6rrQYxpNRylp4Tlob2elzbh+N/MOQbxFVWCxS7oEx6jF53GTJFxK2WWpKuBRkmiin4Mt+xofFDjx09R0A=="
     },
@@ -475,6 +479,7 @@
       "npm:@aws-sdk/client-s3@3",
       "npm:@aws-sdk/client-transcribe-streaming@3",
       "npm:@aws-sdk/s3-request-presigner@3",
+      "npm:jose@6",
       "npm:pg@^8.13.0"
     ]
   }

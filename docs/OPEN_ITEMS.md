@@ -433,3 +433,21 @@ Closed August 11 2026:
   intact; only the re-cut beats' mastery resets.
 - ~~Whether the voice assignment survives a re-import~~ — yes, it's assigned at
   import from a cited list rather than a one-shot UPDATE.
+
+Closed August 17 2026:
+
+- ~~Whether a self-hosted session cookie can work across Amplify and ECS~~ — **no, and no
+  amount of work on our side fixes it.** They are unrelated domains, so the cookie is
+  necessarily third-party: `SameSite=None; Secure`, and blocked outright by Safari's ITP.
+  Auth moved to Supabase (migration 011) and the credential became an `Authorization:
+  Bearer` header, which has no origin rules to fall foul of. Recorded here because the
+  tempting fix — tightening cookie flags, adding a CORS header, proxying — reads like it
+  should work and cannot. The only real alternatives were a shared parent domain or a
+  non-cookie credential.
+- ~~Whether verifying tokens needs the Supabase admin key~~ — it does not, and it must not.
+  The project signs ES256 and publishes the public half at
+  `/auth/v1/.well-known/jwks.json`. `SUPABASE_SECRET` stays off the container; a change
+  that appears to need it is a change to look at twice.
+- ~~Whether CockroachDB still needs a `users` table~~ — no. `user_id` columns keep their
+  UUID type and hold Supabase's `sub`, with no local row and no foreign key. Two copies of
+  an identity is how "what is her name" ends up with two answers.

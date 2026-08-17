@@ -11,8 +11,8 @@
 # NOTE: wires up AWS_REGION, POLLY_CACHE_BUCKET, POLLY_DEFAULT_VOICE_ID (if
 # exported — per-character voices live in characters.polly_voice_id, not an
 # env var), BEDROCK_MODEL_ID_COMPARISON (if exported), DENO_ENV=production,
-# and COCKROACHDB_URL/ALLOWED_ORIGIN (see COCKROACHDB_URL/ALLOWED_ORIGIN below
-# for where these are read from).
+# SUPABASE_URL, and COCKROACHDB_URL/ALLOWED_ORIGIN (see COCKROACHDB_URL/
+# ALLOWED_ORIGIN below for where these are read from).
 #
 # BEDROCK_MODEL_ID_COMPARISON is passed only when set, because
 # configClient.ts carries a working default (the Nova Micro geo profile). The
@@ -34,11 +34,14 @@
 #
 # Optional overrides (precedence: shell-exported > infra/aws/.env.production
 # [gitignored — deploy-only values, e.g. ALLOWED_ORIGIN, that never need
-# toggling for local dev] > root .env):
-#   COCKROACHDB_URL=...                                 (default: read from .env.production, then the root .env)
-#   ALLOWED_ORIGIN=https://your-deployed-frontend.example (default: read from .env.production, then the root
-#                                                          .env — must be the real deployed frontend's
+# toggling for local dev] > api/.env):
+#   COCKROACHDB_URL=...                                 (default: read from .env.production, then api/.env)
+#   ALLOWED_ORIGIN=https://your-deployed-frontend.example (default: read from .env.production, then
+#                                                          api/.env — must be the real deployed frontend's
 #                                                          origin, not localhost, or CORS blocks it)
+#   SUPABASE_URL=https://<ref>.supabase.co            (default: read from .env.production, then api/.env —
+#                                                      required; must be the SAME project the deployed frontend
+#                                                      was built against, or every token verifies as a 401)
 #   AWS_REGION=us-west-2                              (default)
 #   ECR_REPO_NAME=book-holder-api                      (default)
 #   SERVICE_NAME=book-holder-api                        (default)
@@ -75,7 +78,7 @@ TASK_ROLE_NAME="${TASK_ROLE_NAME:-book-holder-api-task-role}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 API_DIR="$REPO_ROOT/api"
 
-# Pulls just the one named key out of .env — deliberately not `source .env`
+# Pulls just the one named key out of an .env file — deliberately not `source`
 # or a full export, which would also pull in AWS_ACCESS_KEY_ID/
 # AWS_SECRET_ACCESS_KEY (the scoped Polly-only local-dev IAM user's keys,
 # see create-dev-user.sh) into this script's shell and silently override the
@@ -97,8 +100,13 @@ read_env_var() {
 
 # Precedence: shell-exported value wins, then infra/aws/.env.production (if
 # present — gitignored, holds deploy-only values like the real ALLOWED_ORIGIN
-# so it never has to be toggled in the root .env for local dev), then the
-# root .env (the same COCKROACHDB_URL local dev uses — one cluster).
+# so it never has to be toggled in api/.env for local dev), then api/.env
+# (the same COCKROACHDB_URL local dev uses — one cluster).
+#
+# api/.env, not a repo-root one: there is no root .env any more, each runtime
+# owns its own. This is the last fallback either way, and the deploy-only file
+# above is what should normally be answering for anything that differs between
+# a laptop and production.
 PROD_ENV_FILE="$REPO_ROOT/infra/aws/.env.production"
 resolve_var() {
   local key="$1" val
@@ -106,13 +114,20 @@ resolve_var() {
   [ -n "$val" ] && { printf '%s' "$val"; return; }
   val="$(read_env_var "$key" "$PROD_ENV_FILE")"
   [ -n "$val" ] && { printf '%s' "$val"; return; }
-  read_env_var "$key" "$REPO_ROOT/.env"
+  read_env_var "$key" "$REPO_ROOT/api/.env"
 }
 COCKROACHDB_URL="$(resolve_var COCKROACHDB_URL)"
 ALLOWED_ORIGIN="$(resolve_var ALLOWED_ORIGIN)"
+SUPABASE_URL="$(resolve_var SUPABASE_URL)"
 
-: "${COCKROACHDB_URL:?COCKROACHDB_URL is blank/missing in .env — set it before deploying, the container will crash-loop without it}"
-: "${ALLOWED_ORIGIN:?ALLOWED_ORIGIN is blank/missing — set it in infra/aws/.env.production (preferred) or the root .env before deploying, or CORS will block it}"
+: "${COCKROACHDB_URL:?COCKROACHDB_URL is blank/missing in api/.env — set it before deploying, the container will crash-loop without it}"
+: "${ALLOWED_ORIGIN:?ALLOWED_ORIGIN is blank/missing — set it in infra/aws/.env.production (preferred) or api/.env before deploying, or CORS will block it}"
+# Plain env, never a secret: a Supabase project URL is public (it is compiled
+# into the frontend bundle) and it is not a credential. Verifying an access
+# token is a public-key operation against the project's published JWKS, so the
+# `sb_secret_…` admin key is deliberately NOT passed to the container — see
+# api/src/features/auth/supabaseJwt.ts.
+: "${SUPABASE_URL:?SUPABASE_URL is blank/missing — set it in infra/aws/.env.production or api/.env; configClient.ts throws without it and the task will crash-loop on boot}"
 
 ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
 IMAGE_TAG="$(git -C "$REPO_ROOT" rev-parse --short HEAD 2>/dev/null || echo latest)"
@@ -250,10 +265,11 @@ CANDIDATE_SERVICE_ARN="arn:aws:ecs:$AWS_REGION:$ACCOUNT_ID:service/default/$SERV
 # IAM policy above — safe to extend with values that might contain quotes
 # (COCKROACHDB_URL has ':', '@', '?' in it) without re-deriving escaping
 # rules. DENO_ENV is hardcoded "production", not sourced from .env — local
-# dev's .env deliberately says LOCAL, but the deployed container should
+# dev's api/.env deliberately says LOCAL, but the deployed container should
 # always be "production" regardless of what the deploying machine's local
-# dev config says (it controls the auth cookie's Secure/SameSite=None
-# flags, required since Amplify and ECS are different origins).
+# dev config says. What it controls is whether configClient.ts tries to load
+# an .env file at all: there is none in the image, and Deno's permission
+# check would fail before the file-existence check.
 CONTAINER_ENV_JSON=$(jq -n \
   --arg port "$CONTAINER_PORT" \
   --arg region "$AWS_REGION" \
@@ -261,8 +277,10 @@ CONTAINER_ENV_JSON=$(jq -n \
   --arg defaultVoice "${POLLY_DEFAULT_VOICE_ID:-}" \
   --arg comparisonModel "${BEDROCK_MODEL_ID_COMPARISON:-}" \
   --arg appVersion "$IMAGE_TAG" \
+  --arg supabaseUrl "$SUPABASE_URL" \
   '[{name: "PORT", value: $port}, {name: "AWS_REGION", value: $region}, {name: "POLLY_CACHE_BUCKET", value: $bucket},
-     {name: "DENO_ENV", value: "production"}, {name: "APP_VERSION", value: $appVersion}]
+     {name: "DENO_ENV", value: "production"}, {name: "APP_VERSION", value: $appVersion},
+     {name: "SUPABASE_URL", value: $supabaseUrl}]
    + (if $defaultVoice != "" then [{name: "POLLY_DEFAULT_VOICE_ID", value: $defaultVoice}] else [] end)
    + (if $comparisonModel != "" then [{name: "BEDROCK_MODEL_ID_COMPARISON", value: $comparisonModel}] else [] end)')
 
