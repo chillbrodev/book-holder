@@ -64,6 +64,16 @@ export function RehearsalPage() {
   const lineId = searchParams.get('line')
   const backTo = searchParams.get('back')
   /**
+   * The recommendation she tapped to get here, if she did.
+   *
+   * Sent on session start so the API can stamp `followed_session_id`, which is
+   * how the agent finds out its advice was taken. Until this existed the loop
+   * was open at exactly one point: the column was written by nothing and read by
+   * `get_last_recommendation` every run, which therefore always reported "she
+   * didn't."
+   */
+  const recommendationId = searchParams.get('rec') ?? undefined
+  /**
    * A drill over a chosen set of speeches, rather than the whole scene.
    *
    * This is migration 008's block-scoped session reaching the UI: a session is a
@@ -251,11 +261,22 @@ export function RehearsalPage() {
       scene,
       characterId: role.id,
       // A drill records exactly the speeches it set out to run, so finishing it
-      // is a real completion rather than a scene abandoned early. `source` is
-      // 'user' because she chose these from her own flagged lines; the coach
-      // agent will pass 'coach', which is what makes its recommendations
-      // checkable against what she actually ran.
-      ...(isDrill ? { scope: 'blocks' as const, blockIds: drillBlockIds, source: 'user' as const } : {}),
+      // is a real completion rather than a scene abandoned early.
+      ...(isDrill
+        ? {
+          scope: 'blocks' as const,
+          blockIds: drillBlockIds,
+          // Who chose these speeches. 'coach' when she arrived by tapping a
+          // recommendation, 'user' when she picked them off her own flagged
+          // lines — that distinction is the whole point of the column, and it
+          // was hardcoded 'user' until the coach had a way to say otherwise.
+          source: recommendationId ? ('coach' as const) : ('user' as const),
+        }
+        : {}),
+      // Reported for a whole-scene run too, not just a drill: the coach can
+      // recommend "run the scene", and following that advice counts exactly as
+      // much as following a drill.
+      ...(recommendationId ? { recommendationId } : {}),
     })
       .then((started) => {
         if (!cancelled) setSessionId(started.sessionId)

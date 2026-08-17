@@ -167,6 +167,9 @@ export function startSession(input: {
   /** Who chose them. `coach` is what later makes a recommendation checkable
    * against what she actually ran. */
   source?: 'user' | 'coach'
+  /** The recommendation she tapped to get here. Stamps `followed_session_id` on
+   * it, which is how the agent learns its advice was taken. */
+  recommendationId?: string
 }): Promise<{ sessionId: string }> {
   return apiRequest('/sessions/start', { method: 'POST', body: JSON.stringify(input) })
 }

@@ -150,8 +150,11 @@ export function PlayPage() {
             const back = encodeURIComponent(`/play/${playId}`)
             navigate(
               rec.action === 'drill'
-                ? `/play/${playId}/rehearse/${rec.act}/${rec.scene}?blocks=${rec.blockIds.join(',')}&back=${back}`
-                : `/play/${playId}/rehearse/${rec.act}/${rec.scene}?back=${back}`,
+                // `rec` rides along so the rehearsal can report back that this
+                // advice was taken. Without it the agent asks "did she do what I
+                // said" every run and is told no every time.
+                ? `/play/${playId}/rehearse/${rec.act}/${rec.scene}?blocks=${rec.blockIds.join(',')}&rec=${rec.id}&back=${back}`
+                : `/play/${playId}/rehearse/${rec.act}/${rec.scene}?rec=${rec.id}&back=${back}`,
             )
           }}
         />

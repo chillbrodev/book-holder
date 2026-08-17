@@ -289,8 +289,11 @@ export function buildCoachTools(scope: ToolScope): AgentTool[] {
     {
       name: "get_last_recommendation",
       description:
-        "What you told her to do last time, and whether she did it. Use this " +
-        "before recommending, so you can acknowledge it rather than repeat it.",
+        "What you told her to do last time, whether she did it, and whether it " +
+        "worked. `before` is how those speeches stood when you gave the advice; " +
+        "`after` is how they stand now. Use this before recommending: if it " +
+        "worked, say so and move on to something else; if she did it and it did " +
+        "not, do not simply say it again — the advice was wrong, so change it.",
       schema: { type: "object", properties: {} },
       run: async () => {
         const result = await pool().query(
@@ -330,6 +333,57 @@ export function buildCoachTools(scope: ToolScope): AgentTool[] {
           covered = Number(ran.rows[0].n);
         }
 
+        // Did it work? The bands for the recommended speeches as they stood
+        // when the advice was given, against how they stand now.
+        //
+        // This is the step that makes the loop a loop rather than a log. The
+        // agent could already see what it had said and (since the session start
+        // route began stamping `followed_session_id`) whether she acted on it;
+        // what it could not see was the outcome, which is the only thing that
+        // makes the next recommendation different from the last.
+        //
+        // `before` is the latest score for each beat *at or before* the moment
+        // of the recommendation, not the score in the session that prompted it:
+        // a beat she had not touched that run still had a standing mark, and
+        // ignoring it would make every untouched beat look like an improvement
+        // from nothing.
+        let outcome = null;
+        if (blockIds.length > 0) {
+          const bands = await pool().query(
+            `SELECT
+               (SELECT jsonb_build_object(
+                         'solid', count(*) FILTER (WHERE t.band = 'solid'),
+                         'close', count(*) FILTER (WHERE t.band = 'close'),
+                         'dry',   count(*) FILTER (WHERE t.band = 'dry'))
+                  FROM (
+                    SELECT DISTINCT ON (l.id) sbs.band
+                      FROM session_beat_score sbs
+                      JOIN lines l ON l.id = sbs.line_id
+                      JOIN session_history sh ON sh.id = sbs.session_id
+                     WHERE sh.user_id = $1 AND l.block_id = ANY($3::uuid[])
+                       AND sbs.created_at <= $2
+                     ORDER BY l.id, sbs.created_at DESC
+                  ) t) AS before,
+               (SELECT jsonb_build_object(
+                         'solid', count(*) FILTER (WHERE t.band = 'solid'),
+                         'close', count(*) FILTER (WHERE t.band = 'close'),
+                         'dry',   count(*) FILTER (WHERE t.band = 'dry'))
+                  FROM (
+                    SELECT DISTINCT ON (l.id) sbs.band
+                      FROM session_beat_score sbs
+                      JOIN lines l ON l.id = sbs.line_id
+                      JOIN session_history sh ON sh.id = sbs.session_id
+                     WHERE sh.user_id = $1 AND l.block_id = ANY($3::uuid[])
+                     ORDER BY l.id, sbs.created_at DESC
+                  ) t) AS after`,
+            [userId, row.created_at, blockIds],
+          );
+          outcome = {
+            before: bands.rows[0]?.before ?? null,
+            after: bands.rows[0]?.after ?? null,
+          };
+        }
+
         return {
           previous: {
             said: row.note,
@@ -338,7 +392,20 @@ export function buildCoachTools(scope: ToolScope): AgentTool[] {
             scene: row.scene,
             speechesRecommended: blockIds.length,
             speechesSheRanSince: covered,
+            // Two different questions, and they answer differently in the gap
+            // that matters. `sheTookItUp` is explicit: she tapped this
+            // recommendation and a session was opened from it, stamped on the
+            // row at session start. `followed` is derived from coverage — did
+            // every recommended speech actually get scored — so it stays false
+            // for a run she began and abandoned, and goes true for a run that
+            // covered the speeches by another route, such as playing the whole
+            // scene instead of the drill. Following the advice by a better route
+            // is still following it.
+            sheTookItUp: row.followed === true,
             followed: blockIds.length > 0 && covered >= blockIds.length,
+            // Null when the advice named a scene rather than speeches, so there
+            // is nothing specific to have improved.
+            marksOnThoseSpeeches: outcome,
           },
         };
       },

@@ -33,7 +33,8 @@ sessions.use("*", sessionMiddleware);
  * because per-block coaching needs somewhere to write while the scene is still
  * running. Returns the id the capture socket then carries.
  *
- * Body: { playId, act, scene, characterId, scope?, blockIds?, source? }
+ * Body: { playId, act, scene, characterId, scope?, blockIds?, source?,
+ *         recommendationId? }
  */
 sessions.post("/start", async (c) => {
   const user = c.get("user");
@@ -47,6 +48,7 @@ sessions.post("/start", async (c) => {
     scope: body.scope,
     blockIds: body.blockIds,
     source: body.source,
+    recommendationId: body.recommendationId,
   });
   return c.json(started, 201);
 });

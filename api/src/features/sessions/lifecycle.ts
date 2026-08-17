@@ -51,6 +51,17 @@ export interface StartSessionInput {
   /** Who chose these blocks. `coach` is what makes a recommendation checkable
    * later. See migration 008. */
   source?: "user" | "coach";
+  /**
+   * The recommendation she is acting on, when she got here by tapping one.
+   *
+   * This is the half of the loop that was missing. `coach_recommendation` has
+   * carried a `followed_session_id` since migration 010 and
+   * `get_last_recommendation` has always read it, but nothing ever wrote it —
+   * so the agent's first instruction, "if you told her to do something and she
+   * did it, acknowledge that", could only ever be answered "she didn't". Nine
+   * recommendations stood at zero followed.
+   */
+  recommendationId?: string;
 }
 
 export const SessionLifecycle = {
@@ -134,6 +145,24 @@ export const SessionLifecycle = {
         [userId, playId, act, scene, scope],
       );
       const sessionId: string = session.rows[0].id;
+
+      // Stamp the recommendation she acted on, inside the same transaction that
+      // creates the session — the link and the thing it points at are one fact,
+      // and a session that exists while the recommendation still reads
+      // "not followed" is the bug this is fixing, in miniature.
+      //
+      // Scoped by user_id so an id from somewhere else marks nothing, and only
+      // set once: `followed_session_id IS NULL` means the *first* run that acted
+      // on the advice is the one recorded. Re-drilling the same speech a week
+      // later should not rewrite when she first took it.
+      if (input.recommendationId) {
+        await client.query(
+          `UPDATE coach_recommendation
+              SET followed_session_id = $1
+            WHERE id = $2 AND user_id = $3 AND followed_session_id IS NULL`,
+          [sessionId, input.recommendationId, userId],
+        );
+      }
 
       for (const [ordinal, blockId] of chosen.entries()) {
         await client.query(
