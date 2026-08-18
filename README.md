@@ -249,7 +249,12 @@ Four things this is meant to make obvious:
 
 ## CockroachDB
 
-Five tools, each doing real work.
+Five tools, each doing real work — and worth separating, because the question is
+what the *agent* does with them. **Vector indexing is agent-facing**: the coach
+calls `find_similar_beats` mid-loop and the answer changes its recommendation.
+**CockroachDB Cloud is the memory itself**, read and written on every rehearsal.
+The MCP Server, `ccloud` and the Agent Skills were used by *us* building it, and
+are listed as that rather than dressed up as runtime integrations.
 
 | Tool | How it is used |
 |---|---|
@@ -397,10 +402,13 @@ coach_recommendation       what the agent advised, why (rationale), the tool cal
 | **Node ≥ 20** | frontend, importer, migrator | `node -v` |
 | **Deno ≥ 2** | `api/` is Deno, and `npm run dev` shells out to `deno task dev` | `deno --version` |
 | **A CockroachDB cluster** | the memory layer. A free Serverless cluster from the [Cloud Console](https://cockroachlabs.cloud/) is plenty | |
+| **A Supabase project** | sign-in only — no data lives there. Free tier. Enable **Email** under Authentication → Providers; nothing else needs turning on | |
 | **An AWS account** | Polly, Transcribe and Bedrock are all server-side. There is no offline mode | `aws sts get-caller-identity` |
 | **An S3 bucket** | the Polly cache. `infra/aws/ecs-deploy.sh` creates one, or make it by hand | |
 
 Deno is the one that bites. Everything else fails at the step that needs it, while a missing Deno surfaces at the *last* step, inside a `concurrently` pane where it is easy to misread as the frontend being broken.
+
+Supabase needs three values, and they are not interchangeable: the project URL goes in **both** `api/.env` (`SUPABASE_URL`) and `frontend/.env` (`VITE_SUPABASE_URL`), and the frontend also needs the **publishable** key (`VITE_SUPABASE_KEY`) — never the `sb_secret_…` one, which would ship admin access to every visitor in the bundle. The API needs no Supabase key at all: it verifies tokens against the project's published JWKS, which is a public-key operation.
 
 `./infra/aws/create-dev-user.sh` provisions a scoped IAM user granting exactly what this app calls. The AWS SDK cannot consume an `aws login` session, so a permanent key really is needed locally.
 
