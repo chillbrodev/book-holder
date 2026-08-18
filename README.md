@@ -316,7 +316,7 @@ Stated plainly, because a README that claims everything works is not worth readi
 - Session recordings are not built, deliberately (see "We don't record you").
 - Confidence thresholds are not fitted to real data yet; `docs/OPEN_ITEMS.md` §1a tracks it.
 - `GET /sessions/plan` has no caller.
-- Hesitation timing is scoped but unbuilt: Transcribe already returns per-word timestamps that we currently discard, and a long pause mid-beat is evidence about *recall*, which is squarely inside the line-mastery boundary. Scoped in `docs/OPEN_ITEMS.md` §1g.
+- Hesitation timing is scoped but unbuilt: `transcribeClient` already carries the per-word `startTime`/`endTime` Transcribe returns, and nothing downstream reads them. A long pause mid-beat is evidence about *recall*, which is squarely inside the line-mastery boundary. Scoped in `docs/OPEN_ITEMS.md` §1g.
 
 ---
 
@@ -326,13 +326,15 @@ The convention in this repo is **verify against reality, not just types** (`CLAU
 
 **Semantic clustering of mistakes was cut after measuring it.** The plan was to group her mistakes into themes. Measured, her actual mistakes sat at the *unrelated* baseline: 1.195 to 1.369, against a random-pair average of 1.321. There were no clusters. Rather than ship a feature that manufactures patterns, the tool now reports the distance scale to the model as numbers and lets it judge.
 
+  Those two figures are a historical measurement and no longer reproducible: migration 011 moved identity to Supabase and cleared the practice history they were taken over. The baseline is, though — re-measured over 3,600 random pairs of the 1,636 embedded beats it comes back at **1.342**, so the scale the conclusion rests on still holds.
+
 **A stage-direction tiebreak was splitting 79 of 1,060 blocks** into two display entries sharing one `block_id`, so a whole speech played its audio twice. It compiled, and it looked correct until row order mattered.
 
 **Polly's generative engine invented sentences.** It is LLM-based and non-deterministic, and it rendered text past the end of the input on three cached blocks. The engine is pinned to `neural`, which returns byte-identical audio for identical input. The deeper bug: **the engine was not in the cache key**, so bad renders survived the engine change. A cache hit is an S3 `objectExists`, which proves existence, not validity. Write-up in `docs/polly-gen-issue.md`.
 
-**Prompt rules that a model ignores belong in code.** Two rubric revisions failed to stop Nova restating a beat back to her. A 15-line check that drops any note sharing no three-word run with the written speech succeeded immediately. The general lesson, learned twice: **a procedure works where a principle does not.** "Mangled proper nouns are the transcriber's fault" failed; *"strike out every proper noun and archaic word, then judge what is left"* worked on the first try.
+**Prompt rules that a model ignores belong in code.** Three rubric revisions failed to stop Nova restating a beat back to her. A mechanical check that drops any note sharing no three-word run with the written speech succeeded immediately, first try, and has needed no revision since. The general lesson, learned twice: **a procedure works where a principle does not.** "Mangled proper nouns are the transcriber's fault" failed; *"strike out every proper noun and archaic word, then judge what is left"* worked on the first try.
 
-**Never show a model a good example of what you want it to write.** It gets parroted verbatim. We learned this on the rubric, then repeated it in the agent brief written *after* learning it. The prompts now contain only *failing* examples, deliberately.
+**Never show a model a good example of what you want it to write.** It gets parroted verbatim. We learned this on the rubric, repeated it in the agent brief written *after* learning it, and then made it a third time in a tool schema — where the example was a sentence of *numbers*, so what got parroted was a false claim about her own rehearsal: "two of its nine beats are dry" against a truth of one of eleven. That one reached a real screen before it was caught, which is why the figures in a recommendation are now verified against the database rather than trusted. The prompts contain only *failing* examples, deliberately.
 
 **Segmentation was tuned without invalidating a single cached render.** `blockId` hashes the block's joined text; `beatId` also hashes the beat's own text. That asymmetry is the whole point: merging lowercase continuations back into the sentence they continue (so `"Who's within there?"` / `"ho!"` stops being two beats) took the corpus from 1,705 beats to 1,636, reset the practice history that *should* reset, and left all 1,060 block ids untouched. We snapshotted the ids before the re-import and compared after to prove it.
 
