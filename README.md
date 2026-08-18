@@ -2,11 +2,9 @@
 
 **Rehearse a play when your scene partner isn't available.**
 
-The Book Holder voices every character but yours, listens while you say your lines, remembers what you
-have mastered and coaches you what to work on next time. All in real-time, all on your own time.
+The Book Holder voices every character but yours, listens while you say your lines, remembers what you have mastered and coaches you what to work on next time. All in real-time, all on your own time.
 
-**▶️ Live: <https://bookholder.chillbrodev.com/>**  ·  **[Setup & running it](SETUP.md)**  ·  MIT licensed  ·  Built for the
-**CockroachDB × AWS Hackathon: Build with Agentic Memory**
+**▶️ Live: <https://bookholder.chillbrodev.com/>**  ·  **[Setup & running it](SETUP.md)**  ·  MIT licensed  ·  Built for the **CockroachDB × AWS Hackathon: Build with Agentic Memory**
 
 ---
 
@@ -44,7 +42,7 @@ Your voice is **never stored**. Mic audio streams to Amazon Transcribe, is trans
 
 What persists is text. The transcript of each beat, its score, and (only for beats you actually fumbled) a vector embedding of what you said, so the coach can notice you have missed this line before.
 
-An account is an email address and a password, and neither is ours: Supabase holds them. This database has no `users` table at all — a rehearsal row is stamped with the Supabase user's id and nothing else, so the most personal thing we store about you is which lines you keep forgetting.
+An account is an email address and a password, and neither is ours: Supabase holds them. This database has no `users` table at all. A rehearsal row is stamped with the Supabase user's id and nothing else, so the most personal thing we store about you is which lines you keep forgetting.
 
 This began as a deferred feature and became a stance. Rehearsal is where you are allowed to be bad at something, and a room that records you is a different room. Storing personal audio would also mean owing a retention window and a delete path, obligations worth taking on only for a feature that earns them.
 
@@ -56,11 +54,25 @@ The honest counter-argument is written up in `docs/OPEN_ITEMS.md` §1e: recordin
 
 | Criterion | Where to look |
 |---|---|
-| **Agentic Memory Design** | `api/src/features/coach/`. A tool-calling agent with four read tools over its own history. Its recommendations are stored, checked against what she went on to run, **and graded against whether her marks improved** — so the next note is shaped by whether the last one worked. |
+| **Agentic Memory Design** | `api/src/features/coach/`. A tool-calling agent with four read tools over its own history. Its recommendations are stored, checked against what she went on to run, **and graded against whether her marks improved**, so the next note is shaped by whether the last one worked. |
 | **Technical Implementation** | `infra/cockroachdb/migrations/`. Twelve migrations, each carrying its reasoning. Real vector search over 1,636 embedded beats. MCP Server, `ccloud`, and Agent Skills all in use. |
 | **Real-World Impact** | The story above. Built for one specific person, generalizing to anyone who cannot get a rehearsal partner on their schedule. |
 | **Production Readiness** | OIDC deploys with no long-lived credentials. CI that refuses to deploy when the task role is behind the code. Graceful degradation to a deterministic scorer when Bedrock is unreachable. An audio-duration guard that discards implausible renders rather than caching them. |
-| **Creativity & Originality** | Memory here is a *skill model over time*, closer to spaced repetition for embodied performance than to chatbot fact-memory. The agent is allowed to recommend nothing, which is what keeps a recommendation worth reading — and it has to show its working in her own marks, checked against the database before she sees it. |
+| **Creativity & Originality** | Memory here is a *skill model over time*, closer to spaced repetition for embodied performance than to chatbot fact-memory. The agent is allowed to recommend nothing, which is what keeps a recommendation worth reading. It also has to show its working in her own marks, checked against the database before she sees it. |
+
+### Required tools, and what they actually do here
+
+**CockroachDB (four of four, two required).** Full detail in [CockroachDB](#cockroachdb).
+
+| Tool | What it does here | Used by |
+|---|---|---|
+| **Distributed Vector Indexing** | `find_similar_beats` runs nearest-neighbour search over 1,636 embedded beats and the vectors of what she actually said. The agent calls it mid-loop to decide whether a mistake is isolated or a pattern, and the answer changes the recommendation. | the agent, at runtime |
+| **CockroachDB Cloud** | The memory layer itself. Every rehearsal reads mastery before it starts and writes scores, bands and embedded mistakes as it goes, in serializable transactions. | the agent, at runtime |
+| **Cloud MCP Server** | Connected in development, authorized read and write, used read-only in practice so the migration files stay the single source of truth. | us, building it |
+| **Agent Skills** | 34 vendored at `.agents/skills/`. The schema-design reference is where we learned CockroachDB supports three vector distance operators rather than L2 alone, which corrected our own design doc. | us, building it |
+| **`ccloud` CLI** (0.8.23) | Cluster inspection and connection management. Not scripted into `infra/`, because the cluster already existed and there was nothing to provision. | us, building it |
+
+**AWS (ten services, one required).** Full detail in [AWS](#aws). Amazon **Bedrock** carries three models doing three jobs: Nova Micro scores beats, Nova Lite runs the coach agent's multi-turn tool loop, Titan Text Embeddings V2 produces the vectors CockroachDB indexes. Around them: **Transcribe** (streaming speech-to-text), **Polly** and **S3** (character voices, cached per speech), **ECS Express Mode** on Fargate (the API, with the TLS that mic capture requires), **ECR**, **Amplify Hosting**, **Secrets Manager**, **IAM** (GitHub OIDC, no long-lived keys) and **Budgets**.
 
 ---
 
@@ -80,7 +92,7 @@ flowchart LR
     EVALUATE -->|"the verdict on the last note<br/>shapes the next one"| READ
 ```
 
-**EVALUATE is the step most agent demos skip**, and it is the one that makes the rest more than a log. When she acts on a recommendation the session records which recommendation it came from, so the next run the agent can ask not only *"did she do what I said"* but *"and did it help"* — the bands on those speeches when it gave the advice, against the bands now. If the advice worked it says so and moves on. If she took it and nothing improved, the brief tells it in as many words that **the advice was wrong**: do not repeat it, change the angle.
+**EVALUATE is the step most agent demos skip**, and it is the one that makes the rest more than a log. When she acts on a recommendation the session records which recommendation it came from, so the next run the agent can ask not only *"did she do what I said"* but *"and did it help"*, comparing the bands on those speeches when it gave the advice against the bands now. If the advice worked it says so and moves on. If she took it and nothing improved, the brief tells it in as many words that **the advice was wrong**: do not repeat it, change the angle.
 
 **Before a session.** The agent reads per-*beat* mastery for the chosen scene. A beat is one thought, and it is the unit of scoring throughout (see "Beats and blocks" below; it is not a line of verse).
 
@@ -88,7 +100,7 @@ flowchart LR
 
 **After each block.** One Bedrock call covers a whole speech and returns a judgement per beat. Scores, bands, and mastery all commit in a single serializable transaction. Only *dry* beats go to `mistake_log`, and only what you actually **said** gets embedded: a blank has nothing to cluster on, and embedding the expected text instead would mix "what she said" and "what she should have said" into one vector space.
 
-**At the wrap-up.** A tool-calling agent takes over. This is the part that makes it agentic rather than generative. The wrap-up also shows the run back beat by beat — every speech, each beat marked *solid*, *close* or *dry* — because the memory the agent reasons over should be the same memory she can see.
+**At the wrap-up.** A tool-calling agent takes over. This is the part that makes it agentic rather than generative. The wrap-up also shows the run back beat by beat: every speech, each beat marked *solid*, *close* or *dry*, because the memory the agent reasons over should be the same memory she can see.
 
 **Before the next one.** The recommendation is on the play page too, not only at the end of a scene. Waiting until a scene is finished is a long time to wait to see the thing decide something, and advice about what to work on is most useful on the way in. That screen *reads* the standing recommendation and never runs the agent: it is visited constantly, and re-running would bill a loop per visit and reword yesterday's advice each time, which is what makes advice feel arbitrary.
 
@@ -102,15 +114,15 @@ Nova Lite, running a real multi-turn tool loop (`api/src/features/coach/`). It i
 | `get_recent_misses` | Which beats does she keep getting wrong, worst first, including what she said instead. |
 | `get_last_recommendation` | What did I tell her last time, did she do it, **and did it work?** Returns the bands on those speeches when the advice was given against how they stand now. |
 | `find_similar_beats` | Is this mistake isolated or a pattern? Similar in *meaning*, not wording. Vector search. |
-| `submit_recommendation` | Terminal. Calling it *is* the answer. Four separate fields — the note, what keeps happening, what to do, and why this speech — because asking for one free-text sentence got one back that was nothing but the line, every time. |
+| `submit_recommendation` | Terminal. Calling it *is* the answer. Four separate fields (the note, what keeps happening, what to do, and why this speech), because asking for one free-text sentence got one back that was nothing but the line, every time. |
 
 Five choices worth defending:
 
 **It is allowed to say nothing.** `submit_recommendation` accepts `action: 'none'`. It is deliberately not a forced `toolChoice`, because a run with nothing worth saying should say nothing rather than invent a drill. An assistant that always has advice is an assistant whose advice is worthless.
 
-**Its recommendations are checkable, and the loop is actually closed.** Every recommendation writes to `coach_recommendation` with the tool calls that produced it. Acting on one carries its id into the rehearsal, which stamps `followed_session_id` on the row as the session opens and tags the blocks `source = 'coach'`. So it can ask the question a stateless model cannot — *"last time I said run these three, you ran two"* — and the harder one after it: *"and their marks did not move."* Two signals are kept rather than one, because they differ where it matters: she **took it up** (tapped the recommendation) and she **followed** it (every recommended speech actually got scored, however she got there — running the whole scene instead of the drill is following the advice by a better route).
+**Its recommendations are checkable, and the loop is actually closed.** Every recommendation writes to `coach_recommendation` with the tool calls that produced it. Acting on one carries its id into the rehearsal, which stamps `followed_session_id` on the row as the session opens and tags the blocks `source = 'coach'`. So it can ask the question a stateless model cannot, *"last time I said run these three, you ran two"*, and the harder one after it: *"and their marks did not move."* Two signals are kept rather than one, because they differ where it matters: she **took it up** (tapped the recommendation) and she **followed** it (every recommended speech actually got scored, however she got there, since running the whole scene instead of the drill is following the advice by a better route).
 
-**It has to show its working.** A recommendation carries a rationale in her own marks — *"The speech has 11 beats, with 2 solid, 8 close, and 1 dry"* — from a per-speech tally the tools hand it. That turns an instruction into an argument she can disagree with, which is the difference between a coach and a notification.
+**It has to show its working.** A recommendation carries a rationale in her own marks, *"The speech has 11 beats, with 2 solid, 8 close, and 1 dry"*, built from a per-speech tally the tools hand it. That turns an instruction into an argument she can disagree with, which is the difference between a coach and a notification.
 
 **What can be checked is checked in code, not asked for in the prompt.** Three times now the same lesson: the rubric could not stop the scorer inventing notes (`groundedNote` drops any note sharing no three-word run with the speech), the brief could not stop the agent returning the quoted line and nothing else (`isBareQuotation` rejects it and rebuilds from structured fields), and the tool description could not stop it citing numbers that were not hers. The last one shipped and was caught: it reported *two of nine beats dry* where the truth was *one of eleven*, having copied the example sentence out of the schema verbatim. Every figure in a rationale is now verified against the database, and an invented one is replaced with a composed sentence that is merely true. **A model will not be argued into a rule a machine can check.**
 
@@ -174,8 +186,8 @@ sequenceDiagram
 ```
 
 The first two exchanges are the loop closing. The agent's opening move is to look
-up its own last note and what happened to it — which is only answerable because
-acting on a recommendation writes `followed_session_id` back onto it.
+up its own last note and what happened to it, a question that is only answerable
+because acting on a recommendation writes `followed_session_id` back onto it.
 
 ---
 
@@ -242,14 +254,14 @@ Four things this is meant to make obvious:
   agent and a prompt with a database attached.
 - **No password ever reaches the API either.** The sign-in arrows run browser-to-Supabase and stop there;
   the only Supabase arrow touching the API is the dotted one, a public key fetched once. Everything the API
-  sees is a token it verifies offline — so there is no auth secret in the container, and an identity outage
+  sees is a token it verifies offline, so there is no auth secret in the container, and an identity outage
   cannot interrupt a rehearsal already under way.
 
 ---
 
 ## CockroachDB
 
-Five tools, each doing real work — and worth separating, because the question is
+Five tools, each doing real work, and worth separating because the question is
 what the *agent* does with them. **Vector indexing is agent-facing**: the coach
 calls `find_similar_beats` mid-loop and the answer changes its recommendation.
 **CockroachDB Cloud is the memory itself**, read and written on every rehearsal.
@@ -331,7 +343,7 @@ The convention in this repo is **verify against reality, not just types** (`CLAU
 
 **Semantic clustering of mistakes was cut after measuring it.** The plan was to group her mistakes into themes. Measured, her actual mistakes sat at the *unrelated* baseline: 1.195 to 1.369, against a random-pair average of 1.321. There were no clusters. Rather than ship a feature that manufactures patterns, the tool now reports the distance scale to the model as numbers and lets it judge.
 
-  Those two figures are a historical measurement and no longer reproducible: migration 011 moved identity to Supabase and cleared the practice history they were taken over. The baseline is, though — re-measured over 3,600 random pairs of the 1,636 embedded beats it comes back at **1.342**, so the scale the conclusion rests on still holds.
+  Those two figures are a historical measurement and no longer reproducible: migration 011 moved identity to Supabase and cleared the practice history they were taken over. The baseline is, though. Re-measured over 3,600 random pairs of the 1,636 embedded beats it comes back at **1.342**, so the scale the conclusion rests on still holds.
 
 **A stage-direction tiebreak was splitting 79 of 1,060 blocks** into two display entries sharing one `block_id`, so a whole speech played its audio twice. It compiled, and it looked correct until row order mattered.
 
@@ -339,7 +351,7 @@ The convention in this repo is **verify against reality, not just types** (`CLAU
 
 **Prompt rules that a model ignores belong in code.** Three rubric revisions failed to stop Nova restating a beat back to her. A mechanical check that drops any note sharing no three-word run with the written speech succeeded immediately, first try, and has needed no revision since. The general lesson, learned twice: **a procedure works where a principle does not.** "Mangled proper nouns are the transcriber's fault" failed; *"strike out every proper noun and archaic word, then judge what is left"* worked on the first try.
 
-**Never show a model a good example of what you want it to write.** It gets parroted verbatim. We learned this on the rubric, repeated it in the agent brief written *after* learning it, and then made it a third time in a tool schema — where the example was a sentence of *numbers*, so what got parroted was a false claim about her own rehearsal: "two of its nine beats are dry" against a truth of one of eleven. That one reached a real screen before it was caught, which is why the figures in a recommendation are now verified against the database rather than trusted. The prompts contain only *failing* examples, deliberately.
+**Never show a model a good example of what you want it to write.** It gets parroted verbatim. We learned this on the rubric, repeated it in the agent brief written *after* learning it, and then made it a third time in a tool schema. There the example was a sentence of *numbers*, so what got parroted was a false claim about her own rehearsal: "two of its nine beats are dry" against a truth of one of eleven. That one reached a real screen before it was caught, which is why the figures in a recommendation are now verified against the database rather than trusted. The prompts contain only *failing* examples, deliberately.
 
 **Segmentation was tuned without invalidating a single cached render.** `blockId` hashes the block's joined text; `beatId` also hashes the beat's own text. That asymmetry is the whole point: merging lowercase continuations back into the sentence they continue (so `"Who's within there?"` / `"ho!"` stops being two beats) took the corpus from 1,705 beats to 1,636, reset the practice history that *should* reset, and left all 1,060 block ids untouched. We snapshotted the ids before the re-import and compared after to prove it.
 
@@ -379,7 +391,7 @@ block_coaching             the note shown per speech
 line_mastery               read before a session, written after, one transaction
 mistake_log                embedding of what she SAID, feeds nearest-neighbour search
 coach_recommendation       what the agent advised, why (rationale), the tool calls
-                           behind it, and followed_session_id — the run she went
+                           behind it, and followed_session_id: the run she went
                            and did about it, which is what closes the loop
 ```
 
@@ -395,7 +407,7 @@ coach_recommendation       what the agent advised, why (rationale), the tool cal
 
 ## Running it, and deploying it
 
-Full instructions are in **[SETUP.md](SETUP.md)** — prerequisites, environment,
+Full instructions are in **[SETUP.md](SETUP.md)**: prerequisites, environment,
 first import, and the deploy path.
 
 The short version: you need Node ≥ 20, Deno ≥ 2, a CockroachDB Serverless
@@ -406,7 +418,7 @@ cluster, a Supabase project with email auth enabled, and an AWS account. Then
 Both halves deploy off a push to `main` with no manual step: the API through
 GitHub OIDC to ECR and ECS Express, the frontend through Amplify off the same
 push. No long-lived AWS keys exist anywhere in the repo, and the workflow
-**refuses to deploy** when the live task role is behind `task-role-policy.sh` —
+**refuses to deploy** when the live task role is behind `task-role-policy.sh`,
 because the alternative is a green deploy that fails at runtime.
 
 ---

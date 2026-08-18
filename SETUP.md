@@ -15,13 +15,13 @@ choices live in [`README.md`](README.md); this file is the operational half.
 | **Node ≥ 20** | frontend, importer, migrator | `node -v` |
 | **Deno ≥ 2** | `api/` is Deno, and `npm run dev` shells out to `deno task dev` | `deno --version` |
 | **A CockroachDB cluster** | the memory layer. A free Serverless cluster from the [Cloud Console](https://cockroachlabs.cloud/) is plenty | |
-| **A Supabase project** | sign-in only — no data lives there. Free tier. Enable **Email** under Authentication → Providers; nothing else needs turning on | |
+| **A Supabase project** | sign-in only, no data lives there. Free tier. Enable **Email** under Authentication → Providers; nothing else needs turning on | |
 | **An AWS account** | Polly, Transcribe and Bedrock are all server-side. There is no offline mode | `aws sts get-caller-identity` |
 | **An S3 bucket** | the Polly cache. `infra/aws/ecs-deploy.sh` creates one, or make it by hand | |
 
 Deno is the one that bites. Everything else fails at the step that needs it, while a missing Deno surfaces at the *last* step, inside a `concurrently` pane where it is easy to misread as the frontend being broken.
 
-Supabase needs three values, and they are not interchangeable: the project URL goes in **both** `api/.env` (`SUPABASE_URL`) and `frontend/.env` (`VITE_SUPABASE_URL`), and the frontend also needs the **publishable** key (`VITE_SUPABASE_KEY`) — never the `sb_secret_…` one, which would ship admin access to every visitor in the bundle. The API needs no Supabase key at all: it verifies tokens against the project's published JWKS, which is a public-key operation.
+Supabase needs three values, and they are not interchangeable: the project URL goes in **both** `api/.env` (`SUPABASE_URL`) and `frontend/.env` (`VITE_SUPABASE_URL`), and the frontend also needs the **publishable** key (`VITE_SUPABASE_KEY`), never the `sb_secret_…` one, which would ship admin access to every visitor in the bundle. The API needs no Supabase key at all: it verifies tokens against the project's published JWKS, which is a public-key operation.
 
 `./infra/aws/create-dev-user.sh` provisions a scoped IAM user granting exactly what this app calls. The AWS SDK cannot consume an `aws login` session, so a permanent key really is needed locally.
 
@@ -44,7 +44,7 @@ npm run dev                                           # frontend + api together
 
 **A fresh install has an empty audio cache**, so the first time you hear any speech it is synthesized from Polly and written to S3: real, billable, and slow on that one request, then instant and free forever after. Nothing re-renders on its own.
 
-**Each side has its own `.env`** — `api/.env` and `frontend/.env`, with no repo-root file. Vite reads `frontend/.env` and nothing else, so the API's `SUPABASE_URL` is invisible to it. `VITE_API_BASE_URL` still defaults to `http://localhost:8000`, but `VITE_SUPABASE_URL`/`VITE_SUPABASE_KEY` have no defaults and the app throws on load without them. They must name the **same** Supabase project as the API's `SUPABASE_URL`; two different projects fail as a sign-in that appears to work followed by a 401 on everything.
+**Each side has its own `.env`**: `api/.env` and `frontend/.env`, with no repo-root file. Vite reads `frontend/.env` and nothing else, so the API's `SUPABASE_URL` is invisible to it. `VITE_API_BASE_URL` still defaults to `http://localhost:8000`, but `VITE_SUPABASE_URL`/`VITE_SUPABASE_KEY` have no defaults and the app throws on load without them. They must name the **same** Supabase project as the API's `SUPABASE_URL`; two different projects fail as a sign-in that appears to work followed by a 401 on everything.
 
 ### Day-to-day
 
@@ -56,7 +56,7 @@ cd frontend && npx tsc -b    # typecheck
 cd frontend && npx oxlint    # lint
 ```
 
-`api/.env` is the API's own file — `deno task` sets CWD to `api/`, which is why the tasks grant `--allow-read=.env`. The migrator and the importer read it too, by explicit path, so `COCKROACHDB_URL` lives in exactly one place. No AWS keys ever reach the frontend; every Bedrock, Polly, Transcribe and S3 call routes through `api/`.
+`api/.env` is the API's own file. `deno task` sets CWD to `api/`, which is why the tasks grant `--allow-read=.env`. The migrator and the importer read it too, by explicit path, so `COCKROACHDB_URL` lives in exactly one place. No AWS keys ever reach the frontend; every Bedrock, Polly, Transcribe and S3 call routes through `api/`.
 
 ---
 
@@ -80,8 +80,8 @@ Do not smoke-test with `/polly/blocks/…`. A cache miss bills a synthesis and w
 
 ## Where to go next
 
-- [`README.md`](README.md) — what this is, how the memory loop works, and why each
+- [`README.md`](README.md): what this is, how the memory loop works, and why each
   decision was made
-- [`CLAUDE.md`](CLAUDE.md) — the conventions and the traps, written for whoever
+- [`CLAUDE.md`](CLAUDE.md): the conventions and the traps, written for whoever
   works on this next
-- [`docs/`](docs/) — one design doc per subsystem, each carrying its reasoning
+- [`docs/`](docs/): one design doc per subsystem, each carrying its reasoning
