@@ -150,17 +150,79 @@ function toDialogueItems(raw: RawDialogueEntry[], userCharacterId: string): Dial
   return items
 }
 
+/**
+ * The shelf's "coming soon" plays, which deliberately have no rows anywhere.
+ *
+ * Adding a play to this app is an import, not a schema change — so a play that
+ * has *not* been imported is precisely the absence of data, and giving it a
+ * `plays` row to render a greyed-out card would be inventing the thing the card
+ * exists to say is missing. It would also need a fake `createdAt`, would appear
+ * in every count of plays, and would offer characters and scenes that resolve to
+ * nothing the moment anyone followed it.
+ *
+ * So these live in the client, as presentation. The card they produce is not
+ * clickable (`PlayCard` drops `onClick` when `locked`), which is what keeps the
+ * missing data from ever being reachable.
+ *
+ * **To promote one: import the play and delete nothing.** The filter below drops
+ * any placeholder whose title the API already returns, so a real import replaces
+ * its own placeholder rather than sitting next to a duplicate of itself. Leaving
+ * a stale line here is therefore harmless, which is the point — the alternative
+ * fails by showing Hamlet twice, and only on the machine where it was imported.
+ */
+const COMING_SOON_PLAYS = [
+  'Hamlet',
+  'Macbeth',
+  'King Lear',
+  'Othello',
+  'Romeo and Juliet',
+  'A Midsummer Night’s Dream',
+  'Twelfth Night',
+  'Much Ado About Nothing',
+  'The Tempest',
+  'Julius Caesar',
+  'Richard III',
+  'Henry V',
+]
+
+/** Titles are compared loosely because the two sides come from different places:
+ * these are hand-written, the imported ones come from the source XML's own
+ * casing and spacing. A near-miss would show a duplicate card, so normalise
+ * rather than trusting either to match the other exactly. */
+const normalizeTitle = (title: string) => title.trim().toLowerCase().replace(/\s+/g, ' ')
+
 export async function getPlays(): Promise<PlaySummary[]> {
   const plays = await apiRequest<RawPlay[]>('/plays')
-  return plays.map((play) => ({
+  const imported = plays.map((play) => ({
     id: play.id,
     title: play.title,
     sourceUrl: play.sourceUrl ?? undefined,
     createdAt: play.createdAt,
-    status: 'focus',
+    status: 'focus' as const,
     locked: false,
     favorite: true,
   }))
+
+  const importedTitles = new Set(imported.map((play) => normalizeTitle(play.title)))
+
+  const comingSoon: PlaySummary[] = COMING_SOON_PLAYS
+    .filter((title) => !importedTitles.has(normalizeTitle(title)))
+    .map((title) => ({
+      // A sentinel id, never sent to the API. A locked card has no click
+      // handler, so this is only React's key — but it is prefixed so that a row
+      // reaching a request URL by some later mistake fails visibly as a bad id
+      // rather than quietly missing a real play.
+      id: `coming-soon:${normalizeTitle(title).replace(/[^a-z0-9]+/g, '-')}`,
+      title,
+      createdAt: '',
+      status: 'locked' as const,
+      locked: true,
+      // Neither favorited nor in progress, so these appear under "All" only.
+      // A play she cannot open should not answer "what am I working on".
+      favorite: false,
+    }))
+
+  return [...imported, ...comingSoon]
 }
 
 export async function getPlay(playId: string): Promise<Play | undefined> {
